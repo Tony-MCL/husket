@@ -68,4 +68,4 @@ export const en = {
     placeholder:
       "Cloud storage/sharing will come later. (This will become a feed when sync is in place.)",
   },
-} as const;
+};
