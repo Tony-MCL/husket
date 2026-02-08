@@ -9,8 +9,7 @@ export type I18nDict = typeof en;
 
 function detectDeviceLanguage(): "no" | "en" {
   const lang = (navigator.language || "en").toLowerCase();
-  if (lang.startsWith("no") || lang.startsWith("nb") || lang.startsWith("nn"))
-    return "no";
+  if (lang.startsWith("no") || lang.startsWith("nb") || lang.startsWith("nn")) return "no";
   return "en";
 }
 
@@ -28,5 +27,3 @@ export function tGet(dict: I18nDict, path: string): string {
   }
   return typeof cur === "string" ? cur : path;
 }
-
-
