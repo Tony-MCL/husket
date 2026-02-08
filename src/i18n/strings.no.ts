@@ -68,4 +68,4 @@ export const no = {
     placeholder:
       "Skylagring/deling kommer senere. (Her blir det en egen feed når sync er på plass.)",
   },
-} as const;
+};
