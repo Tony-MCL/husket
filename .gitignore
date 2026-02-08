@@ -1,0 +1,21 @@
+# ===============================
+# .gitignore
+# ===============================
+node_modules
+dist
+.DS_Store
+
+# Vite
+.vite
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env
+.env
+.env.*
+
+
