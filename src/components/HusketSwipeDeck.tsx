@@ -52,7 +52,7 @@ export function HusketSwipeDeck({
   onDeleteCurrent,
 }: Props) {
   const cur = items[index];
-  const canOlder = index < items.length - 1;
+  const canOlder = index < items.length - 1; // index 0 = newest, so older is +1
   const canNewer = index > 0;
 
   const [topUrl, setTopUrl] = useState<string | null>(null);
@@ -166,10 +166,25 @@ export function HusketSwipeDeck({
     controls.set({ x: 0, rotate: 0 });
   };
 
+  const goOlderAnimated = async () => {
+    if (!canOlder) return;
+    await commitSwipe("left");
+  };
+
+  const goNewerAnimated = async () => {
+    if (!canNewer) return;
+    await commitSwipe("right");
+  };
+
   if (!cur) return null;
 
-  const underScale = 0.985;
-  const underOpacity = 0.88;
+  // Under card slightly smaller (so top covers edges)
+  const underScale = 0.975;
+  const underOpacity = 0.92;
+
+  const sideRating = cur.ratingValue ?? "—";
+  const sideCat = categoryLabel ?? "—";
+  const sideGps = cur.gps ? "🌍" : "—";
 
   return (
     <div
@@ -195,10 +210,12 @@ export function HusketSwipeDeck({
           }}
         >
           <div className="husketCard">
-            <div className="husketCardImg">
-              {underUrl ? <img src={underUrl} alt="" /> : <div className="smallHelp">Loading…</div>}
+            <div className="husketCardTop">
+              <div className="husketCardImg">
+                {underUrl ? <img src={underUrl} alt="" /> : <div className="smallHelp">Loading…</div>}
+              </div>
+              <div className="husketCardSide" />
             </div>
-
             <div className="husketCardMeta">
               <div className="viewerMetaLine">
                 <div>
@@ -235,11 +252,13 @@ export function HusketSwipeDeck({
           const w = Math.max(window.innerWidth || 360, 360);
           const threshold = Math.max(90, w * 0.22);
 
+          // swipe LEFT => older
           if (dx < -threshold && canOlder) {
             await commitSwipe("left");
             return;
           }
 
+          // swipe RIGHT => newer
           if (dx > threshold && canNewer) {
             await commitSwipe("right");
             return;
@@ -252,10 +271,50 @@ export function HusketSwipeDeck({
           });
         }}
       >
-        <div className="husketCardImg">
-          {topUrl ? <img src={topUrl} alt="" /> : <div className="smallHelp">Loading…</div>}
+        {/* Arrow overlay */}
+        <button
+          className="husketCardArrow left"
+          onClick={() => void goNewerAnimated()}
+          type="button"
+          disabled={!canNewer}
+          aria-label="Newer"
+          title={lang === "no" ? "Nyere" : "Newer"}
+        >
+          ◀
+        </button>
+
+        <button
+          className="husketCardArrow right"
+          onClick={() => void goOlderAnimated()}
+          type="button"
+          disabled={!canOlder}
+          aria-label="Older"
+          title={lang === "no" ? "Eldre" : "Older"}
+        >
+          ▶
+        </button>
+
+        {/* Top: image + side rail */}
+        <div className="husketCardTop">
+          <div className="husketCardImg" role="button" tabIndex={0} onClick={onClose} onKeyDown={() => {}}>
+            {topUrl ? <img src={topUrl} alt="" /> : <div className="smallHelp">Loading…</div>}
+          </div>
+
+          <div className="husketCardSide">
+            <div className="husketSidePill" title={lang === "no" ? "Rating" : "Rating"}>{sideRating}</div>
+            <div className="husketSidePill" title={lang === "no" ? "Kategori" : "Category"}>{sideCat}</div>
+
+            {mapHref ? (
+              <a className="husketSidePill" href={mapHref} target="_blank" rel="noreferrer" title={tGet(dict, "album.map")}>
+                🌍
+              </a>
+            ) : (
+              <div className="husketSidePill" title="GPS">{sideGps}</div>
+            )}
+          </div>
         </div>
 
+        {/* Bottom: timestamp + comment + delete */}
         <div className="husketCardMeta">
           <div className="viewerMetaLine">
             <div>
@@ -264,34 +323,19 @@ export function HusketSwipeDeck({
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
               {categoryLabel ? <span className="badge">{categoryLabel}</span> : null}
               {cur.ratingValue ? <span className="badge">{cur.ratingValue}</span> : null}
-              {mapHref ? (
-                <a className="badge" href={mapHref} target="_blank" rel="noreferrer">
-                  🌍 {tGet(dict, "album.map")}
-                </a>
-              ) : null}
             </div>
           </div>
 
-          {cur.comment ? <div style={{ fontSize: 14, marginTop: 8 }}>{cur.comment}</div> : null}
+          {cur.comment ? <div style={{ fontSize: 14 }}>{cur.comment}</div> : null}
 
-          <div className="viewerNav" style={{ marginTop: 10 }}>
-            <button className="flatBtn" onClick={() => canNewer && onSetIndex(index - 1)} type="button" disabled={!canNewer}>
-              ◀
-            </button>
-
-            <button className="flatBtn" onClick={onClose} type="button">
-              OK
-            </button>
-
-            <button className="flatBtn" onClick={() => canOlder && onSetIndex(index + 1)} type="button" disabled={!canOlder}>
-              ▶
-            </button>
-          </div>
-
-          <div style={{ marginTop: 10, display: "flex", justifyContent: "center" }}>
+          <div style={{ marginTop: 2, display: "flex", justifyContent: "center" }}>
             <button className="flatBtn danger" onClick={onDeleteCurrent} type="button" title={lang === "no" ? "Slett" : "Delete"}>
               🗑 {lang === "no" ? "Slett" : "Delete"}
             </button>
+          </div>
+
+          <div className="smallHelp" style={{ textAlign: "center" }}>
+            {index + 1}/{items.length}
           </div>
         </div>
       </motion.div>
