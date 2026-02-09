@@ -38,6 +38,13 @@ function formatDate(ts: number, lang: "no" | "en") {
 
 const DEFAULT_BOTTOM_PANEL_PX = 78;
 
+// Swipe/anim tuning
+const SWIPE_THRESHOLD_PX = 60;
+const SWIPE_MAX_Y_DRIFT_PX = 80;
+const TRANSITION_MS = 180;
+
+type SwipeDir = "toOlder" | "toNewer"; // relative to time
+
 export function ViewHusketModal({
   dict,
   settings,
@@ -53,6 +60,14 @@ export function ViewHusketModal({
   const urlRef = useRef<string | null>(null);
 
   const [busyDelete, setBusyDelete] = useState(false);
+
+  // Drag/animation state
+  const [dragX, setDragX] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  const touchRef = useRef<{ x: number; y: number } | null>(null);
+  const swipeDirRef = useRef<SwipeDir | null>(null);
 
   const lang: "no" | "en" = useMemo(() => {
     if (settings.language === "no") return "no";
@@ -86,8 +101,23 @@ export function ViewHusketModal({
     };
   }, []);
 
-  const canPrev = index < items.length - 1;
-  const canNext = index > 0;
+  // With newest at index 0:
+  // - Older = index + 1 (if index < len-1)
+  // - Newer = index - 1 (if index > 0)
+  const canOlder = index < items.length - 1;
+  const canNewer = index > 0;
+
+  const goOlder = () => {
+    if (isAnimating || isDragging) return;
+    if (!canOlder) return;
+    onSetIndex(index + 1);
+  };
+
+  const goNewer = () => {
+    if (isAnimating || isDragging) return;
+    if (!canNewer) return;
+    onSetIndex(index - 1);
+  };
 
   const categoryLabel = useMemo(() => {
     if (!cur) return null;
@@ -103,8 +133,12 @@ export function ViewHusketModal({
 
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape") onClose();
-    if (e.key === "ArrowLeft" && canPrev) onSetIndex(index + 1);
-    if (e.key === "ArrowRight" && canNext) onSetIndex(index - 1);
+
+    // Match requested direction:
+    // Right arrow => older (next)
+    // Left arrow  => newer (previous)
+    if (e.key === "ArrowRight" && canOlder) goOlder();
+    if (e.key === "ArrowLeft" && canNewer) goNewer();
   };
 
   useEffect(() => {
@@ -112,29 +146,100 @@ export function ViewHusketModal({
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  // Swipe
-  const touchRef = useRef<{ x: number; y: number } | null>(null);
+  const animateSwipe = (dir: SwipeDir) => {
+    // dir decides where the current card exits
+    // - toOlder: user swiped left => card exits left (negative)
+    // - toNewer: user swiped right => card exits right (positive)
+    if (isAnimating) return;
+
+    const width = Math.max(window.innerWidth || 360, 360);
+    const exitX = dir === "toOlder" ? -width : width;
+    swipeDirRef.current = dir;
+
+    setIsAnimating(true);
+    setIsDragging(false);
+    setDragX(exitX);
+
+    window.setTimeout(() => {
+      // switch item
+      if (dir === "toOlder" && canOlder) onSetIndex(index + 1);
+      if (dir === "toNewer" && canNewer) onSetIndex(index - 1);
+
+      // snap new card in from opposite side, then animate to 0
+      const enterX = dir === "toOlder" ? width : -width;
+      setDragX(enterX);
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setDragX(0);
+          window.setTimeout(() => {
+            setIsAnimating(false);
+            swipeDirRef.current = null;
+          }, TRANSITION_MS);
+        });
+      });
+    }, TRANSITION_MS);
+  };
 
   const onTouchStart = (e: React.TouchEvent) => {
+    if (isAnimating) return;
     const t = e.touches[0];
     touchRef.current = { x: t.clientX, y: t.clientY };
+    setIsDragging(true);
+    setDragX(0);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    const start = touchRef.current;
+    if (!start) return;
+    if (isAnimating) return;
+
+    const t = e.touches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+
+    // Ignore vertical scroll-ish drags
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 18) return;
+    if (Math.abs(dy) > SWIPE_MAX_Y_DRIFT_PX) return;
+
+    setDragX(dx);
   };
 
   const onTouchEnd = (e: React.TouchEvent) => {
     const start = touchRef.current;
     if (!start) return;
+    if (isAnimating) return;
+
     const t = e.changedTouches[0];
     const dx = t.clientX - start.x;
     const dy = t.clientY - start.y;
     touchRef.current = null;
+    setIsDragging(false);
 
-    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
-    if (dx > 0 && canPrev) onSetIndex(index + 1);
-    if (dx < 0 && canNext) onSetIndex(index - 1);
+    // vertical-ish? ignore
+    if (Math.abs(dx) < Math.abs(dy)) {
+      setDragX(0);
+      return;
+    }
+
+    // Requested direction:
+    // swipe LEFT (dx < 0) => go to OLDER (index+1)
+    // swipe RIGHT (dx > 0) => go to NEWER (index-1)
+    if (dx < -SWIPE_THRESHOLD_PX && canOlder) {
+      animateSwipe("toOlder");
+      return;
+    }
+    if (dx > SWIPE_THRESHOLD_PX && canNewer) {
+      animateSwipe("toNewer");
+      return;
+    }
+
+    // not enough: snap back
+    setDragX(0);
   };
 
   const onDeleteClick = async () => {
-    if (!cur || busyDelete) return;
+    if (!cur || busyDelete || isAnimating) return;
     setBusyDelete(true);
     try {
       await onDelete(cur.id);
@@ -145,20 +250,22 @@ export function ViewHusketModal({
 
   if (!cur) return null;
 
+  const transition = isDragging
+    ? "none"
+    : `transform ${TRANSITION_MS}ms ease-out`;
+
   return (
     <div
       className="viewer"
       role="dialog"
       aria-modal="true"
       onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
       style={{
-        // Always above footer/bottom panel
         position: "fixed",
         inset: 0,
         zIndex: 99999,
-
-        // Avoid content being covered by bottom panel + iOS safe-area
         paddingBottom: `calc(${DEFAULT_BOTTOM_PANEL_PX}px + env(safe-area-inset-bottom))`,
       }}
     >
@@ -175,45 +282,58 @@ export function ViewHusketModal({
           className="flatBtn danger"
           onClick={() => void onDeleteClick()}
           type="button"
-          disabled={busyDelete}
+          disabled={busyDelete || isAnimating}
           title={lang === "no" ? "Slett" : "Delete"}
         >
           🗑
         </button>
       </div>
 
-      <div className="viewerImgWrap">
-        {imgUrl ? <img src={imgUrl} alt="" /> : <div className="smallHelp">Loading…</div>}
-      </div>
-
-      <div className="viewerBottom">
-        <div className="viewerMetaLine">
-          <div>
-            {tGet(dict, "album.created")}: {formatDate(cur.createdAt, lang)}
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {categoryLabel ? <span className="badge">{categoryLabel}</span> : null}
-            {cur.ratingValue ? <span className="badge">{cur.ratingValue}</span> : null}
-            {mapHref ? (
-              <a className="badge" href={mapHref} target="_blank" rel="noreferrer">
-                🌍 {tGet(dict, "album.map")}
-              </a>
-            ) : null}
-          </div>
+      {/* This wrapper follows your swipe */}
+      <div
+        style={{
+          transform: `translateX(${dragX}px)`,
+          transition,
+          willChange: "transform",
+        }}
+      >
+        <div className="viewerImgWrap">
+          {imgUrl ? <img src={imgUrl} alt="" /> : <div className="smallHelp">Loading…</div>}
         </div>
 
-        {cur.comment ? <div style={{ fontSize: 14 }}>{cur.comment}</div> : null}
+        <div className="viewerBottom">
+          <div className="viewerMetaLine">
+            <div>
+              {tGet(dict, "album.created")}: {formatDate(cur.createdAt, lang)}
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {categoryLabel ? <span className="badge">{categoryLabel}</span> : null}
+              {cur.ratingValue ? <span className="badge">{cur.ratingValue}</span> : null}
+              {mapHref ? (
+                <a className="badge" href={mapHref} target="_blank" rel="noreferrer">
+                  🌍 {tGet(dict, "album.map")}
+                </a>
+              ) : null}
+            </div>
+          </div>
 
-        <div className="viewerNav">
-          <button className="flatBtn" onClick={() => canPrev && onSetIndex(index + 1)} type="button" disabled={!canPrev}>
-            ◀
-          </button>
-          <button className="flatBtn" onClick={onClose} type="button">
-            OK
-          </button>
-          <button className="flatBtn" onClick={() => canNext && onSetIndex(index - 1)} type="button" disabled={!canNext}>
-            ▶
-          </button>
+          {cur.comment ? <div style={{ fontSize: 14 }}>{cur.comment}</div> : null}
+
+          <div className="viewerNav">
+            {/* Left arrow => NEWER */}
+            <button className="flatBtn" onClick={goNewer} type="button" disabled={!canNewer || isAnimating}>
+              ◀
+            </button>
+
+            <button className="flatBtn" onClick={onClose} type="button">
+              OK
+            </button>
+
+            {/* Right arrow => OLDER */}
+            <button className="flatBtn" onClick={goOlder} type="button" disabled={!canOlder || isAnimating}>
+              ▶
+            </button>
+          </div>
         </div>
       </div>
     </div>
