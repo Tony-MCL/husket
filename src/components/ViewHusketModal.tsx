@@ -34,16 +34,6 @@ function formatDate(ts: number, lang: "no" | "en") {
   });
 }
 
-/**
- * We pad the viewer bottom to avoid being covered by any bottom panel / footer.
- * This is a pure modal-level fix (no changes to the bottom panel).
- *
- * The padding uses:
- * - a fixed "assumed" bottom panel height (safe default)
- * - plus safe-area inset for iOS (env(safe-area-inset-bottom))
- *
- * If you later change your bottom panel height, update DEFAULT_BOTTOM_PANEL_PX.
- */
 const DEFAULT_BOTTOM_PANEL_PX = 78;
 
 export function ViewHusketModal({ dict, settings, items, startIndex, onClose }: Props) {
@@ -137,7 +127,12 @@ export function ViewHusketModal({ dict, settings, items, startIndex, onClose }: 
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
       style={{
-        // Critical: ensure modal content never gets hidden behind bottom panel/footer
+        // Make sure viewer is ALWAYS above any footer/bottom panel
+        position: "fixed",
+        inset: 0,
+        zIndex: 99999,
+
+        // Avoid content being covered by bottom panel + iOS safe-area
         paddingBottom: `calc(${DEFAULT_BOTTOM_PANEL_PX}px + env(safe-area-inset-bottom))`,
       }}
     >
