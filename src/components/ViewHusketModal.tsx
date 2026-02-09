@@ -38,12 +38,21 @@ function formatDate(ts: number, lang: "no" | "en") {
 
 const DEFAULT_BOTTOM_PANEL_PX = 78;
 
-// Swipe/anim tuning
-const SWIPE_THRESHOLD_PX = 60;
-const SWIPE_MAX_Y_DRIFT_PX = 80;
-const TRANSITION_MS = 180;
+// Paper/stack swipe tuning
+const SWIPE_THRESHOLD_PX = 70;
+const SWIPE_MAX_Y_DRIFT_PX = 90;
+const TRANSITION_MS = 220;
+
+function clamp(n: number, a: number, b: number) {
+  return Math.max(a, Math.min(b, n));
+}
 
 type SwipeDir = "toOlder" | "toNewer"; // relative to time
+
+type CardUrls = {
+  top: string | null;
+  under: string | null;
+};
 
 export function ViewHusketModal({
   dict,
@@ -56,9 +65,6 @@ export function ViewHusketModal({
 }: Props) {
   const cur = items[index];
 
-  const [imgUrl, setImgUrl] = useState<string | null>(null);
-  const urlRef = useRef<string | null>(null);
-
   const [busyDelete, setBusyDelete] = useState(false);
 
   // Drag/animation state
@@ -67,7 +73,10 @@ export function ViewHusketModal({
   const [isAnimating, setIsAnimating] = useState(false);
 
   const touchRef = useRef<{ x: number; y: number } | null>(null);
-  const swipeDirRef = useRef<SwipeDir | null>(null);
+
+  // Two-card stack: cache two URLs at once (top + under)
+  const urlCacheRef = useRef<Map<string, string>>(new Map());
+  const [urls, setUrls] = useState<CardUrls>({ top: null, under: null });
 
   const lang: "no" | "en" = useMemo(() => {
     if (settings.language === "no") return "no";
@@ -75,31 +84,6 @@ export function ViewHusketModal({
     const n = (navigator.language || "en").toLowerCase();
     return n.startsWith("no") || n.startsWith("nb") || n.startsWith("nn") ? "no" : "en";
   }, [settings.language]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!cur) return;
-
-      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
-      urlRef.current = null;
-      setImgUrl(null);
-
-      const u = await getImageUrl(cur.imageKey);
-      if (cancelled) return;
-      if (u) urlRef.current = u;
-      setImgUrl(u);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [cur?.imageKey]);
-
-  useEffect(() => {
-    return () => {
-      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
-    };
-  }, []);
 
   // With newest at index 0:
   // - Older = index + 1 (if index < len-1)
@@ -131,6 +115,90 @@ export function ViewHusketModal({
     return `https://www.google.com/maps?q=${lat},${lng}`;
   }, [cur?.gps]);
 
+  // Decide which card sits "under" based on current drag direction:
+  // - drag left (dx < 0): reveal OLDER (index+1)
+  // - drag right (dx > 0): reveal NEWER (index-1)
+  const underIndex = useMemo(() => {
+    if (!cur) return null;
+    if (dragX < 0) return canOlder ? index + 1 : null;
+    if (dragX > 0) return canNewer ? index - 1 : null;
+    // when idle: default reveal direction = older if possible, else newer
+    if (canOlder) return index + 1;
+    if (canNewer) return index - 1;
+    return null;
+  }, [cur, dragX, index, canOlder, canNewer]);
+
+  // Load/cache URLs for current top + under imageKeys
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadOne = async (imageKey: string): Promise<string | null> => {
+      const cached = urlCacheRef.current.get(imageKey);
+      if (cached) return cached;
+      const u = await getImageUrl(imageKey);
+      if (!u) return null;
+      urlCacheRef.current.set(imageKey, u);
+      return u;
+    };
+
+    (async () => {
+      if (!cur) return;
+
+      const topKey = cur.imageKey;
+      const underKey = underIndex != null ? items[underIndex]?.imageKey : null;
+
+      const [topUrl, underUrl] = await Promise.all([
+        loadOne(topKey),
+        underKey ? loadOne(underKey) : Promise.resolve(null),
+      ]);
+
+      if (cancelled) return;
+      setUrls({ top: topUrl, under: underUrl });
+
+      // Keep cache bounded (very small) to avoid memory growth
+      // We keep only the most relevant keys: current + neighbor + one extra
+      const keepKeys = new Set<string>();
+      keepKeys.add(topKey);
+      if (underKey) keepKeys.add(underKey);
+
+      // also keep the opposite neighbor if available (for snappy direction change)
+      const otherNeighbor =
+        underIndex === index + 1 ? (canNewer ? items[index - 1]?.imageKey : null) : (canOlder ? items[index + 1]?.imageKey : null);
+      if (otherNeighbor) keepKeys.add(otherNeighbor);
+
+      const cache = urlCacheRef.current;
+      for (const [k, v] of cache.entries()) {
+        if (!keepKeys.has(k)) {
+          try {
+            URL.revokeObjectURL(v);
+          } catch {
+            // ignore
+          }
+          cache.delete(k);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cur?.imageKey, underIndex, items, index, canOlder, canNewer]);
+
+  // Cleanup all cached urls on unmount
+  useEffect(() => {
+    return () => {
+      const cache = urlCacheRef.current;
+      for (const v of cache.values()) {
+        try {
+          URL.revokeObjectURL(v);
+        } catch {
+          // ignore
+        }
+      }
+      cache.clear();
+    };
+  }, []);
+
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape") onClose();
 
@@ -146,38 +214,29 @@ export function ViewHusketModal({
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  const animateSwipe = (dir: SwipeDir) => {
-    // dir decides where the current card exits
-    // - toOlder: user swiped left => card exits left (negative)
-    // - toNewer: user swiped right => card exits right (positive)
+  const completeSwipe = (dir: SwipeDir) => {
     if (isAnimating) return;
 
     const width = Math.max(window.innerWidth || 360, 360);
     const exitX = dir === "toOlder" ? -width : width;
-    swipeDirRef.current = dir;
 
     setIsAnimating(true);
     setIsDragging(false);
+
+    // animate top out
     setDragX(exitX);
 
     window.setTimeout(() => {
-      // switch item
+      // switch item (this makes the previous "under" become "top")
       if (dir === "toOlder" && canOlder) onSetIndex(index + 1);
       if (dir === "toNewer" && canNewer) onSetIndex(index - 1);
 
-      // snap new card in from opposite side, then animate to 0
-      const enterX = dir === "toOlder" ? width : -width;
-      setDragX(enterX);
+      // reset drag position for the new top (no slide-in; under-card effect already handled)
+      setDragX(0);
 
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setDragX(0);
-          window.setTimeout(() => {
-            setIsAnimating(false);
-            swipeDirRef.current = null;
-          }, TRANSITION_MS);
-        });
-      });
+      window.setTimeout(() => {
+        setIsAnimating(false);
+      }, 20);
     }, TRANSITION_MS);
   };
 
@@ -198,7 +257,6 @@ export function ViewHusketModal({
     const dx = t.clientX - start.x;
     const dy = t.clientY - start.y;
 
-    // Ignore vertical scroll-ish drags
     if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 18) return;
     if (Math.abs(dy) > SWIPE_MAX_Y_DRIFT_PX) return;
 
@@ -213,28 +271,27 @@ export function ViewHusketModal({
     const t = e.changedTouches[0];
     const dx = t.clientX - start.x;
     const dy = t.clientY - start.y;
+
     touchRef.current = null;
     setIsDragging(false);
 
-    // vertical-ish? ignore
     if (Math.abs(dx) < Math.abs(dy)) {
       setDragX(0);
       return;
     }
 
     // Requested direction:
-    // swipe LEFT (dx < 0) => go to OLDER (index+1)
-    // swipe RIGHT (dx > 0) => go to NEWER (index-1)
+    // swipe LEFT (dx < 0) => OLDER (index+1)
+    // swipe RIGHT (dx > 0) => NEWER (index-1)
     if (dx < -SWIPE_THRESHOLD_PX && canOlder) {
-      animateSwipe("toOlder");
+      completeSwipe("toOlder");
       return;
     }
     if (dx > SWIPE_THRESHOLD_PX && canNewer) {
-      animateSwipe("toNewer");
+      completeSwipe("toNewer");
       return;
     }
 
-    // not enough: snap back
     setDragX(0);
   };
 
@@ -250,9 +307,27 @@ export function ViewHusketModal({
 
   if (!cur) return null;
 
-  const transition = isDragging
+  const width = Math.max(window.innerWidth || 360, 360);
+  const p = clamp(Math.abs(dragX) / width, 0, 1);
+
+  // Under card subtle "come forward"
+  const underScale = 0.96 + 0.04 * p;
+  const underOpacity = 0.55 + 0.45 * p;
+  const underBlur = 2 * (1 - p);
+
+  // Top card "paper" feel
+  const rot = (dragX / width) * 2.2; // degrees
+  const shadowAlpha = 0.20 + 0.18 * p;
+
+  const topTransition = isDragging
     ? "none"
-    : `transform ${TRANSITION_MS}ms ease-out`;
+    : `transform ${TRANSITION_MS}ms cubic-bezier(.22,.61,.36,1), box-shadow ${TRANSITION_MS}ms ease-out`;
+
+  const underTransition = isDragging
+    ? "none"
+    : `transform ${TRANSITION_MS}ms cubic-bezier(.22,.61,.36,1), opacity ${TRANSITION_MS}ms ease-out, filter ${TRANSITION_MS}ms ease-out`;
+
+  const underItem = underIndex != null ? items[underIndex] : null;
 
   return (
     <div
@@ -267,6 +342,7 @@ export function ViewHusketModal({
         inset: 0,
         zIndex: 99999,
         paddingBottom: `calc(${DEFAULT_BOTTOM_PANEL_PX}px + env(safe-area-inset-bottom))`,
+        overflow: "hidden",
       }}
     >
       <div className="viewerTop">
@@ -289,50 +365,119 @@ export function ViewHusketModal({
         </button>
       </div>
 
-      {/* This wrapper follows your swipe */}
+      {/* STACK AREA */}
       <div
         style={{
-          transform: `translateX(${dragX}px)`,
-          transition,
-          willChange: "transform",
+          position: "relative",
+          height: "calc(100% - 56px)",
+          display: "grid",
+          placeItems: "center",
         }}
       >
-        <div className="viewerImgWrap">
-          {imgUrl ? <img src={imgUrl} alt="" /> : <div className="smallHelp">Loading…</div>}
-        </div>
+        {/* UNDER CARD */}
+        {underItem ? (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "grid",
+              placeItems: "center",
+              pointerEvents: "none",
+              transform: `scale(${underScale})`,
+              opacity: underOpacity,
+              filter: `blur(${underBlur}px)`,
+              transition: underTransition,
+            }}
+          >
+            <div style={{ width: "100%", maxWidth: 980 }}>
+              <div className="viewerImgWrap">
+                {urls.under ? <img src={urls.under} alt="" /> : <div className="smallHelp">Loading…</div>}
+              </div>
 
-        <div className="viewerBottom">
-          <div className="viewerMetaLine">
-            <div>
-              {tGet(dict, "album.created")}: {formatDate(cur.createdAt, lang)}
-            </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              {categoryLabel ? <span className="badge">{categoryLabel}</span> : null}
-              {cur.ratingValue ? <span className="badge">{cur.ratingValue}</span> : null}
-              {mapHref ? (
-                <a className="badge" href={mapHref} target="_blank" rel="noreferrer">
-                  🌍 {tGet(dict, "album.map")}
-                </a>
-              ) : null}
+              <div className="viewerBottom">
+                <div className="viewerMetaLine">
+                  <div>
+                    {tGet(dict, "album.created")}: {formatDate(underItem.createdAt, lang)}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    {(() => {
+                      const cats = settings.categories[underItem.life] ?? [];
+                      const lab = cats.find((c) => c.id === underItem.categoryId)?.label ?? null;
+                      return lab ? <span className="badge">{lab}</span> : null;
+                    })()}
+                    {underItem.ratingValue ? <span className="badge">{underItem.ratingValue}</span> : null}
+                    {underItem.gps ? (
+                      <span className="badge" aria-hidden>
+                        🌍
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+
+                {underItem.comment ? <div style={{ fontSize: 14 }}>{underItem.comment}</div> : null}
+              </div>
             </div>
           </div>
+        ) : null}
 
-          {cur.comment ? <div style={{ fontSize: 14 }}>{cur.comment}</div> : null}
+        {/* TOP CARD (draggable) */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "grid",
+            placeItems: "center",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 980,
+              transform: `translateX(${dragX}px) rotate(${rot}deg)`,
+              transition: topTransition,
+              willChange: "transform",
+              boxShadow: `0 18px 50px rgba(0,0,0,${shadowAlpha})`,
+              borderRadius: 18,
+            }}
+          >
+            <div className="viewerImgWrap">
+              {urls.top ? <img src={urls.top} alt="" /> : <div className="smallHelp">Loading…</div>}
+            </div>
 
-          <div className="viewerNav">
-            {/* Left arrow => NEWER */}
-            <button className="flatBtn" onClick={goNewer} type="button" disabled={!canNewer || isAnimating}>
-              ◀
-            </button>
+            <div className="viewerBottom">
+              <div className="viewerMetaLine">
+                <div>
+                  {tGet(dict, "album.created")}: {formatDate(cur.createdAt, lang)}
+                </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {categoryLabel ? <span className="badge">{categoryLabel}</span> : null}
+                  {cur.ratingValue ? <span className="badge">{cur.ratingValue}</span> : null}
+                  {mapHref ? (
+                    <a className="badge" href={mapHref} target="_blank" rel="noreferrer">
+                      🌍 {tGet(dict, "album.map")}
+                    </a>
+                  ) : null}
+                </div>
+              </div>
 
-            <button className="flatBtn" onClick={onClose} type="button">
-              OK
-            </button>
+              {cur.comment ? <div style={{ fontSize: 14 }}>{cur.comment}</div> : null}
 
-            {/* Right arrow => OLDER */}
-            <button className="flatBtn" onClick={goOlder} type="button" disabled={!canOlder || isAnimating}>
-              ▶
-            </button>
+              <div className="viewerNav">
+                {/* Left arrow => NEWER */}
+                <button className="flatBtn" onClick={goNewer} type="button" disabled={!canNewer || isAnimating}>
+                  ◀
+                </button>
+
+                <button className="flatBtn" onClick={onClose} type="button">
+                  OK
+                </button>
+
+                {/* Right arrow => OLDER */}
+                <button className="flatBtn" onClick={goOlder} type="button" disabled={!canOlder || isAnimating}>
+                  ▶
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
