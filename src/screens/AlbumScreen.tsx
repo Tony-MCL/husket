@@ -66,7 +66,10 @@ function emptyLifeFilters(): LifeFilters {
 export function AlbumScreen({ dict, life, settings }: Props) {
   const [items, setItems] = useState<Husket[]>([]);
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
-  const [viewer, setViewer] = useState<{ open: boolean; index: number }>({ open: false, index: 0 });
+  const [viewer, setViewer] = useState<{ open: boolean; index: number }>({
+    open: false,
+    index: 0,
+  });
 
   // Filters are per-life (so Jobb filters do not affect Privat, etc.)
   const [filtersByLife, setFiltersByLife] = useState<Record<string, LifeFilters>>(() => ({}));
@@ -98,7 +101,6 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     [settings.ratingPack]
   );
 
-  // Current life applied filters
   const applied = useMemo<LifeFilters>(() => {
     return filtersByLife[life] ?? emptyLifeFilters();
   }, [filtersByLife, life]);
@@ -106,7 +108,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
   useEffect(() => {
     const next = listHuskets(life)
       .slice()
-      .sort((a, b) => b.createdAt - a.createdAt); // ensure newest first
+      .sort((a, b) => b.createdAt - a.createdAt);
     setItems(next);
 
     let cancelled = false;
@@ -119,7 +121,6 @@ export function AlbumScreen({ dict, life, settings }: Props) {
       }
       if (cancelled) return;
       setThumbUrls((prev) => {
-        // revoke old urls that are replaced
         for (const k of Object.keys(prev)) {
           if (!urls[k]) URL.revokeObjectURL(prev[k]);
         }
@@ -152,7 +153,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     applied.appliedTimeFilter,
   ]);
 
-  // When switching life: close dropdown & close viewer (clean UX), filters remain per-life
+  // When switching life: close dropdown & close viewer
   useEffect(() => {
     setFiltersOpen(false);
     setViewer({ open: false, index: 0 });
@@ -283,6 +284,11 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     setDraftCategoryIds((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  // Time filter is mutually exclusive, but we render it with checkbox-style UI (✔) for visual consistency
+  const setDraftTimeExclusive = (k: TimeFilterKey) => {
+    setDraftTimeFilter(k);
+  };
+
   const applyFiltersAndClose = () => {
     setFiltersByLife((prev) => ({
       ...prev,
@@ -296,7 +302,6 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     setViewer({ open: false, index: 0 });
   };
 
-  // IMPORTANT: must reset applied filters immediately, and close modal (like Apply)
   const resetFiltersAndClose = () => {
     setFiltersByLife((prev) => {
       const next = { ...prev };
@@ -313,6 +318,13 @@ export function AlbumScreen({ dict, life, settings }: Props) {
   if (items.length === 0) {
     return <div className="smallHelp">{tGet(dict, "album.empty")}</div>;
   }
+
+  const timeChoices: Array<{ key: TimeFilterKey; col: 1 | 2 }> = [
+    { key: "all", col: 1 },
+    { key: "7d", col: 2 },
+    { key: "30d", col: 1 },
+    { key: "365d", col: 2 },
+  ];
 
   return (
     <div>
@@ -373,35 +385,41 @@ export function AlbumScreen({ dict, life, settings }: Props) {
               gap: 12,
             }}
           >
-            {/* Time (radio list, no pill-glow, no long labels) */}
+            {/* Time (checkbox-style UI with ✔, arranged on two lines: (All + Last week) / (Last month + Last year)) */}
             <div style={{ display: "grid", gap: 8 }}>
               <div className="label" style={{ margin: 0 }}>
                 {lang === "no" ? "Tid" : "Time"}
               </div>
 
-              <div style={{ display: "grid", gap: 6 }}>
-                {(["all", "7d", "30d", "365d"] as TimeFilterKey[]).map((k) => (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 8,
+                }}
+              >
+                {timeChoices.map(({ key, col }) => (
                   <label
-                    key={k}
+                    key={key}
                     style={{
                       display: "flex",
                       alignItems: "center",
                       gap: 10,
-                      padding: "6px 8px",
-                      borderRadius: 10,
+                      padding: "6px 10px",
+                      borderRadius: 12,
                       border: "1px solid rgba(255,255,255,0.12)",
                       cursor: "pointer",
                       userSelect: "none",
+                      gridColumn: col,
                     }}
                   >
                     <input
-                      type="radio"
-                      name="albumTimeFilter"
-                      checked={draftTimeFilter === k}
-                      onChange={() => setDraftTimeFilter(k)}
+                      type="checkbox"
+                      checked={draftTimeFilter === key}
+                      onChange={() => setDraftTimeExclusive(key)}
                       style={{ transform: "scale(1.1)" }}
                     />
-                    <span>{timeLabelShort(k)}</span>
+                    <span>{timeLabelShort(key)}</span>
                   </label>
                 ))}
               </div>
@@ -520,12 +538,10 @@ export function AlbumScreen({ dict, life, settings }: Props) {
             </div>
 
             <div style={{ display: "flex", gap: 10, justifyContent: "space-between" }}>
-              {/* Must reset applied filters immediately + close */}
               <button type="button" className="flatBtn danger" onClick={resetFiltersAndClose}>
                 {lang === "no" ? "Nullstill filtre" : "Reset filters"}
               </button>
 
-              {/* Applies filters ONLY for the current life, then closes modal */}
               <button type="button" className="flatBtn confirm" onClick={applyFiltersAndClose}>
                 {lang === "no" ? "Aktiver filtre" : "Apply filters"}
               </button>
