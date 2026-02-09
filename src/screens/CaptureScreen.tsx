@@ -209,10 +209,57 @@ export function CaptureScreen({
 
   return (
     <div>
-      <div className="captureFrame">
-        <div className="capturePreview">
+      <div
+        className="captureFrame"
+        style={{
+          // Keep preview clearly as a "panel", not a full-view viewer
+          maxWidth: 680,
+          margin: "0 auto",
+        }}
+      >
+        <div
+          className="capturePreview"
+          style={{
+            // Force a preview-sized area (no full-height behavior)
+            width: "100%",
+            height: "min(260px, 38vh)",
+            borderRadius: 16,
+            overflow: "hidden",
+            position: "relative",
+          }}
+        >
           {imagePreviewUrl ? (
-            <img src={imagePreviewUrl} alt="" />
+            <div
+              style={{
+                // Inner frame to make it feel like a preview, not a viewer
+                width: "100%",
+                height: "100%",
+                padding: 10,
+                boxSizing: "border-box",
+                display: "grid",
+                placeItems: "center",
+              }}
+            >
+              <div
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  borderRadius: 14,
+                  overflow: "hidden",
+                }}
+              >
+                <img
+                  src={imagePreviewUrl}
+                  alt=""
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block",
+                  }}
+                />
+              </div>
+            </div>
           ) : (
             <div style={{ display: "grid", gap: 10, placeItems: "center", padding: 14 }}>
               <div className="smallHelp">{tGet(dict, "capture.cameraHint")}</div>
@@ -274,9 +321,7 @@ export function CaptureScreen({
         onChange={(e) => setComment(clamp100(e.target.value))}
         placeholder={tGet(dict, "capture.commentPh")}
       />
-      <div className="smallHelp">
-        {comment.length}/100
-      </div>
+      <div className="smallHelp">{comment.length}/100</div>
 
       <div className="label">{tGet(dict, "capture.category")}</div>
       <div className="ratingRow" aria-label="Categories">
@@ -307,9 +352,7 @@ export function CaptureScreen({
           {tGet(dict, "capture.save")}
         </button>
 
-        {!settings.premium ? (
-          <div className="smallHelp">Free: 100 husket maks</div>
-        ) : null}
+        {!settings.premium ? <div className="smallHelp">Free: 100 husket maks</div> : null}
       </div>
     </div>
   );
