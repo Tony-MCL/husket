@@ -137,7 +137,8 @@ button {
   color: rgba(242, 242, 242, 0.85);
   border: none;
   border-right: 1px solid var(--line);
-  transition: transform 120ms ease, color 120ms ease, text-shadow 120ms ease, box-shadow 120ms ease;
+  transition: transform 120ms ease, color 120ms ease, text-shadow 120ms ease,
+    box-shadow 120ms ease;
 }
 
 .lifeTab:last-child {
@@ -147,16 +148,12 @@ button {
 /* Active: strong glow on text + subtle ring + small pop */
 .lifeTab.active {
   color: var(--glowText);
-  text-shadow:
-    0 0 6px var(--glowHard),
-    0 0 14px var(--glowSoft),
+  text-shadow: 0 0 6px var(--glowHard), 0 0 14px var(--glowSoft),
     0 0 26px rgba(255, 255, 255, 0.14);
   font-weight: 800;
   transform: translateY(-0.5px) scale(1.20);
 
-  box-shadow:
-    inset 0 0 0 1px var(--activeRing2),
-    0 0 0 1px var(--activeRing),
+  box-shadow: inset 0 0 0 1px var(--activeRing2), 0 0 0 1px var(--activeRing),
     0 0 18px var(--glowHalo);
 }
 
@@ -237,23 +234,20 @@ button {
   padding: 8px 10px;
   background: transparent;
   color: rgba(242, 242, 242, 0.85);
-  transition: transform 120ms ease, color 120ms ease, text-shadow 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+  transition: transform 120ms ease, color 120ms ease, text-shadow 120ms ease,
+    box-shadow 120ms ease, border-color 120ms ease;
 }
 
 /* Active: strong glow on content + tiny pop, keep fill flat */
 .pill.active {
   color: var(--glowText);
-  text-shadow:
-    0 0 6px var(--glowHard),
-    0 0 14px var(--glowSoft),
+  text-shadow: 0 0 6px var(--glowHard), 0 0 14px var(--glowSoft),
     0 0 26px rgba(255, 255, 255, 0.14);
   font-weight: 800;
   transform: translateY(-0.5px) scale(1.30);
 
   border-color: var(--activeRing);
-  box-shadow:
-    inset 0 0 0 1px var(--activeRing2),
-    0 0 14px var(--glowHalo);
+  box-shadow: inset 0 0 0 1px var(--activeRing2), 0 0 14px var(--glowHalo);
 }
 
 .pill:active {
@@ -286,23 +280,20 @@ button {
   color: rgba(242, 242, 242, 0.85);
   border-radius: 999px;
   padding: 14px 10px;
-  transition: transform 120ms ease, color 120ms ease, text-shadow 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+  transition: transform 120ms ease, color 120ms ease, text-shadow 120ms ease,
+    box-shadow 120ms ease, border-color 120ms ease;
 }
 
 /* Active: glow label + pop */
 .bottomBtn.active {
   color: var(--glowText);
-  text-shadow:
-    0 0 6px var(--glowHard),
-    0 0 14px var(--glowSoft),
+  text-shadow: 0 0 6px var(--glowHard), 0 0 14px var(--glowSoft),
     0 0 26px rgba(255, 255, 255, 0.14);
   font-weight: 800;
   transform: translateY(-0.5px) scale(1.20);
 
   border-color: var(--activeRing);
-  box-shadow:
-    inset 0 0 0 1px var(--activeRing2),
-    0 0 16px var(--glowHalo);
+  box-shadow: inset 0 0 0 1px var(--activeRing2), 0 0 16px var(--glowHalo);
 }
 
 .bottomBtn:active {
@@ -436,10 +427,13 @@ button {
   overflow: hidden;
 }
 
+/* Keep this generic, but don't enforce full-screen sizing here anymore.
+   The "card" layout controls the sizes. */
 .viewerImgWrap img {
-  max-width: 100%;
-  max-height: 70vh;
-  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .viewerBottom {
@@ -464,4 +458,67 @@ button {
 
 .viewerNav button {
   border-radius: 999px;
+}
+
+/* ===============================
+   Husket viewer CARD sizing
+   =============================== */
+
+.husketCard {
+  width: 100%;
+  max-width: 980px;
+
+  /* Always stable height on mobile */
+  height: min(78vh, 720px);
+
+  border-radius: 18px;
+  overflow: hidden;
+  background: #fff;
+
+  display: grid;
+  grid-template-rows: 62% 38%;
+}
+
+.husketCardImg {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+.husketCardImg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.husketCardMeta {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 10px;
+  background: #fff;
+  color: #0b0b0b;
+}
+
+.husketCardMeta .badge {
+  border-color: rgba(0, 0, 0, 0.16);
+  color: rgba(0, 0, 0, 0.72);
+}
+
+.husketCardMeta .viewerMetaLine {
+  color: rgba(0, 0, 0, 0.62);
+}
+
+.husketCardMeta .smallHelp {
+  color: rgba(0, 0, 0, 0.62);
+}
+
+.husketCardMeta .flatBtn {
+  border-color: rgba(0, 0, 0, 0.18);
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.husketCardMeta .flatBtn:hover {
+  background: rgba(0, 0, 0, 0.06);
 }
