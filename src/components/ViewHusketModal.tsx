@@ -11,7 +11,9 @@ type Props = {
   dict: I18nDict;
   settings: Settings;
   items: Husket[];
-  startIndex: number;
+  index: number;
+  onSetIndex: (nextIndex: number) => void;
+  onDelete: (id: string) => Promise<void>;
   onClose: () => void;
 };
 
@@ -36,12 +38,21 @@ function formatDate(ts: number, lang: "no" | "en") {
 
 const DEFAULT_BOTTOM_PANEL_PX = 78;
 
-export function ViewHusketModal({ dict, settings, items, startIndex, onClose }: Props) {
-  const [idx, setIdx] = useState(startIndex);
-  const cur = items[idx];
+export function ViewHusketModal({
+  dict,
+  settings,
+  items,
+  index,
+  onSetIndex,
+  onDelete,
+  onClose,
+}: Props) {
+  const cur = items[index];
 
   const [imgUrl, setImgUrl] = useState<string | null>(null);
   const urlRef = useRef<string | null>(null);
+
+  const [busyDelete, setBusyDelete] = useState(false);
 
   const lang: "no" | "en" = useMemo(() => {
     if (settings.language === "no") return "no";
@@ -53,6 +64,8 @@ export function ViewHusketModal({ dict, settings, items, startIndex, onClose }: 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (!cur) return;
+
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
       urlRef.current = null;
       setImgUrl(null);
@@ -65,7 +78,7 @@ export function ViewHusketModal({ dict, settings, items, startIndex, onClose }: 
     return () => {
       cancelled = true;
     };
-  }, [cur.imageKey]);
+  }, [cur?.imageKey]);
 
   useEffect(() => {
     return () => {
@@ -73,24 +86,25 @@ export function ViewHusketModal({ dict, settings, items, startIndex, onClose }: 
     };
   }, []);
 
-  const canPrev = idx < items.length - 1;
-  const canNext = idx > 0;
+  const canPrev = index < items.length - 1;
+  const canNext = index > 0;
 
   const categoryLabel = useMemo(() => {
+    if (!cur) return null;
     const cats = settings.categories[cur.life] ?? [];
     return cats.find((c) => c.id === cur.categoryId)?.label ?? null;
-  }, [cur.categoryId, cur.life, settings.categories]);
+  }, [cur?.categoryId, cur?.life, settings.categories]);
 
   const mapHref = useMemo(() => {
-    if (!cur.gps) return null;
+    if (!cur?.gps) return null;
     const { lat, lng } = cur.gps;
     return `https://www.google.com/maps?q=${lat},${lng}`;
-  }, [cur.gps]);
+  }, [cur?.gps]);
 
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape") onClose();
-    if (e.key === "ArrowLeft" && canPrev) setIdx((v) => v + 1);
-    if (e.key === "ArrowRight" && canNext) setIdx((v) => v - 1);
+    if (e.key === "ArrowLeft" && canPrev) onSetIndex(index + 1);
+    if (e.key === "ArrowRight" && canNext) onSetIndex(index - 1);
   };
 
   useEffect(() => {
@@ -115,9 +129,21 @@ export function ViewHusketModal({ dict, settings, items, startIndex, onClose }: 
     touchRef.current = null;
 
     if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
-    if (dx > 0 && canPrev) setIdx((v) => v + 1);
-    if (dx < 0 && canNext) setIdx((v) => v - 1);
+    if (dx > 0 && canPrev) onSetIndex(index + 1);
+    if (dx < 0 && canNext) onSetIndex(index - 1);
   };
+
+  const onDeleteClick = async () => {
+    if (!cur || busyDelete) return;
+    setBusyDelete(true);
+    try {
+      await onDelete(cur.id);
+    } finally {
+      setBusyDelete(false);
+    }
+  };
+
+  if (!cur) return null;
 
   return (
     <div
@@ -127,7 +153,7 @@ export function ViewHusketModal({ dict, settings, items, startIndex, onClose }: 
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
       style={{
-        // Make sure viewer is ALWAYS above any footer/bottom panel
+        // Always above footer/bottom panel
         position: "fixed",
         inset: 0,
         zIndex: 99999,
@@ -140,9 +166,20 @@ export function ViewHusketModal({ dict, settings, items, startIndex, onClose }: 
         <button className="flatBtn" onClick={onClose} type="button">
           ✕
         </button>
+
         <div className="badge">
-          {idx + 1}/{items.length}
+          {index + 1}/{items.length}
         </div>
+
+        <button
+          className="flatBtn danger"
+          onClick={() => void onDeleteClick()}
+          type="button"
+          disabled={busyDelete}
+          title={lang === "no" ? "Slett" : "Delete"}
+        >
+          🗑
+        </button>
       </div>
 
       <div className="viewerImgWrap">
@@ -168,23 +205,13 @@ export function ViewHusketModal({ dict, settings, items, startIndex, onClose }: 
         {cur.comment ? <div style={{ fontSize: 14 }}>{cur.comment}</div> : null}
 
         <div className="viewerNav">
-          <button
-            className="flatBtn"
-            onClick={() => canPrev && setIdx((v) => v + 1)}
-            type="button"
-            disabled={!canPrev}
-          >
+          <button className="flatBtn" onClick={() => canPrev && onSetIndex(index + 1)} type="button" disabled={!canPrev}>
             ◀
           </button>
           <button className="flatBtn" onClick={onClose} type="button">
             OK
           </button>
-          <button
-            className="flatBtn"
-            onClick={() => canNext && setIdx((v) => v - 1)}
-            type="button"
-            disabled={!canNext}
-          >
+          <button className="flatBtn" onClick={() => canNext && onSetIndex(index - 1)} type="button" disabled={!canNext}>
             ▶
           </button>
         </div>
