@@ -163,11 +163,13 @@ export function HusketSwipeDeck({
     if (dir === "left" && canOlder) onSetIndex(index + 1);
     if (dir === "right" && canNewer) onSetIndex(index - 1);
 
+    // Ensure next card starts fully opaque and centered
     controls.set({ x: 0, rotate: 0 });
   };
 
   if (!cur) return null;
 
+  // Under card can be slightly “dempet”
   const underScale = 0.98;
   const underOpacity = 0.85;
 
@@ -179,6 +181,8 @@ export function HusketSwipeDeck({
         display: "grid",
         placeItems: "center",
         padding: "0 12px",
+        // Prevent weird blending between layers
+        isolation: "isolate",
       }}
     >
       {underItem ? (
@@ -200,6 +204,7 @@ export function HusketSwipeDeck({
               borderRadius: 18,
               overflow: "hidden",
               boxShadow: "0 10px 28px rgba(0,0,0,0.12)",
+              background: "#fff", // <-- make under also solid
             }}
           >
             <div className="viewerImgWrap">
@@ -225,6 +230,15 @@ export function HusketSwipeDeck({
           overflow: "hidden",
           boxShadow: "0 14px 40px rgba(0,0,0,0.22)",
           touchAction: "pan-y",
+
+          // ✅ force opaque “paper”
+          background: "#fff",
+          opacity: 1,
+
+          // Avoid mix/blend artifacts on some GPUs
+          backfaceVisibility: "hidden",
+          WebkitBackfaceVisibility: "hidden",
+          transformStyle: "preserve-3d",
         }}
         drag="x"
         dragConstraints={{ left: 0, right: 0 }}
@@ -233,6 +247,7 @@ export function HusketSwipeDeck({
         onDrag={(_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
           const w = Math.max(window.innerWidth || 360, 360);
           const p = clamp(info.offset.x / w, -1, 1);
+          // only rotate; no opacity changes
           controls.set({ rotate: p * 6 });
         }}
         onDragEnd={async (_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
@@ -240,16 +255,19 @@ export function HusketSwipeDeck({
           const w = Math.max(window.innerWidth || 360, 360);
           const threshold = Math.max(90, w * 0.22);
 
+          // swipe LEFT => older
           if (dx < -threshold && canOlder) {
             await commitSwipe("left");
             return;
           }
 
+          // swipe RIGHT => newer
           if (dx > threshold && canNewer) {
             await commitSwipe("right");
             return;
           }
 
+          // snap back
           await controls.start({
             x: 0,
             rotate: 0,
@@ -280,7 +298,12 @@ export function HusketSwipeDeck({
           {cur.comment ? <div style={{ fontSize: 14 }}>{cur.comment}</div> : null}
 
           <div className="viewerNav">
-            <button className="flatBtn" onClick={() => canNewer && onSetIndex(index - 1)} type="button" disabled={!canNewer}>
+            <button
+              className="flatBtn"
+              onClick={() => canNewer && onSetIndex(index - 1)}
+              type="button"
+              disabled={!canNewer}
+            >
               ◀
             </button>
 
@@ -288,7 +311,12 @@ export function HusketSwipeDeck({
               OK
             </button>
 
-            <button className="flatBtn" onClick={() => canOlder && onSetIndex(index + 1)} type="button" disabled={!canOlder}>
+            <button
+              className="flatBtn"
+              onClick={() => canOlder && onSetIndex(index + 1)}
+              type="button"
+              disabled={!canOlder}
+            >
               ▶
             </button>
 
