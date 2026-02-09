@@ -163,15 +163,13 @@ export function HusketSwipeDeck({
     if (dir === "left" && canOlder) onSetIndex(index + 1);
     if (dir === "right" && canNewer) onSetIndex(index - 1);
 
-    // Ensure next card starts fully opaque and centered
     controls.set({ x: 0, rotate: 0 });
   };
 
   if (!cur) return null;
 
-  // Under card can be slightly “dempet”
-  const underScale = 0.98;
-  const underOpacity = 0.85;
+  const underScale = 0.985;
+  const underOpacity = 0.88;
 
   return (
     <div
@@ -181,7 +179,6 @@ export function HusketSwipeDeck({
         display: "grid",
         placeItems: "center",
         padding: "0 12px",
-        // Prevent weird blending between layers
         isolation: "isolate",
       }}
     >
@@ -197,21 +194,12 @@ export function HusketSwipeDeck({
             transform: `scale(${underScale})`,
           }}
         >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: 980,
-              borderRadius: 18,
-              overflow: "hidden",
-              boxShadow: "0 10px 28px rgba(0,0,0,0.12)",
-              background: "#fff", // <-- make under also solid
-            }}
-          >
-            <div className="viewerImgWrap">
+          <div className="husketCard">
+            <div className="husketCardImg">
               {underUrl ? <img src={underUrl} alt="" /> : <div className="smallHelp">Loading…</div>}
             </div>
 
-            <div className="viewerBottom" style={{ opacity: 0.6 }}>
+            <div className="husketCardMeta">
               <div className="viewerMetaLine">
                 <div>
                   {tGet(dict, "album.created")}: {formatDate(underItem.createdAt, lang)}
@@ -223,19 +211,12 @@ export function HusketSwipeDeck({
       ) : null}
 
       <motion.div
+        className="husketCard"
         style={{
-          width: "100%",
-          maxWidth: 980,
-          borderRadius: 18,
-          overflow: "hidden",
           boxShadow: "0 14px 40px rgba(0,0,0,0.22)",
           touchAction: "pan-y",
-
-          // ✅ force opaque “paper”
           background: "#fff",
           opacity: 1,
-
-          // Avoid mix/blend artifacts on some GPUs
           backfaceVisibility: "hidden",
           WebkitBackfaceVisibility: "hidden",
           transformStyle: "preserve-3d",
@@ -247,7 +228,6 @@ export function HusketSwipeDeck({
         onDrag={(_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
           const w = Math.max(window.innerWidth || 360, 360);
           const p = clamp(info.offset.x / w, -1, 1);
-          // only rotate; no opacity changes
           controls.set({ rotate: p * 6 });
         }}
         onDragEnd={async (_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
@@ -255,19 +235,16 @@ export function HusketSwipeDeck({
           const w = Math.max(window.innerWidth || 360, 360);
           const threshold = Math.max(90, w * 0.22);
 
-          // swipe LEFT => older
           if (dx < -threshold && canOlder) {
             await commitSwipe("left");
             return;
           }
 
-          // swipe RIGHT => newer
           if (dx > threshold && canNewer) {
             await commitSwipe("right");
             return;
           }
 
-          // snap back
           await controls.start({
             x: 0,
             rotate: 0,
@@ -275,16 +252,16 @@ export function HusketSwipeDeck({
           });
         }}
       >
-        <div className="viewerImgWrap">
+        <div className="husketCardImg">
           {topUrl ? <img src={topUrl} alt="" /> : <div className="smallHelp">Loading…</div>}
         </div>
 
-        <div className="viewerBottom">
+        <div className="husketCardMeta">
           <div className="viewerMetaLine">
             <div>
               {tGet(dict, "album.created")}: {formatDate(cur.createdAt, lang)}
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
               {categoryLabel ? <span className="badge">{categoryLabel}</span> : null}
               {cur.ratingValue ? <span className="badge">{cur.ratingValue}</span> : null}
               {mapHref ? (
@@ -295,15 +272,10 @@ export function HusketSwipeDeck({
             </div>
           </div>
 
-          {cur.comment ? <div style={{ fontSize: 14 }}>{cur.comment}</div> : null}
+          {cur.comment ? <div style={{ fontSize: 14, marginTop: 8 }}>{cur.comment}</div> : null}
 
-          <div className="viewerNav">
-            <button
-              className="flatBtn"
-              onClick={() => canNewer && onSetIndex(index - 1)}
-              type="button"
-              disabled={!canNewer}
-            >
+          <div className="viewerNav" style={{ marginTop: 10 }}>
+            <button className="flatBtn" onClick={() => canNewer && onSetIndex(index - 1)} type="button" disabled={!canNewer}>
               ◀
             </button>
 
@@ -311,17 +283,14 @@ export function HusketSwipeDeck({
               OK
             </button>
 
-            <button
-              className="flatBtn"
-              onClick={() => canOlder && onSetIndex(index + 1)}
-              type="button"
-              disabled={!canOlder}
-            >
+            <button className="flatBtn" onClick={() => canOlder && onSetIndex(index + 1)} type="button" disabled={!canOlder}>
               ▶
             </button>
+          </div>
 
+          <div style={{ marginTop: 10, display: "flex", justifyContent: "center" }}>
             <button className="flatBtn danger" onClick={onDeleteCurrent} type="button" title={lang === "no" ? "Slett" : "Delete"}>
-              🗑
+              🗑 {lang === "no" ? "Slett" : "Delete"}
             </button>
           </div>
         </div>
