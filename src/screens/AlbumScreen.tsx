@@ -27,16 +27,55 @@ function formatThumbDate(ts: number, lang: "no" | "en") {
 
 type TimeFilterKey = "all" | "7d" | "30d" | "365d";
 
+function ratingOptionsFromPack(pack: Settings["ratingPack"]): string[] {
+  switch (pack) {
+    case "emoji":
+      return ["😍", "😊", "😐", "😕", "😖"];
+    case "thumbs":
+      return ["👍", "👎"];
+    case "check":
+      return ["✓", "−", "✗"];
+    case "tens":
+      return [
+        "10/10",
+        "9/10",
+        "8/10",
+        "7/10",
+        "6/10",
+        "5/10",
+        "4/10",
+        "3/10",
+        "2/10",
+        "1/10",
+      ];
+    default:
+      return ["😊", "😐", "😖"];
+  }
+}
+
+type LifeFilters = {
+  appliedRatings: Record<string, boolean>;
+  appliedCategoryIds: Record<string, boolean>;
+  appliedTimeFilter: TimeFilterKey;
+};
+
+function emptyLifeFilters(): LifeFilters {
+  return { appliedRatings: {}, appliedCategoryIds: {}, appliedTimeFilter: "all" };
+}
+
 export function AlbumScreen({ dict, life, settings }: Props) {
   const [items, setItems] = useState<Husket[]>([]);
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
   const [viewer, setViewer] = useState<{ open: boolean; index: number }>({ open: false, index: 0 });
 
-  // Filters (multi)
+  // Filters are per-life (so Jobb filters do not affect Privat, etc.)
+  const [filtersByLife, setFiltersByLife] = useState<Record<string, LifeFilters>>(() => ({}));
+
+  // Dropdown open + draft state (draft changes only apply when user clicks "Aktiver filtre")
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [selectedRatings, setSelectedRatings] = useState<Record<string, boolean>>({});
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<Record<string, boolean>>({});
-  const [timeFilter, setTimeFilter] = useState<TimeFilterKey>("all");
+  const [draftRatings, setDraftRatings] = useState<Record<string, boolean>>({});
+  const [draftCategoryIds, setDraftCategoryIds] = useState<Record<string, boolean>>({});
+  const [draftTimeFilter, setDraftTimeFilter] = useState<TimeFilterKey>("all");
 
   const filterWrapRef = useRef<HTMLDivElement | null>(null);
 
@@ -53,6 +92,13 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     if (!id) return null;
     return cats.find((c) => c.id === id)?.label ?? null;
   };
+
+  const ratingOptions = useMemo(() => ratingOptionsFromPack(settings.ratingPack), [settings.ratingPack]);
+
+  // Current life applied filters
+  const applied = useMemo<LifeFilters>(() => {
+    return filtersByLife[life] ?? emptyLifeFilters();
+  }, [filtersByLife, life]);
 
   useEffect(() => {
     const next = listHuskets(life)
@@ -90,6 +136,20 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // When opening filters: seed draft from applied (for the CURRENT life)
+  useEffect(() => {
+    if (!filtersOpen) return;
+    setDraftRatings(applied.appliedRatings);
+    setDraftCategoryIds(applied.appliedCategoryIds);
+    setDraftTimeFilter(applied.appliedTimeFilter);
+  }, [filtersOpen, applied.appliedRatings, applied.appliedCategoryIds, applied.appliedTimeFilter]);
+
+  // When switching life: close dropdown & close viewer (clean UX), filters remain per-life
+  useEffect(() => {
+    setFiltersOpen(false);
+    setViewer({ open: false, index: 0 });
+  }, [life]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     if (!filtersOpen) return;
@@ -105,62 +165,36 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     return () => window.removeEventListener("mousedown", onDown, { capture: true } as any);
   }, [filtersOpen]);
 
-  const ratingOptions = useMemo(() => {
-    switch (settings.ratingPack) {
-      case "emoji":
-        return ["😍", "😊", "😐", "😕", "😖"];
-      case "thumbs":
-        return ["👍", "👎"];
-      case "check":
-        return ["✓", "−", "✗"];
-      case "tens":
-        return [
-          "10/10",
-          "9/10",
-          "8/10",
-          "7/10",
-          "6/10",
-          "5/10",
-          "4/10",
-          "3/10",
-          "2/10",
-          "1/10",
-        ];
-      default:
-        return ["😊", "😐", "😖"];
-    }
-  }, [settings.ratingPack]);
+  const anyAppliedRatingSelected = useMemo(
+    () => Object.values(applied.appliedRatings).some(Boolean),
+    [applied.appliedRatings]
+  );
+  const anyAppliedCategorySelected = useMemo(
+    () => Object.values(applied.appliedCategoryIds).some(Boolean),
+    [applied.appliedCategoryIds]
+  );
 
-  const nowMs = Date.now();
   const cutoffMs = useMemo(() => {
-    if (timeFilter === "7d") return nowMs - 7 * 24 * 60 * 60 * 1000;
-    if (timeFilter === "30d") return nowMs - 30 * 24 * 60 * 60 * 1000;
-    if (timeFilter === "365d") return nowMs - 365 * 24 * 60 * 60 * 1000;
+    const nowMs = Date.now();
+    if (applied.appliedTimeFilter === "7d") return nowMs - 7 * 24 * 60 * 60 * 1000;
+    if (applied.appliedTimeFilter === "30d") return nowMs - 30 * 24 * 60 * 60 * 1000;
+    if (applied.appliedTimeFilter === "365d") return nowMs - 365 * 24 * 60 * 60 * 1000;
     return null;
-  }, [timeFilter, nowMs]);
-
-  const anyRatingSelected = useMemo(
-    () => Object.values(selectedRatings).some(Boolean),
-    [selectedRatings]
-  );
-  const anyCategorySelected = useMemo(
-    () => Object.values(selectedCategoryIds).some(Boolean),
-    [selectedCategoryIds]
-  );
+  }, [applied.appliedTimeFilter]);
 
   const filteredItems = useMemo(() => {
-    const ratingsActive = anyRatingSelected;
-    const catsActive = anyCategorySelected;
-    const timeActive = timeFilter !== "all";
+    const ratingsActive = anyAppliedRatingSelected;
+    const catsActive = anyAppliedCategorySelected;
+    const timeActive = applied.appliedTimeFilter !== "all";
 
     const res = items.filter((it) => {
       if (ratingsActive) {
         const key = it.ratingValue ?? "__none__";
-        if (!selectedRatings[key]) return false;
+        if (!applied.appliedRatings[key]) return false;
       }
       if (catsActive) {
         const key = it.categoryId ?? "__none__";
-        if (!selectedCategoryIds[key]) return false;
+        if (!applied.appliedCategoryIds[key]) return false;
       }
       if (timeActive && cutoffMs != null) {
         if (it.createdAt < cutoffMs) return false;
@@ -168,44 +202,45 @@ export function AlbumScreen({ dict, life, settings }: Props) {
       return true;
     });
 
-    // keep newest-first
     res.sort((a, b) => b.createdAt - a.createdAt);
     return res;
   }, [
     items,
-    anyRatingSelected,
-    anyCategorySelected,
-    timeFilter,
+    anyAppliedRatingSelected,
+    anyAppliedCategorySelected,
+    applied.appliedTimeFilter,
     cutoffMs,
-    selectedRatings,
-    selectedCategoryIds,
+    applied.appliedRatings,
+    applied.appliedCategoryIds,
   ]);
 
   const activeSummary = useMemo(() => {
     const parts: string[] = [];
 
-    if (anyRatingSelected) {
-      const picked = Object.entries(selectedRatings)
+    if (anyAppliedRatingSelected) {
+      const picked = Object.entries(applied.appliedRatings)
         .filter(([, v]) => v)
         .map(([k]) => (k === "__none__" ? (lang === "no" ? "Ingen" : "None") : k));
       if (picked.length > 0) parts.push(`⭐ ${picked.join(", ")}`);
     }
 
-    if (anyCategorySelected) {
-      const pickedIds = Object.entries(selectedCategoryIds)
+    if (anyAppliedCategorySelected) {
+      const pickedIds = Object.entries(applied.appliedCategoryIds)
         .filter(([, v]) => v)
         .map(([k]) => k);
-      const labels = pickedIds.map((id) => (id === "__none__" ? (lang === "no" ? "Ingen" : "None") : categoryLabel(id) ?? id));
+      const labels = pickedIds.map((id) =>
+        id === "__none__" ? (lang === "no" ? "Ingen" : "None") : categoryLabel(id) ?? id
+      );
       if (labels.length > 0) parts.push(`🏷 ${labels.join(", ")}`);
     }
 
-    if (timeFilter !== "all") {
+    if (applied.appliedTimeFilter !== "all") {
       const label =
-        timeFilter === "7d"
+        applied.appliedTimeFilter === "7d"
           ? lang === "no"
             ? "Siste 7 dager"
             : "Last 7 days"
-          : timeFilter === "30d"
+          : applied.appliedTimeFilter === "30d"
             ? lang === "no"
               ? "Siste 30 dager"
               : "Last 30 days"
@@ -216,22 +251,41 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     }
 
     return parts.length > 0 ? parts : [lang === "no" ? "Ingen filtre" : "No filters"];
-  }, [anyRatingSelected, anyCategorySelected, selectedRatings, selectedCategoryIds, timeFilter, lang, cats]);
+  }, [
+    anyAppliedRatingSelected,
+    anyAppliedCategorySelected,
+    applied.appliedRatings,
+    applied.appliedCategoryIds,
+    applied.appliedTimeFilter,
+    lang,
+    cats,
+  ]);
 
-  const toggleRating = (val: string) => {
-    const key = val;
-    setSelectedRatings((prev) => ({ ...prev, [key]: !prev[key] }));
+  const toggleDraftRating = (val: string) => {
+    setDraftRatings((prev) => ({ ...prev, [val]: !prev[val] }));
   };
 
-  const toggleCategory = (id: string) => {
-    const key = id;
-    setSelectedCategoryIds((prev) => ({ ...prev, [key]: !prev[key] }));
+  const toggleDraftCategory = (id: string) => {
+    setDraftCategoryIds((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const clearAllFilters = () => {
-    setSelectedRatings({});
-    setSelectedCategoryIds({});
-    setTimeFilter("all");
+  const clearDraftFilters = () => {
+    setDraftRatings({});
+    setDraftCategoryIds({});
+    setDraftTimeFilter("all");
+  };
+
+  const applyFiltersAndClose = () => {
+    setFiltersByLife((prev) => ({
+      ...prev,
+      [life]: {
+        appliedRatings: draftRatings,
+        appliedCategoryIds: draftCategoryIds,
+        appliedTimeFilter: draftTimeFilter,
+      },
+    }));
+    setFiltersOpen(false);
+    setViewer({ open: false, index: 0 });
   };
 
   // If no items at all (raw), keep existing empty state
@@ -260,7 +314,15 @@ export function AlbumScreen({ dict, life, settings }: Props) {
         >
           <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
             <span aria-hidden>🔎</span>
-            <span style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", minWidth: 0 }}>
+            <span
+              style={{
+                display: "flex",
+                gap: 8,
+                flexWrap: "wrap",
+                alignItems: "center",
+                minWidth: 0,
+              }}
+            >
               {activeSummary.map((p) => (
                 <span key={p} className="badge" style={{ whiteSpace: "nowrap" }}>
                   {p}
@@ -303,8 +365,8 @@ export function AlbumScreen({ dict, life, settings }: Props) {
                   <button
                     key={k}
                     type="button"
-                    className={`pill ${timeFilter === k ? "active" : ""}`}
-                    onClick={() => setTimeFilter(k)}
+                    className={`pill ${draftTimeFilter === k ? "active" : ""}`}
+                    onClick={() => setDraftTimeFilter(k)}
                   >
                     {label}
                   </button>
@@ -334,8 +396,8 @@ export function AlbumScreen({ dict, life, settings }: Props) {
                   >
                     <input
                       type="checkbox"
-                      checked={!!selectedRatings[r]}
-                      onChange={() => toggleRating(r)}
+                      checked={!!draftRatings[r]}
+                      onChange={() => toggleDraftRating(r)}
                       style={{ transform: "scale(1.1)" }}
                     />
                     <span>{r}</span>
@@ -356,8 +418,8 @@ export function AlbumScreen({ dict, life, settings }: Props) {
                 >
                   <input
                     type="checkbox"
-                    checked={!!selectedRatings["__none__"]}
-                    onChange={() => setSelectedRatings((p) => ({ ...p, __none__: !p.__none__ }))}
+                    checked={!!draftRatings["__none__"]}
+                    onChange={() => setDraftRatings((p) => ({ ...p, __none__: !p.__none__ }))}
                     style={{ transform: "scale(1.1)" }}
                   />
                   <span>{lang === "no" ? "Ingen" : "None"}</span>
@@ -390,8 +452,8 @@ export function AlbumScreen({ dict, life, settings }: Props) {
                     >
                       <input
                         type="checkbox"
-                        checked={!!selectedCategoryIds[c.id]}
-                        onChange={() => toggleCategory(c.id)}
+                        checked={!!draftCategoryIds[c.id]}
+                        onChange={() => toggleDraftCategory(c.id)}
                         style={{ transform: "scale(1.1)" }}
                       />
                       <span>{c.label}</span>
@@ -412,9 +474,9 @@ export function AlbumScreen({ dict, life, settings }: Props) {
                   >
                     <input
                       type="checkbox"
-                      checked={!!selectedCategoryIds["__none__"]}
+                      checked={!!draftCategoryIds["__none__"]}
                       onChange={() =>
-                        setSelectedCategoryIds((p) => ({ ...p, __none__: !p.__none__ }))
+                        setDraftCategoryIds((p) => ({ ...p, __none__: !p.__none__ }))
                       }
                       style={{ transform: "scale(1.1)" }}
                     />
@@ -425,11 +487,13 @@ export function AlbumScreen({ dict, life, settings }: Props) {
             </div>
 
             <div style={{ display: "flex", gap: 10, justifyContent: "space-between" }}>
-              <button type="button" className="flatBtn danger" onClick={clearAllFilters}>
+              <button type="button" className="flatBtn danger" onClick={clearDraftFilters}>
                 {lang === "no" ? "Nullstill" : "Clear"}
               </button>
-              <button type="button" className="flatBtn primary" onClick={() => setFiltersOpen(false)}>
-                {lang === "no" ? "Lukk" : "Close"}
+
+              {/* Applies filters ONLY for the current life, then closes modal */}
+              <button type="button" className="flatBtn confirm" onClick={applyFiltersAndClose}>
+                {lang === "no" ? "Aktiver filtre" : "Apply filters"}
               </button>
             </div>
           </div>
@@ -437,7 +501,9 @@ export function AlbumScreen({ dict, life, settings }: Props) {
       </div>
 
       {filteredItems.length === 0 ? (
-        <div className="smallHelp">{lang === "no" ? "Ingen treff på valgte filtre." : "No matches for selected filters."}</div>
+        <div className="smallHelp">
+          {lang === "no" ? "Ingen treff på valgte filtre." : "No matches for selected filters."}
+        </div>
       ) : (
         <div className="albumGrid">
           {filteredItems.map((it, index) => (
