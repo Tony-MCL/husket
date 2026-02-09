@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { Husket, LifeKey, Settings } from "../domain/types";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
-import { listHuskets, getImageUrl } from "../data/husketRepo";
+import { listHuskets, getImageUrl, deleteHusketById } from "../data/husketRepo";
 import { ViewHusketModal } from "../components/ViewHusketModal";
 
 type Props = {
@@ -63,18 +63,54 @@ function emptyLifeFilters(): LifeFilters {
   return { appliedRatings: {}, appliedCategoryIds: {}, appliedTimeFilter: "all" };
 }
 
+function computeCutoffMs(timeKey: TimeFilterKey, nowMs: number): number | null {
+  if (timeKey === "7d") return nowMs - 7 * 24 * 60 * 60 * 1000;
+  if (timeKey === "30d") return nowMs - 30 * 24 * 60 * 60 * 1000;
+  if (timeKey === "365d") return nowMs - 365 * 24 * 60 * 60 * 1000;
+  return null;
+}
+
+function applyFiltersToItems(args: {
+  items: Husket[];
+  applied: LifeFilters;
+  nowMs: number;
+}): Husket[] {
+  const { items, applied, nowMs } = args;
+
+  const ratingsActive = Object.values(applied.appliedRatings).some(Boolean);
+  const catsActive = Object.values(applied.appliedCategoryIds).some(Boolean);
+  const timeActive = applied.appliedTimeFilter !== "all";
+
+  const cutoffMs = computeCutoffMs(applied.appliedTimeFilter, nowMs);
+
+  const res = items.filter((it) => {
+    if (ratingsActive) {
+      const key = it.ratingValue ?? "__none__";
+      if (!applied.appliedRatings[key]) return false;
+    }
+    if (catsActive) {
+      const key = it.categoryId ?? "__none__";
+      if (!applied.appliedCategoryIds[key]) return false;
+    }
+    if (timeActive && cutoffMs != null) {
+      if (it.createdAt < cutoffMs) return false;
+    }
+    return true;
+  });
+
+  res.sort((a, b) => b.createdAt - a.createdAt);
+  return res;
+}
+
 export function AlbumScreen({ dict, life, settings }: Props) {
   const [items, setItems] = useState<Husket[]>([]);
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
-  const [viewer, setViewer] = useState<{ open: boolean; index: number }>({
-    open: false,
-    index: 0,
-  });
+  const [viewer, setViewer] = useState<{ open: boolean; index: number }>({ open: false, index: 0 });
 
-  // Filters are per-life (so Jobb filters do not affect Privat, etc.)
+  // Filters are per-life
   const [filtersByLife, setFiltersByLife] = useState<Record<string, LifeFilters>>(() => ({}));
 
-  // Dropdown open + draft state (draft changes only apply when user clicks "Aktiver filtre")
+  // Dropdown open + draft state
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [draftRatings, setDraftRatings] = useState<Record<string, boolean>>({});
   const [draftCategoryIds, setDraftCategoryIds] = useState<Record<string, boolean>>({});
@@ -171,58 +207,15 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     };
 
     window.addEventListener("mousedown", onDown, { capture: true });
-    return () =>
-      window.removeEventListener("mousedown", onDown, { capture: true } as any);
+    return () => window.removeEventListener("mousedown", onDown, { capture: true } as any);
   }, [filtersOpen]);
 
-  const anyAppliedRatingSelected = useMemo(
-    () => Object.values(applied.appliedRatings).some(Boolean),
-    [applied.appliedRatings]
-  );
-  const anyAppliedCategorySelected = useMemo(
-    () => Object.values(applied.appliedCategoryIds).some(Boolean),
-    [applied.appliedCategoryIds]
-  );
-
-  const cutoffMs = useMemo(() => {
-    const nowMs = Date.now();
-    if (applied.appliedTimeFilter === "7d") return nowMs - 7 * 24 * 60 * 60 * 1000;
-    if (applied.appliedTimeFilter === "30d") return nowMs - 30 * 24 * 60 * 60 * 1000;
-    if (applied.appliedTimeFilter === "365d") return nowMs - 365 * 24 * 60 * 60 * 1000;
-    return null;
-  }, [applied.appliedTimeFilter]);
+  const nowMs = Date.now();
 
   const filteredItems = useMemo(() => {
-    const ratingsActive = anyAppliedRatingSelected;
-    const catsActive = anyAppliedCategorySelected;
-    const timeActive = applied.appliedTimeFilter !== "all";
-
-    const res = items.filter((it) => {
-      if (ratingsActive) {
-        const key = it.ratingValue ?? "__none__";
-        if (!applied.appliedRatings[key]) return false;
-      }
-      if (catsActive) {
-        const key = it.categoryId ?? "__none__";
-        if (!applied.appliedCategoryIds[key]) return false;
-      }
-      if (timeActive && cutoffMs != null) {
-        if (it.createdAt < cutoffMs) return false;
-      }
-      return true;
-    });
-
-    res.sort((a, b) => b.createdAt - a.createdAt);
-    return res;
-  }, [
-    items,
-    anyAppliedRatingSelected,
-    anyAppliedCategorySelected,
-    applied.appliedTimeFilter,
-    cutoffMs,
-    applied.appliedRatings,
-    applied.appliedCategoryIds,
-  ]);
+    return applyFiltersToItems({ items, applied, nowMs });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, applied.appliedRatings, applied.appliedCategoryIds, applied.appliedTimeFilter]);
 
   const timeLabelShort = (k: TimeFilterKey) => {
     if (lang === "no") {
@@ -236,6 +229,15 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     if (k === "30d") return "Last month";
     return "Last year";
   };
+
+  const anyAppliedRatingSelected = useMemo(
+    () => Object.values(applied.appliedRatings).some(Boolean),
+    [applied.appliedRatings]
+  );
+  const anyAppliedCategorySelected = useMemo(
+    () => Object.values(applied.appliedCategoryIds).some(Boolean),
+    [applied.appliedCategoryIds]
+  );
 
   const activeSummary = useMemo(() => {
     const parts: string[] = [];
@@ -284,7 +286,6 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     setDraftCategoryIds((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // Time filter is mutually exclusive, but we render it with checkbox-style UI (✔) for visual consistency
   const setDraftTimeExclusive = (k: TimeFilterKey) => {
     setDraftTimeFilter(k);
   };
@@ -315,9 +316,49 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     setViewer({ open: false, index: 0 });
   };
 
-  if (items.length === 0) {
-    return <div className="smallHelp">{tGet(dict, "album.empty")}</div>;
-  }
+  const onDeleteFromViewer = async (id: string) => {
+    // delete from store first
+    const removed = await deleteHusketById(id);
+
+    // update local list
+    setItems((prev) => prev.filter((x) => x.id !== id));
+
+    // revoke & remove thumb url
+    setThumbUrls((prev) => {
+      const next = { ...prev };
+      const u = next[id];
+      if (u) {
+        try {
+          URL.revokeObjectURL(u);
+        } catch {
+          // ignore
+        }
+        delete next[id];
+      }
+      return next;
+    });
+
+    // If delete didn't find anything, just close viewer defensively
+    if (!removed) {
+      setViewer({ open: false, index: 0 });
+      return;
+    }
+
+    // Compute what the filtered list WILL look like after deletion (using current filters)
+    const nextItems = items.filter((x) => x.id !== id);
+    const nextFiltered = applyFiltersToItems({ items: nextItems, applied, nowMs: Date.now() });
+
+    if (nextFiltered.length === 0) {
+      setViewer({ open: false, index: 0 });
+      return;
+    }
+
+    // Keep same index if possible, else clamp to last
+    setViewer((v) => {
+      const curIndex = Math.min(v.index, nextFiltered.length - 1);
+      return { open: true, index: curIndex };
+    });
+  };
 
   const timeChoices: Array<{ key: TimeFilterKey; col: 1 | 2 }> = [
     { key: "all", col: 1 },
@@ -325,6 +366,10 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     { key: "30d", col: 1 },
     { key: "365d", col: 2 },
   ];
+
+  if (items.length === 0) {
+    return <div className="smallHelp">{tGet(dict, "album.empty")}</div>;
+  }
 
   return (
     <div>
@@ -385,19 +430,13 @@ export function AlbumScreen({ dict, life, settings }: Props) {
               gap: 12,
             }}
           >
-            {/* Time (checkbox-style UI with ✔, arranged on two lines: (All + Last week) / (Last month + Last year)) */}
+            {/* Time (checkbox-style UI, arranged on two lines) */}
             <div style={{ display: "grid", gap: 8 }}>
               <div className="label" style={{ margin: 0 }}>
                 {lang === "no" ? "Tid" : "Time"}
               </div>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 8,
-                }}
-              >
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 {timeChoices.map(({ key, col }) => (
                   <label
                     key={key}
@@ -528,7 +567,9 @@ export function AlbumScreen({ dict, life, settings }: Props) {
                     <input
                       type="checkbox"
                       checked={!!draftCategoryIds["__none__"]}
-                      onChange={() => setDraftCategoryIds((p) => ({ ...p, __none__: !p.__none__ }))}
+                      onChange={() =>
+                        setDraftCategoryIds((p) => ({ ...p, __none__: !p.__none__ }))
+                      }
                       style={{ transform: "scale(1.1)" }}
                     />
                     <span>{lang === "no" ? "Ingen" : "None"}</span>
@@ -588,7 +629,9 @@ export function AlbumScreen({ dict, life, settings }: Props) {
           dict={dict}
           settings={settings}
           items={filteredItems}
-          startIndex={viewer.index}
+          index={Math.min(viewer.index, Math.max(filteredItems.length - 1, 0))}
+          onSetIndex={(next) => setViewer((v) => ({ ...v, index: next }))}
+          onDelete={onDeleteFromViewer}
           onClose={() => setViewer({ open: false, index: 0 })}
         />
       ) : null}
