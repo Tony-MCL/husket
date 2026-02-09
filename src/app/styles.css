@@ -18,6 +18,11 @@ src/app/styles.css
   --primary: #3a7bd5;
 
   --radius: 14px;
+
+  /* "Light on" feel for active selections */
+  --activeBg: rgba(255, 255, 255, 0.12);
+  --activeBorder: rgba(255, 255, 255, 0.55);
+  --activeGlow: 0 0 0 1px rgba(255, 255, 255, 0.10), 0 0 18px rgba(255, 255, 255, 0.08);
 }
 
 * {
@@ -128,14 +133,24 @@ button {
   color: var(--ink);
   border: none;
   border-right: 1px solid var(--line);
+  opacity: 0.92;
 }
 
 .lifeTab:last-child {
   border-right: none;
 }
 
+/* Active life: brighter + glow */
 .lifeTab.active {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--activeBg);
+  box-shadow: var(--activeGlow);
+  opacity: 1;
+  font-weight: 700;
+}
+
+/* Optional: a tiny tactile press */
+.lifeTab:active {
+  transform: translateY(0.5px);
 }
 
 .hamburger {
@@ -217,10 +232,20 @@ button {
   padding: 8px 10px;
   background: transparent;
   color: var(--ink);
+  opacity: 0.92;
 }
 
+/* Active selection: stronger contrast + glow */
 .pill.active {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--activeBg);
+  border-color: var(--activeBorder);
+  box-shadow: var(--activeGlow);
+  opacity: 1;
+  font-weight: 700;
+}
+
+.pill:active {
+  transform: translateY(0.5px);
 }
 
 .categoryRow {
@@ -270,10 +295,20 @@ button {
   color: var(--ink);
   border-radius: 999px;
   padding: 14px 10px;
+  opacity: 0.92;
 }
 
+/* Active bottom nav: stronger */
 .bottomBtn.active {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--activeBg);
+  border-color: var(--activeBorder);
+  box-shadow: var(--activeGlow);
+  opacity: 1;
+  font-weight: 700;
+}
+
+.bottomBtn:active {
+  transform: translateY(0.5px);
 }
 
 .albumGrid {
@@ -384,7 +419,7 @@ button {
 .viewer {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.92);
+  background: rgba(0, 0,  0, 0.92);
   display: grid;
   grid-template-rows: auto 1fr auto;
   padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
@@ -432,5 +467,3 @@ button {
 .viewerNav button {
   border-radius: 999px;
 }
-
-
