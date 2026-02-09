@@ -1,0 +1,319 @@
+// ===============================
+// src/components/HusketSwipeDeck.tsx
+// ===============================
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { motion, useAnimation } from "framer-motion";
+import type { Husket, Settings } from "../domain/types";
+import type { I18nDict } from "../i18n";
+import { tGet } from "../i18n";
+import { getImageUrl } from "../data/husketRepo";
+
+type Props = {
+  dict: I18nDict;
+  settings: Settings;
+  items: Husket[];
+  index: number;
+
+  onSetIndex: (nextIndex: number) => void;
+  onClose: () => void;
+  onDeleteCurrent: () => void;
+
+  // newest at index 0 (as in your album)
+  // swipe LEFT => older (index+1)
+  // swipe RIGHT => newer (index-1)
+};
+
+function formatDate(ts: number, lang: "no" | "en") {
+  const d = new Date(ts);
+  if (lang === "no") {
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yy = d.getFullYear();
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mi = String(d.getMinutes()).padStart(2, "0");
+    return `${dd}.${mm}.${yy} ${hh}:${mi}`;
+  }
+  return d.toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function clamp(n: number, a: number, b: number) {
+  return Math.max(a, Math.min(b, n));
+}
+
+export function HusketSwipeDeck({
+  dict,
+  settings,
+  items,
+  index,
+  onSetIndex,
+  onClose,
+  onDeleteCurrent,
+}: Props) {
+  const cur = items[index];
+  const canOlder = index < items.length - 1;
+  const canNewer = index > 0;
+
+  const [topUrl, setTopUrl] = useState<string | null>(null);
+  const [underUrl, setUnderUrl] = useState<string | null>(null);
+  const urlCacheRef = useRef<Map<string, string>>(new Map());
+
+  const controls = useAnimation();
+
+  const lang: "no" | "en" = useMemo(() => {
+    if (settings.language === "no") return "no";
+    if (settings.language === "en") return "en";
+    const n = (navigator.language || "en").toLowerCase();
+    return n.startsWith("no") || n.startsWith("nb") || n.startsWith("nn") ? "no" : "en";
+  }, [settings.language]);
+
+  // Decide what sits under (prefer "older" under, so swipe-left feels natural)
+  const underIndex = useMemo(() => {
+    if (canOlder) return index + 1;
+    if (canNewer) return index - 1;
+    return null;
+  }, [index, canOlder, canNewer]);
+
+  const underItem = underIndex != null ? items[underIndex] : null;
+
+  const categoryLabel = useMemo(() => {
+    if (!cur) return null;
+    const cats = settings.categories[cur.life] ?? [];
+    return cats.find((c) => c.id === cur.categoryId)?.label ?? null;
+  }, [cur?.categoryId, cur?.life, settings.categories]);
+
+  const mapHref = useMemo(() => {
+    if (!cur?.gps) return null;
+    const { lat, lng } = cur.gps;
+    return `https://www.google.com/maps?q=${lat},${lng}`;
+  }, [cur?.gps]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadOne = async (imageKey: string): Promise<string | null> => {
+      const cached = urlCacheRef.current.get(imageKey);
+      if (cached) return cached;
+      const u = await getImageUrl(imageKey);
+      if (!u) return null;
+      urlCacheRef.current.set(imageKey, u);
+      return u;
+    };
+
+    (async () => {
+      if (!cur) return;
+
+      const topKey = cur.imageKey;
+      const underKey = underItem?.imageKey ?? null;
+
+      const [t, u] = await Promise.all([
+        loadOne(topKey),
+        underKey ? loadOne(underKey) : Promise.resolve(null),
+      ]);
+
+      if (cancelled) return;
+
+      setTopUrl(t);
+      setUnderUrl(u);
+
+      // keep cache tight: only top + under
+      const keep = new Set<string>();
+      keep.add(topKey);
+      if (underKey) keep.add(underKey);
+
+      for (const [k, v] of urlCacheRef.current.entries()) {
+        if (!keep.has(k)) {
+          try {
+            URL.revokeObjectURL(v);
+          } catch {
+            // ignore
+          }
+          urlCacheRef.current.delete(k);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cur?.imageKey, underItem?.imageKey]);
+
+  useEffect(() => {
+    return () => {
+      for (const v of urlCacheRef.current.values()) {
+        try {
+          URL.revokeObjectURL(v);
+        } catch {
+          // ignore
+        }
+      }
+      urlCacheRef.current.clear();
+    };
+  }, []);
+
+  const commitSwipe = async (dir: "left" | "right") => {
+    const w = Math.max(window.innerWidth || 360, 360);
+    const exitX = dir === "left" ? -w : w;
+
+    // animate OUT
+    await controls.start({
+      x: exitX,
+      rotate: dir === "left" ? -6 : 6,
+      transition: { type: "spring", stiffness: 420, damping: 34 },
+    });
+
+    // flip index when fully out
+    if (dir === "left" && canOlder) onSetIndex(index + 1);
+    if (dir === "right" && canNewer) onSetIndex(index - 1);
+
+    // reset instantly for next card
+    controls.set({ x: 0, rotate: 0 });
+  };
+
+  if (!cur) return null;
+
+  // under-card "breath" (subtle)
+  const underScale = 0.98;
+  const underOpacity = 0.85;
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        height: "100%",
+        display: "grid",
+        placeItems: "center",
+        padding: "0 12px",
+      }}
+    >
+      {/* Under (static, does NOT follow your drag) */}
+      {underItem ? (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "grid",
+            placeItems: "center",
+            pointerEvents: "none",
+            opacity: underOpacity,
+            transform: `scale(${underScale})`,
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 980,
+              borderRadius: 18,
+              overflow: "hidden",
+              boxShadow: "0 10px 28px rgba(0,0,0,0.12)",
+            }}
+          >
+            <div className="viewerImgWrap">
+              {underUrl ? <img src={underUrl} alt="" /> : <div className="smallHelp">Loading…</div>}
+            </div>
+
+            <div className="viewerBottom" style={{ opacity: 0.6 }}>
+              <div className="viewerMetaLine">
+                <div>
+                  {tGet(dict, "album.created")}: {formatDate(underItem.createdAt, lang)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Top (draggable) */}
+      <motion.div
+        style={{
+          width: "100%",
+          maxWidth: 980,
+          borderRadius: 18,
+          overflow: "hidden",
+          boxShadow: "0 14px 40px rgba(0,0,0,0.22)",
+          touchAction: "pan-y",
+        }}
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.12}
+        animate={controls}
+        onDrag={(e, info) => {
+          // subtle rotate based on progress (paper-like)
+          const w = Math.max(window.innerWidth || 360, 360);
+          const p = clamp(info.offset.x / w, -1, 1);
+          controls.set({ rotate: p * 6 });
+        }}
+        onDragEnd={async (e, info) => {
+          const dx = info.offset.x;
+          const w = Math.max(window.innerWidth || 360, 360);
+          const threshold = Math.max(90, w * 0.22);
+
+          // swipe LEFT => older
+          if (dx < -threshold && canOlder) {
+            await commitSwipe("left");
+            return;
+          }
+
+          // swipe RIGHT => newer
+          if (dx > threshold && canNewer) {
+            await commitSwipe("right");
+            return;
+          }
+
+          // snap back
+          await controls.start({
+            x: 0,
+            rotate: 0,
+            transition: { type: "spring", stiffness: 520, damping: 36 },
+          });
+        }}
+      >
+        <div className="viewerImgWrap">
+          {topUrl ? <img src={topUrl} alt="" /> : <div className="smallHelp">Loading…</div>}
+        </div>
+
+        <div className="viewerBottom">
+          <div className="viewerMetaLine">
+            <div>
+              {tGet(dict, "album.created")}: {formatDate(cur.createdAt, lang)}
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {categoryLabel ? <span className="badge">{categoryLabel}</span> : null}
+              {cur.ratingValue ? <span className="badge">{cur.ratingValue}</span> : null}
+              {mapHref ? (
+                <a className="badge" href={mapHref} target="_blank" rel="noreferrer">
+                  🌍 {tGet(dict, "album.map")}
+                </a>
+              ) : null}
+            </div>
+          </div>
+
+          {cur.comment ? <div style={{ fontSize: 14 }}>{cur.comment}</div> : null}
+
+          <div className="viewerNav">
+            <button className="flatBtn" onClick={() => canNewer && onSetIndex(index - 1)} type="button" disabled={!canNewer}>
+              ◀
+            </button>
+
+            <button className="flatBtn" onClick={onClose} type="button">
+              OK
+            </button>
+
+            <button className="flatBtn" onClick={() => canOlder && onSetIndex(index + 1)} type="button" disabled={!canOlder}>
+              ▶
+            </button>
+
+            <button className="flatBtn danger" onClick={onDeleteCurrent} type="button" title={lang === "no" ? "Slett" : "Delete"}>
+              🗑
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
