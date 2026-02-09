@@ -93,7 +93,10 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     return cats.find((c) => c.id === id)?.label ?? null;
   };
 
-  const ratingOptions = useMemo(() => ratingOptionsFromPack(settings.ratingPack), [settings.ratingPack]);
+  const ratingOptions = useMemo(
+    () => ratingOptionsFromPack(settings.ratingPack),
+    [settings.ratingPack]
+  );
 
   // Current life applied filters
   const applied = useMemo<LifeFilters>(() => {
@@ -142,7 +145,12 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     setDraftRatings(applied.appliedRatings);
     setDraftCategoryIds(applied.appliedCategoryIds);
     setDraftTimeFilter(applied.appliedTimeFilter);
-  }, [filtersOpen, applied.appliedRatings, applied.appliedCategoryIds, applied.appliedTimeFilter]);
+  }, [
+    filtersOpen,
+    applied.appliedRatings,
+    applied.appliedCategoryIds,
+    applied.appliedTimeFilter,
+  ]);
 
   // When switching life: close dropdown & close viewer (clean UX), filters remain per-life
   useEffect(() => {
@@ -162,7 +170,8 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     };
 
     window.addEventListener("mousedown", onDown, { capture: true });
-    return () => window.removeEventListener("mousedown", onDown, { capture: true } as any);
+    return () =>
+      window.removeEventListener("mousedown", onDown, { capture: true } as any);
   }, [filtersOpen]);
 
   const anyAppliedRatingSelected = useMemo(
@@ -214,6 +223,19 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     applied.appliedCategoryIds,
   ]);
 
+  const timeLabelShort = (k: TimeFilterKey) => {
+    if (lang === "no") {
+      if (k === "all") return "Alle";
+      if (k === "7d") return "Siste uke";
+      if (k === "30d") return "Siste måned";
+      return "Siste år";
+    }
+    if (k === "all") return "All";
+    if (k === "7d") return "Last week";
+    if (k === "30d") return "Last month";
+    return "Last year";
+  };
+
   const activeSummary = useMemo(() => {
     const parts: string[] = [];
 
@@ -229,25 +251,17 @@ export function AlbumScreen({ dict, life, settings }: Props) {
         .filter(([, v]) => v)
         .map(([k]) => k);
       const labels = pickedIds.map((id) =>
-        id === "__none__" ? (lang === "no" ? "Ingen" : "None") : categoryLabel(id) ?? id
+        id === "__none__"
+          ? lang === "no"
+            ? "Ingen"
+            : "None"
+          : categoryLabel(id) ?? id
       );
       if (labels.length > 0) parts.push(`🏷 ${labels.join(", ")}`);
     }
 
     if (applied.appliedTimeFilter !== "all") {
-      const label =
-        applied.appliedTimeFilter === "7d"
-          ? lang === "no"
-            ? "Siste 7 dager"
-            : "Last 7 days"
-          : applied.appliedTimeFilter === "30d"
-            ? lang === "no"
-              ? "Siste 30 dager"
-              : "Last 30 days"
-            : lang === "no"
-              ? "Siste år"
-              : "Last year";
-      parts.push(`⏱ ${label}`);
+      parts.push(`⏱ ${timeLabelShort(applied.appliedTimeFilter)}`);
     }
 
     return parts.length > 0 ? parts : [lang === "no" ? "Ingen filtre" : "No filters"];
@@ -269,12 +283,6 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     setDraftCategoryIds((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const clearDraftFilters = () => {
-    setDraftRatings({});
-    setDraftCategoryIds({});
-    setDraftTimeFilter("all");
-  };
-
   const applyFiltersAndClose = () => {
     setFiltersByLife((prev) => ({
       ...prev,
@@ -288,7 +296,20 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     setViewer({ open: false, index: 0 });
   };
 
-  // If no items at all (raw), keep existing empty state
+  // IMPORTANT: must reset applied filters immediately, and close modal (like Apply)
+  const resetFiltersAndClose = () => {
+    setFiltersByLife((prev) => {
+      const next = { ...prev };
+      next[life] = emptyLifeFilters();
+      return next;
+    });
+    setDraftRatings({});
+    setDraftCategoryIds({});
+    setDraftTimeFilter("all");
+    setFiltersOpen(false);
+    setViewer({ open: false, index: 0 });
+  };
+
   if (items.length === 0) {
     return <div className="smallHelp">{tGet(dict, "album.empty")}</div>;
   }
@@ -330,7 +351,9 @@ export function AlbumScreen({ dict, life, settings }: Props) {
               ))}
             </span>
           </span>
-          <span aria-hidden style={{ opacity: 0.85 }}>{filtersOpen ? "▴" : "▾"}</span>
+          <span aria-hidden style={{ opacity: 0.85 }}>
+            {filtersOpen ? "▴" : "▾"}
+          </span>
         </button>
 
         {filtersOpen ? (
@@ -350,26 +373,36 @@ export function AlbumScreen({ dict, life, settings }: Props) {
               gap: 12,
             }}
           >
-            {/* Time */}
+            {/* Time (radio list, no pill-glow, no long labels) */}
             <div style={{ display: "grid", gap: 8 }}>
               <div className="label" style={{ margin: 0 }}>
                 {lang === "no" ? "Tid" : "Time"}
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {([
-                  ["all", lang === "no" ? "Alle" : "All"],
-                  ["7d", lang === "no" ? "Siste 7 dager" : "Last 7 days"],
-                  ["30d", lang === "no" ? "Siste 30 dager" : "Last 30 days"],
-                  ["365d", lang === "no" ? "Siste år" : "Last year"],
-                ] as Array<[TimeFilterKey, string]>).map(([k, label]) => (
-                  <button
+
+              <div style={{ display: "grid", gap: 6 }}>
+                {(["all", "7d", "30d", "365d"] as TimeFilterKey[]).map((k) => (
+                  <label
                     key={k}
-                    type="button"
-                    className={`pill ${draftTimeFilter === k ? "active" : ""}`}
-                    onClick={() => setDraftTimeFilter(k)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "6px 8px",
+                      borderRadius: 10,
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      cursor: "pointer",
+                      userSelect: "none",
+                    }}
                   >
-                    {label}
-                  </button>
+                    <input
+                      type="radio"
+                      name="albumTimeFilter"
+                      checked={draftTimeFilter === k}
+                      onChange={() => setDraftTimeFilter(k)}
+                      style={{ transform: "scale(1.1)" }}
+                    />
+                    <span>{timeLabelShort(k)}</span>
+                  </label>
                 ))}
               </div>
             </div>
@@ -403,6 +436,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
                     <span>{r}</span>
                   </label>
                 ))}
+
                 <label
                   style={{
                     display: "flex",
@@ -459,6 +493,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
                       <span>{c.label}</span>
                     </label>
                   ))}
+
                   <label
                     style={{
                       display: "flex",
@@ -475,9 +510,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
                     <input
                       type="checkbox"
                       checked={!!draftCategoryIds["__none__"]}
-                      onChange={() =>
-                        setDraftCategoryIds((p) => ({ ...p, __none__: !p.__none__ }))
-                      }
+                      onChange={() => setDraftCategoryIds((p) => ({ ...p, __none__: !p.__none__ }))}
                       style={{ transform: "scale(1.1)" }}
                     />
                     <span>{lang === "no" ? "Ingen" : "None"}</span>
@@ -487,8 +520,9 @@ export function AlbumScreen({ dict, life, settings }: Props) {
             </div>
 
             <div style={{ display: "flex", gap: 10, justifyContent: "space-between" }}>
-              <button type="button" className="flatBtn danger" onClick={clearDraftFilters}>
-                {lang === "no" ? "Nullstill" : "Clear"}
+              {/* Must reset applied filters immediately + close */}
+              <button type="button" className="flatBtn danger" onClick={resetFiltersAndClose}>
+                {lang === "no" ? "Nullstill filtre" : "Reset filters"}
               </button>
 
               {/* Applies filters ONLY for the current life, then closes modal */}
