@@ -25,8 +25,26 @@ function formatDate(ts: number, lang: "no" | "en") {
     const mi = String(d.getMinutes()).padStart(2, "0");
     return `${dd}.${mm}.${yy} ${hh}:${mi}`;
   }
-  return d.toLocaleString("en-US", { year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
+
+/**
+ * We pad the viewer bottom to avoid being covered by any bottom panel / footer.
+ * This is a pure modal-level fix (no changes to the bottom panel).
+ *
+ * The padding uses:
+ * - a fixed "assumed" bottom panel height (safe default)
+ * - plus safe-area inset for iOS (env(safe-area-inset-bottom))
+ *
+ * If you later change your bottom panel height, update DEFAULT_BOTTOM_PANEL_PX.
+ */
+const DEFAULT_BOTTOM_PANEL_PX = 78;
 
 export function ViewHusketModal({ dict, settings, items, startIndex, onClose }: Props) {
   const [idx, setIdx] = useState(startIndex);
@@ -112,7 +130,17 @@ export function ViewHusketModal({ dict, settings, items, startIndex, onClose }: 
   };
 
   return (
-    <div className="viewer" role="dialog" aria-modal="true" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+    <div
+      className="viewer"
+      role="dialog"
+      aria-modal="true"
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      style={{
+        // Critical: ensure modal content never gets hidden behind bottom panel/footer
+        paddingBottom: `calc(${DEFAULT_BOTTOM_PANEL_PX}px + env(safe-area-inset-bottom))`,
+      }}
+    >
       <div className="viewerTop">
         <button className="flatBtn" onClick={onClose} type="button">
           ✕
@@ -145,13 +173,23 @@ export function ViewHusketModal({ dict, settings, items, startIndex, onClose }: 
         {cur.comment ? <div style={{ fontSize: 14 }}>{cur.comment}</div> : null}
 
         <div className="viewerNav">
-          <button className="flatBtn" onClick={() => canPrev && setIdx((v) => v + 1)} type="button" disabled={!canPrev}>
+          <button
+            className="flatBtn"
+            onClick={() => canPrev && setIdx((v) => v + 1)}
+            type="button"
+            disabled={!canPrev}
+          >
             ◀
           </button>
           <button className="flatBtn" onClick={onClose} type="button">
             OK
           </button>
-          <button className="flatBtn" onClick={() => canNext && setIdx((v) => v - 1)} type="button" disabled={!canNext}>
+          <button
+            className="flatBtn"
+            onClick={() => canNext && setIdx((v) => v - 1)}
+            type="button"
+            disabled={!canNext}
+          >
             ▶
           </button>
         </div>
@@ -159,5 +197,3 @@ export function ViewHusketModal({ dict, settings, items, startIndex, onClose }: 
     </div>
   );
 }
-
-
