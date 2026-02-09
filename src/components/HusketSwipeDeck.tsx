@@ -2,7 +2,7 @@
 // src/components/HusketSwipeDeck.tsx
 // ===============================
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { motion, useAnimation } from "framer-motion";
+import { motion, useAnimation, type PanInfo } from "framer-motion";
 import type { Husket, Settings } from "../domain/types";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
@@ -17,10 +17,6 @@ type Props = {
   onSetIndex: (nextIndex: number) => void;
   onClose: () => void;
   onDeleteCurrent: () => void;
-
-  // newest at index 0 (as in your album)
-  // swipe LEFT => older (index+1)
-  // swipe RIGHT => newer (index-1)
 };
 
 function formatDate(ts: number, lang: "no" | "en") {
@@ -72,7 +68,6 @@ export function HusketSwipeDeck({
     return n.startsWith("no") || n.startsWith("nb") || n.startsWith("nn") ? "no" : "en";
   }, [settings.language]);
 
-  // Decide what sits under (prefer "older" under, so swipe-left feels natural)
   const underIndex = useMemo(() => {
     if (canOlder) return index + 1;
     if (canNewer) return index - 1;
@@ -121,7 +116,6 @@ export function HusketSwipeDeck({
       setTopUrl(t);
       setUnderUrl(u);
 
-      // keep cache tight: only top + under
       const keep = new Set<string>();
       keep.add(topKey);
       if (underKey) keep.add(underKey);
@@ -160,24 +154,20 @@ export function HusketSwipeDeck({
     const w = Math.max(window.innerWidth || 360, 360);
     const exitX = dir === "left" ? -w : w;
 
-    // animate OUT
     await controls.start({
       x: exitX,
       rotate: dir === "left" ? -6 : 6,
       transition: { type: "spring", stiffness: 420, damping: 34 },
     });
 
-    // flip index when fully out
     if (dir === "left" && canOlder) onSetIndex(index + 1);
     if (dir === "right" && canNewer) onSetIndex(index - 1);
 
-    // reset instantly for next card
     controls.set({ x: 0, rotate: 0 });
   };
 
   if (!cur) return null;
 
-  // under-card "breath" (subtle)
   const underScale = 0.98;
   const underOpacity = 0.85;
 
@@ -191,7 +181,6 @@ export function HusketSwipeDeck({
         padding: "0 12px",
       }}
     >
-      {/* Under (static, does NOT follow your drag) */}
       {underItem ? (
         <div
           style={{
@@ -228,7 +217,6 @@ export function HusketSwipeDeck({
         </div>
       ) : null}
 
-      {/* Top (draggable) */}
       <motion.div
         style={{
           width: "100%",
@@ -242,30 +230,26 @@ export function HusketSwipeDeck({
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.12}
         animate={controls}
-        onDrag={(e, info) => {
-          // subtle rotate based on progress (paper-like)
+        onDrag={(_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
           const w = Math.max(window.innerWidth || 360, 360);
           const p = clamp(info.offset.x / w, -1, 1);
           controls.set({ rotate: p * 6 });
         }}
-        onDragEnd={async (e, info) => {
+        onDragEnd={async (_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
           const dx = info.offset.x;
           const w = Math.max(window.innerWidth || 360, 360);
           const threshold = Math.max(90, w * 0.22);
 
-          // swipe LEFT => older
           if (dx < -threshold && canOlder) {
             await commitSwipe("left");
             return;
           }
 
-          // swipe RIGHT => newer
           if (dx > threshold && canNewer) {
             await commitSwipe("right");
             return;
           }
 
-          // snap back
           await controls.start({
             x: 0,
             rotate: 0,
