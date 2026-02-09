@@ -64,4 +64,17 @@ export async function getHusketById(id: string): Promise<Husket | null> {
   return store.items.find((x) => x.id === id) ?? null;
 }
 
+/**
+ * Deletes the husket metadata from the local store.
+ * Note: image blob cleanup is intentionally not done here yet (depends on idb helper coverage).
+ */
+export async function deleteHusketById(id: string): Promise<Husket | null> {
+  const store = loadStore();
+  const idx = store.items.findIndex((x) => x.id === id);
+  if (idx === -1) return null;
 
+  const [removed] = store.items.splice(idx, 1);
+  saveStore(store);
+
+  return removed ?? null;
+}
