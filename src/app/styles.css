@@ -152,7 +152,7 @@ button {
     0 0 14px var(--glowSoft),
     0 0 26px rgba(255, 255, 255, 0.14);
   font-weight: 800;
-  transform: translateY(-0.5px) scale(1.10);
+  transform: translateY(-0.5px) scale(1.30);
 
   box-shadow:
     inset 0 0 0 1px var(--activeRing2),
@@ -161,7 +161,7 @@ button {
 }
 
 .lifeTab:active {
-  transform: translateY(0.5px) scale(1.10);
+  transform: translateY(0.5px) scale(1.01);
 }
 
 .hamburger {
@@ -248,7 +248,7 @@ button {
     0 0 14px var(--glowSoft),
     0 0 26px rgba(255, 255, 255, 0.14);
   font-weight: 800;
-  transform: translateY(-0.5px) scale(1.10);
+  transform: translateY(-0.5px) scale(1.30);
 
   border-color: var(--activeRing);
   box-shadow:
@@ -257,7 +257,7 @@ button {
 }
 
 .pill:active {
-  transform: translateY(0.5px) scale(1.10);
+  transform: translateY(0.5px) scale(1.01);
 }
 
 .bottomNav {
