@@ -19,10 +19,13 @@ src/app/styles.css
 
   --radius: 14px;
 
-  /* "Light on" feel for active selections */
-  --activeBg: rgba(255, 255, 255, 0.12);
-  --activeBorder: rgba(255, 255, 255, 0.55);
-  --activeGlow: 0 0 0 1px rgba(255, 255, 255, 0.10), 0 0 18px rgba(255, 255, 255, 0.08);
+  /* Glow – apply to text/icons, not the whole button */
+  --glowText: rgba(255, 255, 255, 0.92);
+  --glowSoft: rgba(255, 255, 255, 0.22);
+  --glowHard: rgba(255, 255, 255, 0.34);
+
+  --activeRing: rgba(255, 255, 255, 0.35);
+  --activeRing2: rgba(255, 255, 255, 0.18);
 }
 
 * {
@@ -130,25 +133,30 @@ button {
 .lifeTab {
   padding: 10px 16px;
   background: transparent;
-  color: var(--ink);
+  color: rgba(242, 242, 242, 0.88);
   border: none;
   border-right: 1px solid var(--line);
-  opacity: 0.92;
 }
 
 .lifeTab:last-child {
   border-right: none;
 }
 
-/* Active life: brighter + glow */
+/* Active: glow the text, keep background flat */
 .lifeTab.active {
-  background: var(--activeBg);
-  box-shadow: var(--activeGlow);
-  opacity: 1;
+  color: var(--glowText);
+  text-shadow:
+    0 0 10px var(--glowSoft),
+    0 0 18px rgba(255, 255, 255, 0.10);
   font-weight: 700;
+
+  /* subtle ring – does not brighten the fill */
+  box-shadow:
+    inset 0 0 0 1px var(--activeRing2),
+    0 0 0 1px var(--activeRing);
 }
 
-/* Optional: a tiny tactile press */
+/* press */
 .lifeTab:active {
   transform: translateY(0.5px);
 }
@@ -210,12 +218,6 @@ button {
   object-fit: cover;
 }
 
-.rowTwo {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
 .ratingRow {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -231,42 +233,26 @@ button {
   border-radius: 999px;
   padding: 8px 10px;
   background: transparent;
-  color: var(--ink);
-  opacity: 0.92;
+  color: rgba(242, 242, 242, 0.88);
 }
 
-/* Active selection: stronger contrast + glow */
+/* Active: glow only the content */
 .pill.active {
-  background: var(--activeBg);
-  border-color: var(--activeBorder);
-  box-shadow: var(--activeGlow);
-  opacity: 1;
+  color: var(--glowText);
+  text-shadow:
+    0 0 10px var(--glowSoft),
+    0 0 18px rgba(255, 255, 255, 0.10);
   font-weight: 700;
+
+  /* slightly stronger border to frame the glow */
+  border-color: var(--activeRing);
+
+  /* tiny inner ring, still flat */
+  box-shadow: inset 0 0 0 1px var(--activeRing2);
 }
 
 .pill:active {
   transform: translateY(0.5px);
-}
-
-.categoryRow {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 10px 10px;
-  display: flex;
-  gap: 10px;
-  justify-content: space-between;
-}
-
-.catDot {
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  background: transparent;
-}
-
-.catDot.active {
-  background: rgba(255, 255, 255, 0.7);
 }
 
 .bottomNav {
@@ -292,19 +278,21 @@ button {
 .bottomBtn {
   border: 1px solid var(--line);
   background: transparent;
-  color: var(--ink);
+  color: rgba(242, 242, 242, 0.88);
   border-radius: 999px;
   padding: 14px 10px;
-  opacity: 0.92;
 }
 
-/* Active bottom nav: stronger */
+/* Active: glow the label, not the fill */
 .bottomBtn.active {
-  background: var(--activeBg);
-  border-color: var(--activeBorder);
-  box-shadow: var(--activeGlow);
-  opacity: 1;
+  color: var(--glowText);
+  text-shadow:
+    0 0 10px var(--glowSoft),
+    0 0 18px rgba(255, 255, 255, 0.10);
   font-weight: 700;
+
+  border-color: var(--activeRing);
+  box-shadow: inset 0 0 0 1px var(--activeRing2);
 }
 
 .bottomBtn:active {
@@ -419,7 +407,7 @@ button {
 .viewer {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0,  0, 0.92);
+  background: rgba(0, 0, 0, 0.92);
   display: grid;
   grid-template-rows: auto 1fr auto;
   padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
