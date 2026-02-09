@@ -19,13 +19,14 @@ src/app/styles.css
 
   --radius: 14px;
 
-  /* Glow – apply to text/icons, not the whole button */
-  --glowText: rgba(255, 255, 255, 0.92);
-  --glowSoft: rgba(255, 255, 255, 0.22);
-  --glowHard: rgba(255, 255, 255, 0.34);
+  /* Stronger glow (text/icon) */
+  --glowText: rgba(255, 255, 255, 1);
+  --glowSoft: rgba(255, 255, 255, 0.45);
+  --glowHard: rgba(255, 255, 255, 0.65);
+  --glowHalo: rgba(255, 255, 255, 0.22);
 
-  --activeRing: rgba(255, 255, 255, 0.35);
-  --activeRing2: rgba(255, 255, 255, 0.18);
+  --activeRing: rgba(255, 255, 255, 0.55);
+  --activeRing2: rgba(255, 255, 255, 0.22);
 }
 
 * {
@@ -133,32 +134,34 @@ button {
 .lifeTab {
   padding: 10px 16px;
   background: transparent;
-  color: rgba(242, 242, 242, 0.88);
+  color: rgba(242, 242, 242, 0.85);
   border: none;
   border-right: 1px solid var(--line);
+  transition: transform 120ms ease, color 120ms ease, text-shadow 120ms ease, box-shadow 120ms ease;
 }
 
 .lifeTab:last-child {
   border-right: none;
 }
 
-/* Active: glow the text, keep background flat */
+/* Active: strong glow on text + subtle ring + small pop */
 .lifeTab.active {
   color: var(--glowText);
   text-shadow:
-    0 0 10px var(--glowSoft),
-    0 0 18px rgba(255, 255, 255, 0.10);
-  font-weight: 700;
+    0 0 6px var(--glowHard),
+    0 0 14px var(--glowSoft),
+    0 0 26px rgba(255, 255, 255, 0.14);
+  font-weight: 800;
+  transform: translateY(-0.5px) scale(1.04);
 
-  /* subtle ring – does not brighten the fill */
   box-shadow:
     inset 0 0 0 1px var(--activeRing2),
-    0 0 0 1px var(--activeRing);
+    0 0 0 1px var(--activeRing),
+    0 0 18px var(--glowHalo);
 }
 
-/* press */
 .lifeTab:active {
-  transform: translateY(0.5px);
+  transform: translateY(0.5px) scale(1.01);
 }
 
 .hamburger {
@@ -233,26 +236,28 @@ button {
   border-radius: 999px;
   padding: 8px 10px;
   background: transparent;
-  color: rgba(242, 242, 242, 0.88);
+  color: rgba(242, 242, 242, 0.85);
+  transition: transform 120ms ease, color 120ms ease, text-shadow 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
 }
 
-/* Active: glow only the content */
+/* Active: strong glow on content + tiny pop, keep fill flat */
 .pill.active {
   color: var(--glowText);
   text-shadow:
-    0 0 10px var(--glowSoft),
-    0 0 18px rgba(255, 255, 255, 0.10);
-  font-weight: 700;
+    0 0 6px var(--glowHard),
+    0 0 14px var(--glowSoft),
+    0 0 26px rgba(255, 255, 255, 0.14);
+  font-weight: 800;
+  transform: translateY(-0.5px) scale(1.05);
 
-  /* slightly stronger border to frame the glow */
   border-color: var(--activeRing);
-
-  /* tiny inner ring, still flat */
-  box-shadow: inset 0 0 0 1px var(--activeRing2);
+  box-shadow:
+    inset 0 0 0 1px var(--activeRing2),
+    0 0 14px var(--glowHalo);
 }
 
 .pill:active {
-  transform: translateY(0.5px);
+  transform: translateY(0.5px) scale(1.01);
 }
 
 .bottomNav {
@@ -278,25 +283,30 @@ button {
 .bottomBtn {
   border: 1px solid var(--line);
   background: transparent;
-  color: rgba(242, 242, 242, 0.88);
+  color: rgba(242, 242, 242, 0.85);
   border-radius: 999px;
   padding: 14px 10px;
+  transition: transform 120ms ease, color 120ms ease, text-shadow 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
 }
 
-/* Active: glow the label, not the fill */
+/* Active: glow label + pop */
 .bottomBtn.active {
   color: var(--glowText);
   text-shadow:
-    0 0 10px var(--glowSoft),
-    0 0 18px rgba(255, 255, 255, 0.10);
-  font-weight: 700;
+    0 0 6px var(--glowHard),
+    0 0 14px var(--glowSoft),
+    0 0 26px rgba(255, 255, 255, 0.14);
+  font-weight: 800;
+  transform: translateY(-0.5px) scale(1.04);
 
   border-color: var(--activeRing);
-  box-shadow: inset 0 0 0 1px var(--activeRing2);
+  box-shadow:
+    inset 0 0 0 1px var(--activeRing2),
+    0 0 16px var(--glowHalo);
 }
 
 .bottomBtn:active {
-  transform: translateY(0.5px);
+  transform: translateY(0.5px) scale(1.01);
 }
 
 .albumGrid {
