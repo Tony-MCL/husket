@@ -271,45 +271,59 @@ export function HusketSwipeDeck({
           });
         }}
       >
-        {/* Arrow overlay */}
-        <button
-          className="husketCardArrow left"
-          onClick={() => void goNewerAnimated()}
-          type="button"
-          disabled={!canNewer}
-          aria-label="Newer"
-          title={lang === "no" ? "Nyere" : "Newer"}
-        >
-          ◀
-        </button>
+        {/* Arrow overlay (only when available) */}
+        {canNewer ? (
+          <button
+            className="husketCardArrow left"
+            onClick={() => void goNewerAnimated()}
+            type="button"
+            aria-label="Newer"
+            title={lang === "no" ? "Nyere" : "Newer"}
+          >
+            ◀
+          </button>
+        ) : null}
 
-        <button
-          className="husketCardArrow right"
-          onClick={() => void goOlderAnimated()}
-          type="button"
-          disabled={!canOlder}
-          aria-label="Older"
-          title={lang === "no" ? "Eldre" : "Older"}
-        >
-          ▶
-        </button>
+        {canOlder ? (
+          <button
+            className="husketCardArrow right"
+            onClick={() => void goOlderAnimated()}
+            type="button"
+            aria-label="Older"
+            title={lang === "no" ? "Eldre" : "Older"}
+          >
+            ▶
+          </button>
+        ) : null}
 
         {/* Top: image + side rail */}
         <div className="husketCardTop">
-          <div className="husketCardImg" role="button" tabIndex={0} onClick={onClose} onKeyDown={() => {}}>
+          <div className="husketCardImg">
             {topUrl ? <img src={topUrl} alt="" /> : <div className="smallHelp">Loading…</div>}
           </div>
 
           <div className="husketCardSide">
-            <div className="husketSidePill" title={lang === "no" ? "Rating" : "Rating"}>{sideRating}</div>
-            <div className="husketSidePill" title={lang === "no" ? "Kategori" : "Category"}>{sideCat}</div>
+            <div className="husketSidePill" title={lang === "no" ? "Rating" : "Rating"}>
+              {sideRating}
+            </div>
+            <div className="husketSidePill" title={lang === "no" ? "Kategori" : "Category"}>
+              {sideCat}
+            </div>
 
             {mapHref ? (
-              <a className="husketSidePill" href={mapHref} target="_blank" rel="noreferrer" title={tGet(dict, "album.map")}>
+              <a
+                className="husketSidePill"
+                href={mapHref}
+                target="_blank"
+                rel="noreferrer"
+                title={tGet(dict, "album.map")}
+              >
                 🌍
               </a>
             ) : (
-              <div className="husketSidePill" title="GPS">{sideGps}</div>
+              <div className="husketSidePill" title="GPS">
+                {sideGps}
+              </div>
             )}
           </div>
         </div>
@@ -320,7 +334,15 @@ export function HusketSwipeDeck({
             <div>
               {tGet(dict, "album.created")}: {formatDate(cur.createdAt, lang)}
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                flexWrap: "wrap",
+                justifyContent: "flex-end",
+              }}
+            >
               {categoryLabel ? <span className="badge">{categoryLabel}</span> : null}
               {cur.ratingValue ? <span className="badge">{cur.ratingValue}</span> : null}
             </div>
@@ -329,7 +351,12 @@ export function HusketSwipeDeck({
           {cur.comment ? <div style={{ fontSize: 14 }}>{cur.comment}</div> : null}
 
           <div style={{ marginTop: 2, display: "flex", justifyContent: "center" }}>
-            <button className="flatBtn danger" onClick={onDeleteCurrent} type="button" title={lang === "no" ? "Slett" : "Delete"}>
+            <button
+              className="flatBtn danger"
+              onClick={onDeleteCurrent}
+              type="button"
+              title={lang === "no" ? "Slett" : "Delete"}
+            >
               🗑 {lang === "no" ? "Slett" : "Delete"}
             </button>
           </div>
