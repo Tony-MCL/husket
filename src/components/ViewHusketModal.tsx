@@ -42,12 +42,13 @@ const DEFAULT_BOTTOM_PANEL_PX = 78;
 const SWIPE_THRESHOLD_PX = 70;
 const SWIPE_MAX_Y_DRIFT_PX = 90;
 const TRANSITION_MS = 220;
+const DIR_LOCK_PX = 8;
 
 function clamp(n: number, a: number, b: number) {
   return Math.max(a, Math.min(b, n));
 }
 
-type SwipeDir = "toOlder" | "toNewer"; // relative to time
+type SwipeDir = "toOlder" | "toNewer";
 
 type CardUrls = {
   top: string | null;
@@ -74,9 +75,16 @@ export function ViewHusketModal({
 
   const touchRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Two-card stack: cache two URLs at once (top + under)
+  // Direction lock so the "under card" NEVER changes mid-gesture
+  const dirLockRef = useRef<SwipeDir | null>(null);
+
+  // Two-card cache (only keep what we need)
   const urlCacheRef = useRef<Map<string, string>>(new Map());
   const [urls, setUrls] = useState<CardUrls>({ top: null, under: null });
+
+  // Width for progress/threshold (avoid window.innerWidth jitter)
+  const stackRef = useRef<HTMLDivElement | null>(null);
+  const widthRef = useRef<number>(360);
 
   const lang: "no" | "en" = useMemo(() => {
     if (settings.language === "no") return "no";
@@ -115,20 +123,31 @@ export function ViewHusketModal({
     return `https://www.google.com/maps?q=${lat},${lng}`;
   }, [cur?.gps]);
 
-  // Decide which card sits "under" based on current drag direction:
-  // - drag left (dx < 0): reveal OLDER (index+1)
-  // - drag right (dx > 0): reveal NEWER (index-1)
-  const underIndex = useMemo(() => {
-    if (!cur) return null;
-    if (dragX < 0) return canOlder ? index + 1 : null;
-    if (dragX > 0) return canNewer ? index - 1 : null;
-    // when idle: default reveal direction = older if possible, else newer
+  // Keep widthRef updated
+  useEffect(() => {
+    const measure = () => {
+      const w = stackRef.current?.getBoundingClientRect().width ?? window.innerWidth ?? 360;
+      widthRef.current = Math.max(320, Math.floor(w));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
+  const computeUnderIndex = (): number | null => {
+    const locked = dirLockRef.current;
+    if (locked === "toOlder") return canOlder ? index + 1 : null;
+    if (locked === "toNewer") return canNewer ? index - 1 : null;
+
+    // idle default: prefer older if exists, else newer
     if (canOlder) return index + 1;
     if (canNewer) return index - 1;
     return null;
-  }, [cur, dragX, index, canOlder, canNewer]);
+  };
 
-  // Load/cache URLs for current top + under imageKeys
+  const underIndex = useMemo(() => computeUnderIndex(), [index, canOlder, canNewer]);
+
+  // Load/cache URLs for current top + under
   useEffect(() => {
     let cancelled = false;
 
@@ -155,16 +174,21 @@ export function ViewHusketModal({
       if (cancelled) return;
       setUrls({ top: topUrl, under: underUrl });
 
-      // Keep cache bounded (very small) to avoid memory growth
-      // We keep only the most relevant keys: current + neighbor + one extra
+      // Keep cache bounded: current + under + opposite neighbor for quick direction changes
       const keepKeys = new Set<string>();
       keepKeys.add(topKey);
       if (underKey) keepKeys.add(underKey);
 
-      // also keep the opposite neighbor if available (for snappy direction change)
-      const otherNeighbor =
-        underIndex === index + 1 ? (canNewer ? items[index - 1]?.imageKey : null) : (canOlder ? items[index + 1]?.imageKey : null);
-      if (otherNeighbor) keepKeys.add(otherNeighbor);
+      const opp =
+        underIndex === index + 1
+          ? canNewer
+            ? items[index - 1]?.imageKey
+            : null
+          : canOlder
+            ? items[index + 1]?.imageKey
+            : null;
+
+      if (opp) keepKeys.add(opp);
 
       const cache = urlCacheRef.current;
       for (const [k, v] of cache.entries()) {
@@ -199,10 +223,11 @@ export function ViewHusketModal({
     };
   }, []);
 
+  // Keyboard
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape") onClose();
 
-    // Match requested direction:
+    // Requested direction:
     // Right arrow => older (next)
     // Left arrow  => newer (previous)
     if (e.key === "ArrowRight" && canOlder) goOlder();
@@ -214,11 +239,11 @@ export function ViewHusketModal({
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  const completeSwipe = (dir: SwipeDir) => {
+  const finishSwipe = (dir: SwipeDir) => {
     if (isAnimating) return;
 
-    const width = Math.max(window.innerWidth || 360, 360);
-    const exitX = dir === "toOlder" ? -width : width;
+    const w = widthRef.current || 360;
+    const exitX = dir === "toOlder" ? -w : w;
 
     setIsAnimating(true);
     setIsDragging(false);
@@ -227,11 +252,12 @@ export function ViewHusketModal({
     setDragX(exitX);
 
     window.setTimeout(() => {
-      // switch item (this makes the previous "under" become "top")
+      // switch index AFTER top has left
       if (dir === "toOlder" && canOlder) onSetIndex(index + 1);
       if (dir === "toNewer" && canNewer) onSetIndex(index - 1);
 
-      // reset drag position for the new top (no slide-in; under-card effect already handled)
+      // reset state for the next card (no "returning" animation)
+      dirLockRef.current = null;
       setDragX(0);
 
       window.setTimeout(() => {
@@ -240,10 +266,12 @@ export function ViewHusketModal({
     }, TRANSITION_MS);
   };
 
+  // Touch handlers (single moving top card; under card stays put)
   const onTouchStart = (e: React.TouchEvent) => {
     if (isAnimating) return;
     const t = e.touches[0];
     touchRef.current = { x: t.clientX, y: t.clientY };
+    dirLockRef.current = null;
     setIsDragging(true);
     setDragX(0);
   };
@@ -259,6 +287,13 @@ export function ViewHusketModal({
 
     if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 18) return;
     if (Math.abs(dy) > SWIPE_MAX_Y_DRIFT_PX) return;
+
+    // lock direction once we have intent
+    if (!dirLockRef.current && Math.abs(dx) > DIR_LOCK_PX) {
+      if (dx < 0 && canOlder) dirLockRef.current = "toOlder";
+      if (dx > 0 && canNewer) dirLockRef.current = "toNewer";
+      // If we can't go that way, keep null (will behave like snap-back)
+    }
 
     setDragX(dx);
   };
@@ -276,22 +311,27 @@ export function ViewHusketModal({
     setIsDragging(false);
 
     if (Math.abs(dx) < Math.abs(dy)) {
+      dirLockRef.current = null;
       setDragX(0);
       return;
     }
 
-    // Requested direction:
-    // swipe LEFT (dx < 0) => OLDER (index+1)
-    // swipe RIGHT (dx > 0) => NEWER (index-1)
+    // swipe LEFT => OLDER
     if (dx < -SWIPE_THRESHOLD_PX && canOlder) {
-      completeSwipe("toOlder");
-      return;
-    }
-    if (dx > SWIPE_THRESHOLD_PX && canNewer) {
-      completeSwipe("toNewer");
+      dirLockRef.current = "toOlder";
+      finishSwipe("toOlder");
       return;
     }
 
+    // swipe RIGHT => NEWER
+    if (dx > SWIPE_THRESHOLD_PX && canNewer) {
+      dirLockRef.current = "toNewer";
+      finishSwipe("toNewer");
+      return;
+    }
+
+    // snap back
+    dirLockRef.current = null;
     setDragX(0);
   };
 
@@ -307,17 +347,16 @@ export function ViewHusketModal({
 
   if (!cur) return null;
 
-  const width = Math.max(window.innerWidth || 360, 360);
-  const p = clamp(Math.abs(dragX) / width, 0, 1);
+  const w = widthRef.current || 360;
+  const p = clamp(Math.abs(dragX) / w, 0, 1);
 
   // Under card subtle "come forward"
-  const underScale = 0.96 + 0.04 * p;
+  const underScale = 0.965 + 0.035 * p;
   const underOpacity = 0.55 + 0.45 * p;
-  const underBlur = 2 * (1 - p);
 
   // Top card "paper" feel
-  const rot = (dragX / width) * 2.2; // degrees
-  const shadowAlpha = 0.20 + 0.18 * p;
+  const rot = (dragX / w) * 1.6; // degrees (subtle)
+  const shadowAlpha = 0.18 + 0.18 * p;
 
   const topTransition = isDragging
     ? "none"
@@ -325,7 +364,7 @@ export function ViewHusketModal({
 
   const underTransition = isDragging
     ? "none"
-    : `transform ${TRANSITION_MS}ms cubic-bezier(.22,.61,.36,1), opacity ${TRANSITION_MS}ms ease-out, filter ${TRANSITION_MS}ms ease-out`;
+    : `transform ${TRANSITION_MS}ms cubic-bezier(.22,.61,.36,1), opacity ${TRANSITION_MS}ms ease-out`;
 
   const underItem = underIndex != null ? items[underIndex] : null;
 
@@ -367,14 +406,16 @@ export function ViewHusketModal({
 
       {/* STACK AREA */}
       <div
+        ref={stackRef}
         style={{
           position: "relative",
           height: "calc(100% - 56px)",
           display: "grid",
           placeItems: "center",
+          padding: "0 12px",
         }}
       >
-        {/* UNDER CARD */}
+        {/* UNDER CARD (never moves sideways) */}
         {underItem ? (
           <div
             style={{
@@ -385,36 +426,28 @@ export function ViewHusketModal({
               pointerEvents: "none",
               transform: `scale(${underScale})`,
               opacity: underOpacity,
-              filter: `blur(${underBlur}px)`,
               transition: underTransition,
             }}
           >
-            <div style={{ width: "100%", maxWidth: 980 }}>
+            <div
+              style={{
+                width: "100%",
+                maxWidth: 980,
+                borderRadius: 18,
+                overflow: "hidden",
+              }}
+            >
               <div className="viewerImgWrap">
                 {urls.under ? <img src={urls.under} alt="" /> : <div className="smallHelp">Loading…</div>}
               </div>
 
-              <div className="viewerBottom">
+              {/* keep under-meta minimal to avoid “both moving” illusion */}
+              <div className="viewerBottom" style={{ opacity: 0.55 }}>
                 <div className="viewerMetaLine">
                   <div>
                     {tGet(dict, "album.created")}: {formatDate(underItem.createdAt, lang)}
                   </div>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    {(() => {
-                      const cats = settings.categories[underItem.life] ?? [];
-                      const lab = cats.find((c) => c.id === underItem.categoryId)?.label ?? null;
-                      return lab ? <span className="badge">{lab}</span> : null;
-                    })()}
-                    {underItem.ratingValue ? <span className="badge">{underItem.ratingValue}</span> : null}
-                    {underItem.gps ? (
-                      <span className="badge" aria-hidden>
-                        🌍
-                      </span>
-                    ) : null}
-                  </div>
                 </div>
-
-                {underItem.comment ? <div style={{ fontSize: 14 }}>{underItem.comment}</div> : null}
               </div>
             </div>
           </div>
@@ -438,6 +471,8 @@ export function ViewHusketModal({
               willChange: "transform",
               boxShadow: `0 18px 50px rgba(0,0,0,${shadowAlpha})`,
               borderRadius: 18,
+              overflow: "hidden",
+              background: "transparent",
             }}
           >
             <div className="viewerImgWrap">
