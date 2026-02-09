@@ -1,7 +1,7 @@
 // ===============================
 // src/components/TopBar.tsx
 // ===============================
-import React from "react";
+import React, { useMemo } from "react";
 import type { LifeKey, Settings } from "../domain/types";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
@@ -14,27 +14,49 @@ type Props = {
   onOpenSettings: () => void;
 };
 
-export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: Props) {
-  const lives: { key: LifeKey; label: string; enabled: boolean }[] = [
-    { key: "private", label: settings.lives.privateName, enabled: true },
-    { key: "work", label: settings.lives.workName, enabled: true },
-    { key: "custom1", label: settings.lives.custom1Name, enabled: settings.lives.enabledCustom1 },
-    { key: "custom2", label: settings.lives.custom2Name, enabled: settings.lives.enabledCustom2 },
-  ];
+type LifeTab = {
+  key: LifeKey;
+  label: string;
+  enabled: boolean;
+};
 
-  const visible = lives.filter((x) => x.enabled);
+function getLifeLabel(dict: I18nDict, settings: Settings, key: LifeKey): string {
+  if (key === "private") return tGet(dict, "top.private");
+  if (key === "work") return tGet(dict, "top.work");
+  if (key === "custom1") return settings.lives.custom1Name || "Custom 1";
+  return settings.lives.custom2Name || "Custom 2";
+}
+
+export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: Props) {
+  const lives: LifeTab[] = useMemo(() => {
+    const tabs: LifeTab[] = [
+      { key: "private", label: getLifeLabel(dict, settings, "private"), enabled: true },
+      {
+        key: "custom1",
+        label: getLifeLabel(dict, settings, "custom1"),
+        enabled: !!settings.lives.enabledCustom1,
+      },
+      {
+        key: "custom2",
+        label: getLifeLabel(dict, settings, "custom2"),
+        enabled: !!settings.lives.enabledCustom2,
+      },
+      { key: "work", label: getLifeLabel(dict, settings, "work"), enabled: true },
+    ];
+    return tabs.filter((t) => t.enabled);
+  }, [dict, settings]);
 
   return (
     <div className="topRow">
       <div className="lifeTabs" role="tablist" aria-label="Lives">
-        {visible.map((x) => (
+        {lives.map((x) => (
           <button
             key={x.key}
             className={`lifeTab ${life === x.key ? "active" : ""}`}
             onClick={() => onLifeChange(x.key)}
             type="button"
           >
-            {x.key === "private" ? tGet(dict, "top.private") : x.key === "work" ? tGet(dict, "top.work") : x.label}
+            {x.label}
           </button>
         ))}
       </div>
@@ -49,5 +71,3 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: P
     </div>
   );
 }
-
-
