@@ -14,7 +14,6 @@ import { AlbumScreen } from "../screens/AlbumScreen";
 import { SharedWithMeScreen } from "../screens/SharedWithMeScreen";
 import { SettingsDrawer } from "../components/SettingsDrawer";
 import { PaywallModal } from "../components/PaywallModal";
-
 import { MCL_HUSKET_THEME } from "../theme";
 
 export function App() {
@@ -55,7 +54,13 @@ export function App() {
 
   return (
     <ToastProvider>
-      <div className="appShell" style={{ color: MCL_HUSKET_THEME.colors.text }}>
+      <div
+        className="appShell"
+        style={{
+          backgroundColor: MCL_HUSKET_THEME.colors.altSurface, // “mørk mokka” hero/base
+          color: MCL_HUSKET_THEME.colors.textOnDark,
+        }}
+      >
         <TopBar
           dict={dict}
           settings={settings}
