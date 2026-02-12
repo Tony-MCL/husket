@@ -1,32 +1,55 @@
-/* =============================== 
+/* ===============================
 src/app/styles.css
+MCL Husket – unified base + typography A/B
 =============================== */
 
 :root {
-  --bg: #0b0b0b;
-  --panel: #0f0f0f;
-  --ink: #f2f2f2;
-  --muted: #b9b9b9;
-  --line: rgba(255, 255, 255, 0.22);
-  --line2: rgba(255, 255, 255, 0.12);
+  /* ---------------------------------
+     MCL Husket (light base)
+     Mirrors MCL_HUSKET_THEME as close as CSS can
+     --------------------------------- */
+  --bg: #fffaf4;        /* theme.colors.bg */
+  --panel: #ffffff;     /* theme.colors.surface */
+  --header: #d7c2a8;    /* theme.colors.header */
 
-  --btn: rgba(255, 255, 255, 0.08);
-  --btnHover: rgba(255, 255, 255, 0.12);
+  --ink: #1b1a17;       /* theme.colors.text */
+  --muted: #6b655f;     /* theme.colors.muted */
 
-  --danger: #d94b4b;
-  --confirm: #2fa36b;
-  --primary: #3a7bd5;
+  --line: #e8dfd5;      /* theme.colors.outline */
+  --line2: rgba(27, 26, 23, 0.14);
 
-  --radius: 14px;
+  --btn: rgba(27, 26, 23, 0.04);
+  --btnHover: rgba(27, 26, 23, 0.06);
 
-  /* Stronger glow (text/icon) */
-  --glowText: rgba(255, 255, 255, 1);
-  --glowSoft: rgba(255, 255, 255, 0.45);
-  --glowHard: rgba(255, 255, 255, 0.65);
-  --glowHalo: rgba(255, 255, 255, 0.22);
+  --danger: #c23b3b;    /* theme.colors.danger (custom) */
+  --confirm: #2fa36b;   /* keep */
+  --primary: #8b5e34;   /* theme.colors.brand */
 
-  --activeRing: rgba(255, 255, 255, 0.55);
-  --activeRing2: rgba(255, 255, 255, 0.22);
+  --radius: 16px;       /* theme.radius */
+
+  --shadow1: 0 4px 10px rgba(0, 0, 0, 0.08);
+  --shadow2: 0 10px 24px rgba(0, 0, 0, 0.12);
+
+  /* ---------------------------------
+     TYPOGRAPHY SYSTEM (A/B)
+     --------------------------------- */
+  /* A: buttons + headers (TopBar-type) */
+  --typoA-size: 13px;
+  --typoA-weight: 800;
+  --typoA-line: 1.1;
+  --typoA-track: 0px;
+
+  /* B: choices + labels + info fields */
+  --typoB-size: 13px;
+  --typoB-weight: 700;
+  --typoB-line: 1.2;
+  --typoB-track: 0px;
+
+  /* Help: same family as B, just smaller */
+  --typoHelp-size: 12px;
+  --typoHelp-weight: 650;
+  --typoHelp-line: 1.2;
+  --typoHelp-track: 0px;
 }
 
 * {
@@ -51,17 +74,23 @@ button {
   font: inherit;
 }
 
+/* App shell keeps room for fixed bottom nav */
 .appShell {
   min-height: 100vh;
   padding: 10px 10px 96px 10px;
+  background: var(--bg);
+  color: var(--ink);
 }
 
 .hr {
   height: 1px;
-  background: var(--line2);
+  background: var(--line);
   margin: 10px 0;
 }
 
+/* -------------------------------
+   Buttons
+-------------------------------- */
 .flatBtn {
   border: 1px solid var(--line);
   background: transparent;
@@ -69,6 +98,10 @@ button {
   border-radius: 999px;
   padding: 10px 14px;
   line-height: 1;
+
+  font-size: var(--typoA-size);
+  font-weight: var(--typoA-weight);
+  letter-spacing: var(--typoA-track);
 }
 
 .flatBtn:hover {
@@ -76,17 +109,25 @@ button {
 }
 
 .flatBtn.primary {
-  border-color: rgba(58, 123, 213, 0.9);
+  border-color: rgba(139, 94, 52, 0.65);
 }
 
 .flatBtn.danger {
-  border-color: rgba(217, 75, 75, 0.9);
+  border-color: rgba(194, 59, 59, 0.75);
 }
 
 .flatBtn.confirm {
-  border-color: rgba(47, 163, 107, 0.9);
+  border-color: rgba(47, 163, 107, 0.75);
 }
 
+.flatBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* -------------------------------
+   Inputs
+-------------------------------- */
 .input,
 .textarea,
 .select {
@@ -97,6 +138,11 @@ button {
   border-radius: var(--radius);
   padding: 10px 12px;
   outline: none;
+
+  font-size: var(--typoB-size);
+  font-weight: var(--typoB-weight);
+  line-height: var(--typoB-line);
+  letter-spacing: var(--typoB-track);
 }
 
 .textarea {
@@ -104,17 +150,31 @@ button {
   resize: none;
 }
 
+/* Titles above choice blocks (Capture: “Likte jeg dette?”, “Kommentar”, “Kategori”) */
 .label {
-  font-size: 13px;
+  font-size: var(--typoB-size);
+  font-weight: var(--typoB-weight);
+  line-height: var(--typoB-line);
+  letter-spacing: var(--typoB-track);
+
   color: var(--muted);
   margin: 10px 0 6px;
 }
 
+/* Help text (counters, hints, empty states, etc.) */
 .smallHelp {
-  font-size: 12px;
+  font-size: var(--typoHelp-size);
+  font-weight: var(--typoHelp-weight);
+  line-height: var(--typoHelp-line);
+  letter-spacing: var(--typoHelp-track);
+
   color: var(--muted);
 }
 
+/* -------------------------------
+   Top row / lives (legacy CSS)
+   Note: Most of TopBar is inline-styled now.
+-------------------------------- */
 .topRow {
   display: flex;
   align-items: center;
@@ -123,6 +183,7 @@ button {
   padding: 8px 2px 10px;
 }
 
+/* Keep these neutral, in case something still relies on them */
 .lifeTabs {
   display: flex;
   gap: 0;
@@ -134,36 +195,29 @@ button {
 .lifeTab {
   padding: 10px 16px;
   background: transparent;
-  color: rgba(242, 242, 242, 0.85);
+  color: var(--ink);
   border: none;
   border-right: 1px solid var(--line);
-  transition: transform 120ms ease, color 120ms ease, text-shadow 120ms ease, box-shadow 120ms ease;
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+  font-size: var(--typoA-size);
+  font-weight: var(--typoA-weight);
+  line-height: 1;
 }
 
 .lifeTab:last-child {
   border-right: none;
 }
 
-/* Active: strong glow on text + subtle ring + small pop */
+/* Active “pop” stays – we’ll tune scale later */
 .lifeTab.active {
-  color: var(--glowText);
-  text-shadow:
-    0 0 6px var(--glowHard),
-    0 0 14px var(--glowSoft),
-    0 0 26px rgba(255, 255, 255, 0.14);
-  font-weight: 800;
-  transform: translateY(-0.5px) scale(1.20);
-
-  box-shadow:
-    inset 0 0 0 1px var(--activeRing2),
-    0 0 0 1px var(--activeRing),
-    0 0 18px var(--glowHalo);
+  transform: translateY(-0.5px) scale(1.2);
 }
 
 .lifeTab:active {
   transform: translateY(0.5px) scale(1.01);
 }
 
+/* Hamburger legacy (TopBar is inline-styled now) */
 .hamburger {
   width: 46px;
   height: 40px;
@@ -185,7 +239,7 @@ button {
   left: 0;
   right: 0;
   height: 2px;
-  background: rgba(255, 255, 255, 0.75);
+  background: rgba(27, 26, 23, 0.75);
   border-radius: 2px;
 }
 
@@ -193,11 +247,14 @@ button {
 .hamburgerLines span:nth-child(2) { top: 6px; }
 .hamburgerLines span:nth-child(3) { top: 12px; }
 
+/* -------------------------------
+   Capture
+-------------------------------- */
 .captureFrame {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(27, 26, 23, 0.02);
 }
 
 .capturePreview {
@@ -206,7 +263,7 @@ button {
   display: grid;
   place-items: center;
   color: var(--muted);
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(27, 26, 23, 0.08);
 }
 
 .capturePreview img {
@@ -225,47 +282,46 @@ button {
   align-items: center;
 }
 
+/* Pills are choices => B */
 .pill {
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 8px 10px;
   background: transparent;
-  color: rgba(242, 242, 242, 0.85);
-  transition: transform 120ms ease, color 120ms ease, text-shadow 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+  color: var(--ink);
+
+  font-size: var(--typoB-size);
+  font-weight: var(--typoB-weight);
+  line-height: 1;
+
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
 }
 
-/* Active: strong glow on content + tiny pop, keep fill flat */
+/* Active “pop” stays – we’ll tune scale later */
 .pill.active {
-  color: var(--glowText);
-  text-shadow:
-    0 0 6px var(--glowHard),
-    0 0 14px var(--glowSoft),
-    0 0 26px rgba(255, 255, 255, 0.14);
-  font-weight: 800;
-  transform: translateY(-0.5px) scale(1.30);
-
-  border-color: var(--activeRing);
-  box-shadow:
-    inset 0 0 0 1px var(--activeRing2),
-    0 0 14px var(--glowHalo);
+  font-weight: var(--typoA-weight);
+  transform: translateY(-0.5px) scale(1.3);
+  border-color: rgba(27, 26, 23, 0.28);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
 }
 
 .pill:active {
   transform: translateY(0.5px) scale(1.01);
 }
 
+/* -------------------------------
+   Bottom navigation
+   Note: BottomNav sets most visuals inline.
+   CSS keeps it fixed + spacing behavior.
+-------------------------------- */
 .bottomNav {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   padding: 12px 10px calc(12px + env(safe-area-inset-bottom));
-  background: linear-gradient(
-    to top,
-    rgba(11, 11, 11, 0.96),
-    rgba(11, 11, 11, 0.72),
-    rgba(11, 11, 11, 0)
-  );
+  background: var(--header);
+  border-top: 1px solid var(--line);
 }
 
 .bottomNavInner {
@@ -277,32 +333,31 @@ button {
 .bottomBtn {
   border: 1px solid var(--line);
   background: transparent;
-  color: rgba(242, 242, 242, 0.85);
+  color: var(--ink);
   border-radius: 999px;
   padding: 14px 10px;
-  transition: transform 120ms ease, color 120ms ease, text-shadow 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+
+  font-size: var(--typoA-size);
+  font-weight: var(--typoA-weight);
+  line-height: 1;
+
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
 }
 
-/* Active: glow label + pop */
+/* Active “pop” stays – we’ll tune scale later */
 .bottomBtn.active {
-  color: var(--glowText);
-  text-shadow:
-    0 0 6px var(--glowHard),
-    0 0 14px var(--glowSoft),
-    0 0 26px rgba(255, 255, 255, 0.14);
-  font-weight: 800;
-  transform: translateY(-0.5px) scale(1.20);
-
-  border-color: var(--activeRing);
-  box-shadow:
-    inset 0 0 0 1px var(--activeRing2),
-    0 0 16px var(--glowHalo);
+  transform: translateY(-0.5px) scale(1.2);
+  border-color: rgba(27, 26, 23, 0.28);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
 }
 
 .bottomBtn:active {
   transform: translateY(0.5px) scale(1.01);
 }
 
+/* -------------------------------
+   Album
+-------------------------------- */
 .albumGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -313,7 +368,7 @@ button {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(27, 26, 23, 0.02);
 }
 
 .thumbImg {
@@ -323,12 +378,15 @@ button {
   display: block;
 }
 
+/* Thumb meta = info => Help (small B) */
 .thumbMeta {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 8px 10px;
-  font-size: 12px;
+
+  font-size: var(--typoHelp-size);
+  font-weight: var(--typoHelp-weight);
   color: var(--muted);
 }
 
@@ -337,12 +395,19 @@ button {
   border-radius: 999px;
   padding: 4px 8px;
   color: var(--muted);
+
+  font-size: var(--typoHelp-size);
+  font-weight: var(--typoHelp-weight);
+  line-height: 1.1;
 }
 
+/* -------------------------------
+   Drawer / Modals
+-------------------------------- */
 .drawerOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.35); /* matches theme overlay intent */
 }
 
 .drawer {
@@ -351,8 +416,8 @@ button {
   right: 0;
   height: 100%;
   width: min(92vw, 360px);
-  background: var(--panel);
-  border-left: 1px solid var(--line2);
+  background: var(--header); /* MCL header family */
+  border-left: 1px solid var(--line);
   padding: 12px;
   overflow: auto;
 }
@@ -360,7 +425,7 @@ button {
 .modalOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.45);
   display: grid;
   place-items: center;
   padding: 16px;
@@ -372,11 +437,14 @@ button {
   border: 1px solid var(--line);
   border-radius: 18px;
   padding: 14px;
+  box-shadow: var(--shadow2);
 }
 
 .modalTitle {
-  font-size: 16px;
+  font-size: var(--typoA-size);
+  font-weight: var(--typoA-weight);
   margin: 0 0 8px;
+  color: var(--ink);
 }
 
 .modalActions {
@@ -386,6 +454,9 @@ button {
   margin-top: 12px;
 }
 
+/* -------------------------------
+   Toast
+-------------------------------- */
 .toastHost {
   position: fixed;
   left: 0;
@@ -400,23 +471,29 @@ button {
 .toast {
   pointer-events: none;
   border: 1px solid var(--line);
-  background: rgba(15, 15, 15, 0.9);
+  background: rgba(255, 255, 255, 0.92);
   border-radius: 999px;
   padding: 10px 14px;
-  font-size: 13px;
+
+  font-size: var(--typoA-size);
+  font-weight: var(--typoA-weight);
   color: var(--ink);
+
   max-width: 92vw;
+  box-shadow: var(--shadow1);
 }
 
+/* -------------------------------
+   Viewer
+   IMPORTANT: do NOT enforce dark background or grid layout here anymore.
+   ViewHusketModal controls layout inline now.
+-------------------------------- */
 .viewer {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.92);
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
 }
 
+/* Kept for internal layout in husket card */
 .viewerTop {
   display: flex;
   align-items: center;
@@ -434,18 +511,10 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+
   color: var(--muted);
-  font-size: 12px;
-}
-
-.viewerNav {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 10px;
-}
-
-.viewerNav button {
-  border-radius: 999px;
+  font-size: var(--typoHelp-size);
+  font-weight: var(--typoHelp-weight);
 }
 
 /* ===============================
@@ -503,15 +572,21 @@ button {
   padding: 12px 10px;
 }
 
+/* side pills are info/choices => B/help sizing */
 .husketSidePill {
   width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 999px;
   padding: 6px 8px;
   color: rgba(255, 255, 255, 0.92);
-  font-size: 12px;
+
+  font-size: var(--typoHelp-size);
+  font-weight: var(--typoHelp-weight);
+  line-height: 1.1;
+
   display: grid;
   place-items: center;
+  text-decoration: none;
 }
 
 /* meta bottom */
@@ -560,6 +635,10 @@ button {
   color: rgba(255, 255, 255, 0.92);
   display: grid;
   place-items: center;
+
+  font-size: var(--typoA-size);
+  font-weight: var(--typoA-weight);
+  line-height: 1;
 }
 
 .husketCardArrow:active {
