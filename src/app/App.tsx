@@ -55,7 +55,7 @@ export function App() {
 
   return (
     <ToastProvider>
-      <div className="appShell" style={{ backgroundColor: MCL_HUSKET_THEME.colors.bg }}>
+      <div className="appShell" style={{ color: MCL_HUSKET_THEME.colors.text }}>
         <TopBar
           dict={dict}
           settings={settings}
