@@ -15,9 +15,9 @@ type Props = {
 
 export function BottomNav({ dict, route, onRouteChange }: Props) {
   const navStyle: React.CSSProperties = {
-    background: MCL_HUSKET_THEME.colors.surface,
+    background: MCL_HUSKET_THEME.colors.header, // SAME as TopBar
     borderTop: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
-    color: MCL_HUSKET_THEME.colors.text,
+    color: MCL_HUSKET_THEME.colors.darkSurface,
   };
 
   const btnBase: React.CSSProperties = {
@@ -25,7 +25,7 @@ export function BottomNav({ dict, route, onRouteChange }: Props) {
     borderRadius: 999,
     padding: "10px 12px",
     background: "transparent",
-    color: MCL_HUSKET_THEME.colors.text,
+    color: MCL_HUSKET_THEME.colors.darkSurface,
     fontWeight: 800,
     lineHeight: 1,
   };
