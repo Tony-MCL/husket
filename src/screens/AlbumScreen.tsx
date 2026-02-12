@@ -209,7 +209,6 @@ export function AlbumScreen({ dict, life, settings }: Props) {
   };
 
   const anyAppliedRatingSelected = useMemo(() => Object.values(applied.appliedRatings).some(Boolean), [applied.appliedRatings]);
-
   const anyAppliedCategorySelected = useMemo(
     () => Object.values(applied.appliedCategoryIds).some(Boolean),
     [applied.appliedCategoryIds]
@@ -343,7 +342,6 @@ export function AlbumScreen({ dict, life, settings }: Props) {
   ];
 
   // ---- MCL styles for filter UI (flat + minimal) ----
-  // Field: mokka background like main view, thin outline like husket card.
   const filterBtnStyle: React.CSSProperties = {
     width: "100%",
     display: "flex",
@@ -358,14 +356,12 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     borderRadius: 16,
   };
 
-  // Summary text should be flat (no badges)
   const summaryTextStyle: React.CSSProperties = {
     color: MCL_HUSKET_THEME.colors.textOnDark,
     opacity: 0.95,
     whiteSpace: "nowrap",
   };
 
-  // Dropdown: light cappuccino surface, dark text.
   const dropStyle: React.CSSProperties = {
     position: "absolute",
     top: "calc(100% + 8px)",
@@ -388,7 +384,6 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     fontWeight: 800,
   };
 
-  // Flat choice rows: no borders, no background change.
   const flatChoiceRow: React.CSSProperties = {
     display: "flex",
     alignItems: "center",
@@ -405,7 +400,6 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     transform: "scale(1.1)",
   };
 
-  // Actions: flat text buttons (no pills)
   const actionsRow: React.CSSProperties = {
     display: "flex",
     gap: 12,
@@ -432,6 +426,19 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     color: MCL_HUSKET_THEME.colors.darkSurface,
   };
 
+  // NEW: section divider + extra breathing room (matches the subtle outline feel)
+  const sectionDivider: React.CSSProperties = {
+    height: 1,
+    width: "100%",
+    background: "rgba(27, 26, 23, 0.18)", // darkSurface w/ subtle alpha
+    borderRadius: 999,
+  };
+
+  const sectionSpacer: React.CSSProperties = {
+    display: "grid",
+    gap: 12,
+  };
+
   if (items.length === 0) {
     return <div className="smallHelp">{tGet(dict, "album.empty")}</div>;
   }
@@ -450,7 +457,6 @@ export function AlbumScreen({ dict, life, settings }: Props) {
           <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
             <span aria-hidden>🔎</span>
 
-            {/* Flat summary text (no chips) */}
             <span style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", minWidth: 0 }}>
               {activeSummary.map((p, idx) => (
                 <span key={`${p}-${idx}`} style={summaryTextStyle}>
@@ -467,8 +473,8 @@ export function AlbumScreen({ dict, life, settings }: Props) {
 
         {filtersOpen ? (
           <div style={dropStyle}>
-            {/* Time */}
-            <div style={{ display: "grid", gap: 8 }}>
+            {/* TIME */}
+            <div style={sectionSpacer}>
               <div className="label" style={dropLabelStyle}>
                 {lang === "no" ? "Tid" : "Time"}
               </div>
@@ -488,8 +494,13 @@ export function AlbumScreen({ dict, life, settings }: Props) {
               </div>
             </div>
 
-            {/* Rating */}
-            <div style={{ display: "grid", gap: 8 }}>
+            {/* NEW: extra gap + divider */}
+            <div style={{ marginTop: 6 }} />
+            <div style={sectionDivider} />
+            <div style={{ marginTop: 6 }} />
+
+            {/* RATING */}
+            <div style={sectionSpacer}>
               <div className="label" style={dropLabelStyle}>
                 {lang === "no" ? "Vurdering" : "Rating"}
               </div>
@@ -497,7 +508,12 @@ export function AlbumScreen({ dict, life, settings }: Props) {
               <div style={{ display: "flex", flexWrap: "wrap", gap: 18 }}>
                 {ratingOptions.map((r) => (
                   <label key={r} style={flatChoiceRow}>
-                    <input type="checkbox" checked={!!draftRatings[r]} onChange={() => toggleDraftRating(r)} style={checkboxStyle} />
+                    <input
+                      type="checkbox"
+                      checked={!!draftRatings[r]}
+                      onChange={() => toggleDraftRating(r)}
+                      style={checkboxStyle}
+                    />
                     <span>{r}</span>
                   </label>
                 ))}
@@ -514,8 +530,13 @@ export function AlbumScreen({ dict, life, settings }: Props) {
               </div>
             </div>
 
-            {/* Categories */}
-            <div style={{ display: "grid", gap: 8 }}>
+            {/* NEW: extra gap + divider */}
+            <div style={{ marginTop: 6 }} />
+            <div style={sectionDivider} />
+            <div style={{ marginTop: 6 }} />
+
+            {/* CATEGORIES */}
+            <div style={sectionSpacer}>
               <div className="label" style={dropLabelStyle}>
                 {lang === "no" ? "Kategori" : "Category"}
               </div>
@@ -574,7 +595,11 @@ export function AlbumScreen({ dict, life, settings }: Props) {
               type="button"
               style={{ padding: 0, textAlign: "left", cursor: "pointer" }}
             >
-              {thumbUrls[it.id] ? <img className="thumbImg" src={thumbUrls[it.id]} alt="" /> : <div className="capturePreview">Loading…</div>}
+              {thumbUrls[it.id] ? (
+                <img className="thumbImg" src={thumbUrls[it.id]} alt="" />
+              ) : (
+                <div className="capturePreview">Loading…</div>
+              )}
               <div className="thumbMeta">
                 <span>{formatThumbDate(it.createdAt, lang)}</span>
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
