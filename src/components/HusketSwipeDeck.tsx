@@ -44,15 +44,7 @@ function clamp(n: number, a: number, b: number) {
   return Math.max(a, Math.min(b, n));
 }
 
-export function HusketSwipeDeck({
-  dict,
-  settings,
-  items,
-  index,
-  onSetIndex,
-  onClose,
-  onDeleteCurrent,
-}: Props) {
+export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onClose, onDeleteCurrent }: Props) {
   const cur = items[index];
   const canOlder = index < items.length - 1; // index 0 = newest, so older is +1
   const canNewer = index > 0;
@@ -219,6 +211,9 @@ export function HusketSwipeDeck({
   // --- Card style: “fotballkort”-prinsipp (A) ---
   const CARD_MAX_W = 520;
 
+  // ✅ Under-card is slightly narrower so it never sticks out
+  const UNDER_CARD_MAX_W = CARD_MAX_W - 18;
+
   const deckWrapStyle: React.CSSProperties = {
     position: "relative",
     height: "100%",
@@ -229,9 +224,9 @@ export function HusketSwipeDeck({
     background: MCL_HUSKET_THEME.colors.header, // light background behind card
   };
 
-  const cardBaseStyle: React.CSSProperties = {
+  const makeCardBase = (maxW: number): React.CSSProperties => ({
     width: "100%",
-    maxWidth: CARD_MAX_W,
+    maxWidth: maxW,
     borderRadius: 22,
     overflow: "hidden",
     background: MCL_HUSKET_THEME.colors.altSurface, // dark card
@@ -241,7 +236,10 @@ export function HusketSwipeDeck({
     display: "grid",
     gridTemplateRows: "auto auto",
     position: "relative",
-  };
+  });
+
+  const cardBaseStyle = makeCardBase(CARD_MAX_W);
+  const underCardBaseStyle = makeCardBase(UNDER_CARD_MAX_W);
 
   const imageFrameStyle: React.CSSProperties = {
     padding: 12, // visible card background around image
@@ -322,6 +320,16 @@ export function HusketSwipeDeck({
     whiteSpace: "nowrap",
   };
 
+  const actionBtnStyle: React.CSSProperties = {
+    ...textA,
+    border: `1px solid rgba(247, 243, 237, 0.22)`,
+    borderRadius: 999,
+    padding: "10px 14px",
+    background: "rgba(255, 250, 244, 0.06)",
+    color: MCL_HUSKET_THEME.colors.textOnDark,
+    lineHeight: 1,
+  };
+
   const dividerStyle: React.CSSProperties = {
     height: 1,
     width: "100%",
@@ -388,9 +396,9 @@ export function HusketSwipeDeck({
             transform: `scale(${underScale})`,
           }}
         >
-          <div style={cardBaseStyle}>
+          <div style={underCardBaseStyle}>
             <div style={imageFrameStyle}>
-              <div style={imageShellStyle}>
+              <div style={{ ...imageShellStyle, cursor: "default" }}>
                 {underUrl ? (
                   <img src={underUrl} alt="" style={imageStyle} />
                 ) : (
@@ -417,12 +425,7 @@ export function HusketSwipeDeck({
 
       {/* Fullscreen photo */}
       {fullOpen && topUrl ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={fullOverlayStyle}
-          onClick={() => setFullOpen(false)}
-        >
+        <div role="dialog" aria-modal="true" style={fullOverlayStyle} onClick={() => setFullOpen(false)}>
           <div style={fullTopStyle} onClick={(e) => e.stopPropagation()}>
             <button type="button" onClick={() => setFullOpen(false)} style={fullCloseBtn}>
               ✕
@@ -565,12 +568,23 @@ export function HusketSwipeDeck({
           {cur.comment ? (
             <div style={{ ...textB, color: "rgba(247,243,237,0.92)", whiteSpace: "pre-wrap" }}>{cur.comment}</div>
           ) : (
-            <div style={{ ...textB, color: "rgba(247,243,237,0.60)" }}>
-              {lang === "no" ? "Ingen kommentar." : "No comment."}
-            </div>
+            <div style={{ ...textB, color: "rgba(247,243,237,0.60)" }}>{lang === "no" ? "Ingen kommentar." : "No comment."}</div>
           )}
 
-          <div style={{ display: "flex", justifyContent: "center", marginTop: 2, gap: 10 }}>
+          {/* ✅ Actions: Lukk + Slett (instead of hard-to-reach X) */}
+          <div style={{ display: "flex", justifyContent: "center", marginTop: 2, gap: 10, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
+              style={actionBtnStyle}
+              title={lang === "no" ? "Lukk" : "Close"}
+            >
+              ✕ {lang === "no" ? "Lukk" : "Close"}
+            </button>
+
             <button
               className="flatBtn danger"
               onClick={(e) => {
