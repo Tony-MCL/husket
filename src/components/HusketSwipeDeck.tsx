@@ -63,6 +63,9 @@ export function HusketSwipeDeck({
 
   const controls = useAnimation();
 
+  // Fullscreen image view (tap photo)
+  const [fullOpen, setFullOpen] = useState(false);
+
   const lang: "no" | "en" = useMemo(() => {
     if (settings.language === "no") return "no";
     if (settings.language === "en") return "en";
@@ -123,10 +126,7 @@ export function HusketSwipeDeck({
       const topKey = cur.imageKey;
       const underKey = underItem?.imageKey ?? null;
 
-      const [t, u] = await Promise.all([
-        loadOne(topKey),
-        underKey ? loadOne(underKey) : Promise.resolve(null),
-      ]);
+      const [t, u] = await Promise.all([loadOne(topKey), underKey ? loadOne(underKey) : Promise.resolve(null)]);
 
       if (cancelled) return;
 
@@ -167,7 +167,28 @@ export function HusketSwipeDeck({
     };
   }, []);
 
+  // Close fullscreen when husket changes
+  useEffect(() => {
+    setFullOpen(false);
+  }, [cur?.id]);
+
+  // ESC closes fullscreen first, else closes modal
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (fullOpen) {
+        setFullOpen(false);
+        return;
+      }
+      onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullOpen, onClose]);
+
   const commitSwipe = async (dir: "left" | "right") => {
+    if (fullOpen) return;
+
     const w = Math.max(window.innerWidth || 360, 360);
     const exitX = dir === "left" ? -w : w;
 
@@ -195,28 +216,166 @@ export function HusketSwipeDeck({
 
   if (!cur) return null;
 
-  // Under card slightly smaller (so top covers edges)
+  // --- Card style: “fotballkort”-prinsipp (A) ---
+  const CARD_MAX_W = 520;
+
+  const deckWrapStyle: React.CSSProperties = {
+    position: "relative",
+    height: "100%",
+    display: "grid",
+    placeItems: "center",
+    padding: "0 12px",
+    isolation: "isolate",
+    background: MCL_HUSKET_THEME.colors.header, // light background behind card
+  };
+
+  const cardBaseStyle: React.CSSProperties = {
+    width: "100%",
+    maxWidth: CARD_MAX_W,
+    borderRadius: 22,
+    overflow: "hidden",
+    background: MCL_HUSKET_THEME.colors.altSurface, // dark card
+    color: MCL_HUSKET_THEME.colors.textOnDark,
+    border: `1px solid rgba(27, 26, 23, 0.16)`,
+    boxShadow: MCL_HUSKET_THEME.elevation.elev2,
+    display: "grid",
+    gridTemplateRows: "auto auto",
+    position: "relative",
+  };
+
+  const imageFrameStyle: React.CSSProperties = {
+    padding: 12, // visible card background around image
+    background: MCL_HUSKET_THEME.colors.altSurface,
+    display: "grid",
+    placeItems: "center",
+  };
+
+  const imageShellStyle: React.CSSProperties = {
+    width: "100%",
+    borderRadius: 18,
+    overflow: "hidden",
+    border: `1px solid rgba(247, 243, 237, 0.14)`,
+    background: "rgba(0,0,0,0.35)",
+    // Keep space for metadata: image may not exceed ~58vh
+    maxHeight: "min(58vh, 520px)",
+    display: "grid",
+    placeItems: "center",
+    cursor: topUrl ? "pointer" : "default",
+  };
+
+  const imageStyle: React.CSSProperties = {
+    width: "100%",
+    height: "100%",
+    objectFit: "contain",
+    display: "block",
+  };
+
+  const metaStyle: React.CSSProperties = {
+    padding: "12px 14px 14px",
+    display: "grid",
+    gap: 10,
+    background: MCL_HUSKET_THEME.colors.altSurface,
+  };
+
+  const metaTopRow: React.CSSProperties = {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 10,
+  };
+
+  const metaLeft: React.CSSProperties = {
+    display: "grid",
+    gap: 4,
+    minWidth: 0,
+  };
+
+  const metaBadges: React.CSSProperties = {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 8,
+    justifyContent: "flex-end",
+    alignItems: "center",
+  };
+
+  const darkBadge: React.CSSProperties = {
+    ...textB,
+    border: `1px solid rgba(247, 243, 237, 0.22)`,
+    borderRadius: 999,
+    padding: "6px 10px",
+    color: MCL_HUSKET_THEME.colors.textOnDark,
+    background: "rgba(255, 250, 244, 0.06)",
+    whiteSpace: "nowrap",
+  };
+
+  const mapBtnStyle: React.CSSProperties = {
+    ...textA,
+    border: `1px solid rgba(247, 243, 237, 0.22)`,
+    borderRadius: 999,
+    padding: "8px 12px",
+    background: "rgba(255, 250, 244, 0.06)",
+    color: MCL_HUSKET_THEME.colors.textOnDark,
+    textDecoration: "none",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    whiteSpace: "nowrap",
+  };
+
+  const dividerStyle: React.CSSProperties = {
+    height: 1,
+    width: "100%",
+    background: "rgba(247, 243, 237, 0.14)",
+    borderRadius: 999,
+  };
+
+  const fullOverlayStyle: React.CSSProperties = {
+    position: "fixed",
+    inset: 0,
+    zIndex: 100000,
+    background: "rgba(0,0,0,0.92)",
+    display: "grid",
+    gridTemplateRows: "auto 1fr",
+    padding: "10px 10px calc(10px + env(safe-area-inset-bottom))",
+  };
+
+  const fullTopStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  };
+
+  const fullCloseBtn: React.CSSProperties = {
+    ...textA,
+    border: `1px solid rgba(255,255,255,0.22)`,
+    borderRadius: 999,
+    background: "rgba(0,0,0,0.25)",
+    color: "rgba(255,255,255,0.92)",
+    padding: "10px 14px",
+    lineHeight: 1,
+  };
+
+  const fullImgWrap: React.CSSProperties = {
+    width: "100%",
+    height: "100%",
+    display: "grid",
+    placeItems: "center",
+  };
+
+  const fullImgStyle: React.CSSProperties = {
+    maxWidth: "100%",
+    maxHeight: "100%",
+    objectFit: "contain",
+    display: "block",
+  };
+
   const underScale = 0.975;
   const underOpacity = 0.92;
 
-  const sideRating = cur.ratingValue ?? "—";
-  const sideCat = categoryLabel ?? "—";
-  const sideGps = cur.gps ? "🌍" : "—";
-
   return (
-    <div
-      style={{
-        position: "relative",
-        height: "100%",
-        display: "grid",
-        placeItems: "center",
-        padding: "0 12px",
-        isolation: "isolate",
-
-        // Make viewer/deck background match TopBar/BottomNav/Drawer
-        background: MCL_HUSKET_THEME.colors.header,
-      }}
-    >
+    <div style={deckWrapStyle}>
+      {/* Under card (peek) */}
       {underItem ? (
         <div
           style={{
@@ -229,51 +388,72 @@ export function HusketSwipeDeck({
             transform: `scale(${underScale})`,
           }}
         >
-          <div className="husketCard">
-            <div className="husketCardTop">
-              <div className="husketCardImg">
+          <div style={cardBaseStyle}>
+            <div style={imageFrameStyle}>
+              <div style={imageShellStyle}>
                 {underUrl ? (
-                  <img src={underUrl} alt="" />
+                  <img src={underUrl} alt="" style={imageStyle} />
                 ) : (
-                  <div className="smallHelp" style={textB}>
+                  <div className="smallHelp" style={{ ...textB, padding: 14, color: "rgba(247,243,237,0.8)" }}>
                     Loading…
                   </div>
                 )}
               </div>
-              <div className="husketCardSide" />
             </div>
-            <div className="husketCardMeta">
-              <div className="viewerMetaLine" style={textB}>
-                <div>
-                  {tGet(dict, "album.created")}: {formatDate(underItem.createdAt, lang)}
+
+            <div style={metaStyle}>
+              <div style={metaTopRow}>
+                <div style={metaLeft}>
+                  <div style={{ ...textB, color: "rgba(247,243,237,0.86)" }}>
+                    {tGet(dict, "album.created")}: {formatDate(underItem.createdAt, lang)}
+                  </div>
                 </div>
+                <div style={metaBadges} />
               </div>
             </div>
           </div>
         </div>
       ) : null}
 
+      {/* Fullscreen photo */}
+      {fullOpen && topUrl ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={fullOverlayStyle}
+          onClick={() => setFullOpen(false)}
+        >
+          <div style={fullTopStyle} onClick={(e) => e.stopPropagation()}>
+            <button type="button" onClick={() => setFullOpen(false)} style={fullCloseBtn}>
+              ✕
+            </button>
+            <div style={{ ...textA, color: "rgba(255,255,255,0.85)" }}>
+              {index + 1}/{items.length}
+            </div>
+          </div>
+
+          <div style={fullImgWrap} onClick={(e) => e.stopPropagation()}>
+            <img src={topUrl} alt="" style={fullImgStyle} />
+          </div>
+        </div>
+      ) : null}
+
+      {/* Top (swipe) card */}
       <motion.div
-        className="husketCard"
-        style={{
-          boxShadow: "0 14px 40px rgba(0,0,0,0.22)",
-          touchAction: "pan-y",
-          background: "#fff",
-          opacity: 1,
-          backfaceVisibility: "hidden",
-          WebkitBackfaceVisibility: "hidden",
-          transformStyle: "preserve-3d",
-        }}
-        drag="x"
+        style={cardBaseStyle}
+        drag={fullOpen ? false : "x"}
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.12}
         animate={controls}
         onDrag={(_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+          if (fullOpen) return;
           const w = Math.max(window.innerWidth || 360, 360);
           const p = clamp(info.offset.x / w, -1, 1);
           controls.set({ rotate: p * 6 });
         }}
         onDragEnd={async (_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+          if (fullOpen) return;
+
           const dx = info.offset.x;
           const w = Math.max(window.innerWidth || 360, 360);
           const threshold = Math.max(90, w * 0.22);
@@ -324,71 +504,79 @@ export function HusketSwipeDeck({
           </button>
         ) : null}
 
-        {/* Top: image + side rail */}
-        <div className="husketCardTop">
-          <div className="husketCardImg">
+        {/* Image block (tap => fullscreen) */}
+        <div style={imageFrameStyle}>
+          <div
+            style={imageShellStyle}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!topUrl) return;
+              setFullOpen(true);
+            }}
+            role={topUrl ? "button" : undefined}
+            aria-label={topUrl ? (lang === "no" ? "Åpne bilde i fullskjerm" : "Open photo fullscreen") : undefined}
+          >
             {topUrl ? (
-              <img src={topUrl} alt="" />
+              <img src={topUrl} alt="" style={imageStyle} />
             ) : (
-              <div className="smallHelp" style={textB}>
+              <div className="smallHelp" style={{ ...textB, padding: 14, color: "rgba(247,243,237,0.8)" }}>
                 Loading…
-              </div>
-            )}
-          </div>
-
-          <div className="husketCardSide">
-            <div className="husketSidePill" title={lang === "no" ? "Rating" : "Rating"} style={textB}>
-              {sideRating}
-            </div>
-            <div className="husketSidePill" title={lang === "no" ? "Kategori" : "Category"} style={textB}>
-              {sideCat}
-            </div>
-
-            {mapHref ? (
-              <a
-                className="husketSidePill"
-                href={mapHref}
-                target="_blank"
-                rel="noreferrer"
-                title={tGet(dict, "album.map")}
-                style={textB}
-              >
-                🌍
-              </a>
-            ) : (
-              <div className="husketSidePill" title="GPS" style={textB}>
-                {sideGps}
               </div>
             )}
           </div>
         </div>
 
-        {/* Bottom: timestamp + comment + delete */}
-        <div className="husketCardMeta">
-          <div className="viewerMetaLine" style={textB}>
-            <div>
-              {tGet(dict, "album.created")}: {formatDate(cur.createdAt, lang)}
+        {/* Meta block (UNDER image) */}
+        <div style={metaStyle}>
+          <div style={metaTopRow}>
+            <div style={metaLeft}>
+              <div style={{ ...textB, color: "rgba(247,243,237,0.86)" }}>
+                {tGet(dict, "album.created")}: {formatDate(cur.createdAt, lang)}
+              </div>
+
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                {mapHref ? (
+                  <a
+                    href={mapHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={tGet(dict, "album.map")}
+                    style={mapBtnStyle}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    🌍 {lang === "no" ? "Kart" : "Map"}
+                  </a>
+                ) : (
+                  <span style={{ ...textB, color: "rgba(247,243,237,0.65)" }}>
+                    🌍 {lang === "no" ? "Ingen GPS" : "No GPS"}
+                  </span>
+                )}
+              </div>
             </div>
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                alignItems: "center",
-                flexWrap: "wrap",
-                justifyContent: "flex-end",
-              }}
-            >
-              {categoryLabel ? <span className="badge">{categoryLabel}</span> : null}
-              {cur.ratingValue ? <span className="badge">{cur.ratingValue}</span> : null}
+
+            <div style={metaBadges}>
+              {categoryLabel ? <span style={darkBadge}>{categoryLabel}</span> : <span style={darkBadge}>—</span>}
+              {cur.ratingValue ? <span style={darkBadge}>{cur.ratingValue}</span> : <span style={darkBadge}>—</span>}
             </div>
           </div>
 
-          {cur.comment ? <div style={textB}>{cur.comment}</div> : null}
+          <div style={dividerStyle} />
 
-          <div style={{ marginTop: 2, display: "flex", justifyContent: "center" }}>
+          {cur.comment ? (
+            <div style={{ ...textB, color: "rgba(247,243,237,0.92)", whiteSpace: "pre-wrap" }}>{cur.comment}</div>
+          ) : (
+            <div style={{ ...textB, color: "rgba(247,243,237,0.60)" }}>
+              {lang === "no" ? "Ingen kommentar." : "No comment."}
+            </div>
+          )}
+
+          <div style={{ display: "flex", justifyContent: "center", marginTop: 2, gap: 10 }}>
             <button
               className="flatBtn danger"
-              onClick={onDeleteCurrent}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteCurrent();
+              }}
               type="button"
               title={lang === "no" ? "Slett" : "Delete"}
               style={textA}
@@ -397,7 +585,7 @@ export function HusketSwipeDeck({
             </button>
           </div>
 
-          <div className="smallHelp" style={{ ...textB, textAlign: "center" }}>
+          <div className="smallHelp" style={{ ...textB, textAlign: "center", color: "rgba(247,243,237,0.70)" }}>
             {index + 1}/{items.length}
           </div>
         </div>
