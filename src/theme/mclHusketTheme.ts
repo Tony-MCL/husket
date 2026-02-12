@@ -14,6 +14,9 @@ export const MCL_HUSKET_THEME = {
     text: "#1B1A17", // --mcl-text (light)
     muted: "#6B655F", // --mcl-muted (light)
 
+    // Text on dark surfaces (needed for altSurface/darkSurface)
+    textOnDark: "#F7F3ED", // --mcl-text (dark)
+
     // Brand (Light base)
     brand: "#8B5E34", // --mcl-brand (light)
     accent: "#B08968", // --mcl-accent (light)
