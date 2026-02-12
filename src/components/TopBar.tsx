@@ -6,6 +6,7 @@ import type { LifeKey, Settings } from "../domain/types";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
 import { MCL_HUSKET_THEME } from "../theme";
+import { HUSKET_TYPO } from "../theme/typography";
 
 type Props = {
   dict: I18nDict;
@@ -69,10 +70,13 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: P
     padding: "6px 10px",
     background: "transparent",
     color: MCL_HUSKET_THEME.colors.darkSurface,
-    fontWeight: 700,
-    fontSize: 13,
-    lineHeight: 1,
     whiteSpace: "nowrap",
+
+    // Typography (A)
+    fontSize: HUSKET_TYPO.A.fontSize,
+    fontWeight: HUSKET_TYPO.A.fontWeight,
+    lineHeight: HUSKET_TYPO.A.lineHeight,
+    letterSpacing: HUSKET_TYPO.A.letterSpacing,
   };
 
   const tabActiveStyle: React.CSSProperties = {
