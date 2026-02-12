@@ -226,7 +226,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
         .filter(([, v]) => v)
         .map(([k]) => k);
       const labels = pickedIds.map((id) =>
-        id === "__none__" ? (lang === "no" ? "Ingen" : "None") : categoryLabel(id) ?? id
+        id === "__none__ ? (lang === "no" ? "Ingen" : "None") : categoryLabel(id) ?? id`
       );
       if (labels.length > 0) parts.push(`🏷 ${labels.join(", ")}`);
     }
@@ -327,8 +327,8 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     { key: "365d", col: 2 },
   ];
 
-  // ---- MCL styles for filter UI (per your latest rules) ----
-  // Filter field matches main background (mørk mokka). Dropdown uses light cappuccino.
+  // ---- MCL styles for filter UI (flat + minimal) ----
+  // Field: mokka background like main view, thin outline like husket card.
   const filterBtnStyle: React.CSSProperties = {
     width: "100%",
     display: "flex",
@@ -337,20 +337,20 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     gap: 10,
     padding: "10px 12px",
     cursor: "pointer",
-    background: MCL_HUSKET_THEME.colors.altSurface, // match main view
+    background: "transparent",
     color: MCL_HUSKET_THEME.colors.textOnDark,
-    border: "none",
+    border: `1px solid rgba(247, 243, 237, 0.18)`, // thin, discreet
     borderRadius: 16,
   };
 
-  // Active-summary badges inside the dark field: light badge, dark text
-  const summaryBadgeStyle: React.CSSProperties = {
-    background: MCL_HUSKET_THEME.colors.header,
-    color: MCL_HUSKET_THEME.colors.darkSurface,
-    border: "none",
+  // Summary text should be flat (no badges)
+  const summaryTextStyle: React.CSSProperties = {
+    color: MCL_HUSKET_THEME.colors.textOnDark,
+    opacity: 0.95,
     whiteSpace: "nowrap",
   };
 
+  // Dropdown: light cappuccino surface, dark text.
   const dropStyle: React.CSSProperties = {
     position: "absolute",
     top: "calc(100% + 8px)",
@@ -360,64 +360,50 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     borderRadius: 16,
     padding: 12,
     boxShadow: MCL_HUSKET_THEME.elevation.elev2,
-    background: MCL_HUSKET_THEME.colors.header, // dropdown in light cappuccino
+    background: MCL_HUSKET_THEME.colors.header,
     color: MCL_HUSKET_THEME.colors.darkSurface,
-    border: "none", // flat surface, no frame
+    border: "none",
     display: "grid",
     gap: 12,
   };
 
-  // Labels on the dropdown background should be dark
   const dropLabelStyle: React.CSSProperties = {
     margin: 0,
     color: MCL_HUSKET_THEME.colors.darkSurface,
+    fontWeight: 800,
   };
 
-  // Flat option zones (no borders). Checked state uses mokka to be obvious.
-  const optionZoneBase: React.CSSProperties = {
+  // Flat choice rows: no borders, no background change.
+  const flatChoiceRow: React.CSSProperties = {
     display: "flex",
     alignItems: "center",
     gap: 10,
-    padding: "7px 10px",
-    borderRadius: 12,
+    padding: "4px 0",
     border: "none",
+    background: "transparent",
+    color: MCL_HUSKET_THEME.colors.darkSurface,
     cursor: "pointer",
     userSelect: "none",
-    background: "rgba(255, 250, 244, 0.40)",
-    color: MCL_HUSKET_THEME.colors.darkSurface,
   };
 
-  const optionZoneChecked: React.CSSProperties = {
-    background: MCL_HUSKET_THEME.colors.altSurface,
-    color: MCL_HUSKET_THEME.colors.textOnDark,
+  const checkboxStyle: React.CSSProperties = {
+    transform: "scale(1.1)",
   };
 
-  const optionPillBase: React.CSSProperties = {
+  // Actions: flat text buttons (no pills)
+  const actionsRow: React.CSSProperties = {
     display: "flex",
-    alignItems: "center",
-    gap: 8,
-    padding: "7px 10px",
-    borderRadius: 999,
-    border: "none",
-    cursor: "pointer",
-    userSelect: "none",
-    background: "rgba(255, 250, 244, 0.40)",
-    color: MCL_HUSKET_THEME.colors.darkSurface,
+    gap: 12,
+    justifyContent: "space-between",
+    marginTop: 6,
   };
 
-  const optionPillChecked: React.CSSProperties = {
-    background: MCL_HUSKET_THEME.colors.altSurface,
-    color: MCL_HUSKET_THEME.colors.textOnDark,
-  };
-
-  // Bottom action buttons: dark text on light (no borders)
   const actionBtnBase: React.CSSProperties = {
     border: "none",
-    borderRadius: 999,
-    padding: "9px 12px",
-    fontWeight: 800,
+    background: "transparent",
+    padding: "6px 0",
+    fontWeight: 900,
     cursor: "pointer",
-    background: "rgba(255, 250, 244, 0.55)",
     color: MCL_HUSKET_THEME.colors.darkSurface,
   };
 
@@ -428,7 +414,6 @@ export function AlbumScreen({ dict, life, settings }: Props) {
 
   const actionBtnConfirm: React.CSSProperties = {
     ...actionBtnBase,
-    background: MCL_HUSKET_THEME.colors.accent, // light accent, still dark text
     color: MCL_HUSKET_THEME.colors.darkSurface,
   };
 
@@ -449,15 +434,18 @@ export function AlbumScreen({ dict, life, settings }: Props) {
         >
           <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
             <span aria-hidden>🔎</span>
-            <span style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", minWidth: 0 }}>
-              {activeSummary.map((p) => (
-                <span key={p} className="badge" style={summaryBadgeStyle}>
+
+            {/* Flat summary text (no chips) */}
+            <span style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", minWidth: 0 }}>
+              {activeSummary.map((p, idx) => (
+                <span key={`${p}-${idx}`} style={summaryTextStyle}>
                   {p}
                 </span>
               ))}
             </span>
           </span>
-          <span aria-hidden style={{ opacity: 0.85 }}>
+
+          <span aria-hidden style={{ opacity: 0.85, color: MCL_HUSKET_THEME.colors.textOnDark }}>
             {filtersOpen ? "▴" : "▾"}
           </span>
         </button>
@@ -471,20 +459,17 @@ export function AlbumScreen({ dict, life, settings }: Props) {
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                {timeChoices.map(({ key, col }) => {
-                  const checked = draftTimeFilter === key;
-                  return (
-                    <label key={key} style={{ ...(optionZoneBase as any), ...(checked ? optionZoneChecked : null), gridColumn: col }}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => setDraftTimeExclusive(key)}
-                        style={{ transform: "scale(1.1)" }}
-                      />
-                      <span>{timeLabelShort(key)}</span>
-                    </label>
-                  );
-                })}
+                {timeChoices.map(({ key, col }) => (
+                  <label key={key} style={{ ...flatChoiceRow, gridColumn: col }}>
+                    <input
+                      type="checkbox"
+                      checked={draftTimeFilter === key}
+                      onChange={() => setDraftTimeExclusive(key)}
+                      style={checkboxStyle}
+                    />
+                    <span>{timeLabelShort(key)}</span>
+                  </label>
+                ))}
               </div>
             </div>
 
@@ -493,40 +478,27 @@ export function AlbumScreen({ dict, life, settings }: Props) {
               <div className="label" style={dropLabelStyle}>
                 {lang === "no" ? "Vurdering" : "Rating"}
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {ratingOptions.map((r) => {
-                  const checked = !!draftRatings[r];
-                  return (
-                    <label key={r} style={{ ...optionPillBase, ...(checked ? optionPillChecked : null) }}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleDraftRating(r)}
-                        style={{ transform: "scale(1.1)" }}
-                      />
-                      <span>{r}</span>
-                    </label>
-                  );
-                })}
 
-                {(() => {
-                  const checked = !!draftRatings["__none__"];
-                  return (
-                    <label
-                      style={{ ...optionPillBase, ...(checked ? optionPillChecked : null) }}
-                      title={lang === "no" ? "Huskets uten vurdering" : "Huskets without rating"}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => setDraftRatings((p) => ({ ...p, __none__: !p.__none__ }))}
-                        style={{ transform: "scale(1.1)" }}
-                      />
-                      <span>{lang === "no" ? "Ingen" : "None"}
-                      </span>
-                    </label>
-                  );
-                })()}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 18 }}>
+                {ratingOptions.map((r) => (
+                  <label key={r} style={flatChoiceRow}>
+                    <input type="checkbox" checked={!!draftRatings[r]} onChange={() => toggleDraftRating(r)} style={checkboxStyle} />
+                    <span>{r}</span>
+                  </label>
+                ))}
+
+                <label
+                  style={flatChoiceRow}
+                  title={lang === "no" ? "Huskets uten vurdering" : "Huskets without rating"}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!draftRatings["__none__"]}
+                    onChange={() => setDraftRatings((p) => ({ ...p, __none__: !p.__none__ }))}
+                    style={checkboxStyle}
+                  />
+                  <span>{lang === "no" ? "Ingen" : "None"}</span>
+                </label>
               </div>
             </div>
 
@@ -539,44 +511,36 @@ export function AlbumScreen({ dict, life, settings }: Props) {
               {cats.length === 0 ? (
                 <div className="smallHelp">{tGet(dict, "capture.noCategories")}</div>
               ) : (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {cats.map((c) => {
-                    const checked = !!draftCategoryIds[c.id];
-                    return (
-                      <label key={c.id} style={{ ...optionPillBase, ...(checked ? optionPillChecked : null) }}>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleDraftCategory(c.id)}
-                          style={{ transform: "scale(1.1)" }}
-                        />
-                        <span>{c.label}</span>
-                      </label>
-                    );
-                  })}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 18 }}>
+                  {cats.map((c) => (
+                    <label key={c.id} style={flatChoiceRow}>
+                      <input
+                        type="checkbox"
+                        checked={!!draftCategoryIds[c.id]}
+                        onChange={() => toggleDraftCategory(c.id)}
+                        style={checkboxStyle}
+                      />
+                      <span>{c.label}</span>
+                    </label>
+                  ))}
 
-                  {(() => {
-                    const checked = !!draftCategoryIds["__none__"];
-                    return (
-                      <label
-                        style={{ ...optionPillBase, ...(checked ? optionPillChecked : null) }}
-                        title={lang === "no" ? "Huskets uten kategori" : "Huskets without category"}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => setDraftCategoryIds((p) => ({ ...p, __none__: !p.__none__ }))}
-                          style={{ transform: "scale(1.1)" }}
-                        />
-                        <span>{lang === "no" ? "Ingen" : "None"}</span>
-                      </label>
-                    );
-                  })()}
+                  <label
+                    style={flatChoiceRow}
+                    title={lang === "no" ? "Huskets uten kategori" : "Huskets without category"}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!draftCategoryIds["__none__"]}
+                      onChange={() => setDraftCategoryIds((p) => ({ ...p, __none__: !p.__none__ }))}
+                      style={checkboxStyle}
+                    />
+                    <span>{lang === "no" ? "Ingen" : "None"}</span>
+                  </label>
                 </div>
               )}
             </div>
 
-            <div style={{ display: "flex", gap: 10, justifyContent: "space-between" }}>
+            <div style={actionsRow}>
               <button type="button" onClick={resetFiltersAndClose} style={actionBtnDanger}>
                 {lang === "no" ? "Nullstill filtre" : "Reset filters"}
               </button>
