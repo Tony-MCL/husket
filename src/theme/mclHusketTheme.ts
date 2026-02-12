@@ -28,7 +28,7 @@ export const MCL_HUSKET_THEME = {
     // System
     overlay: "rgba(0,0,0,0.40)",
 
-    // Destructive (not defined in MCL tokens you pasted; keeping one tasteful default)
+    // Destructive (not part of the pasted MCL token set)
     danger: "#C23B3B",
   },
 
