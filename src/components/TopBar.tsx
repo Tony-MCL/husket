@@ -32,57 +32,76 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: P
   const lives: LifeTab[] = useMemo(() => {
     const tabs: LifeTab[] = [
       { key: "private", label: getLifeLabel(dict, settings, "private"), enabled: true },
-      {
-        key: "custom1",
-        label: getLifeLabel(dict, settings, "custom1"),
-        enabled: !!settings.lives.enabledCustom1,
-      },
-      {
-        key: "custom2",
-        label: getLifeLabel(dict, settings, "custom2"),
-        enabled: !!settings.lives.enabledCustom2,
-      },
+      { key: "custom1", label: getLifeLabel(dict, settings, "custom1"), enabled: !!settings.lives.enabledCustom1 },
+      { key: "custom2", label: getLifeLabel(dict, settings, "custom2"), enabled: !!settings.lives.enabledCustom2 },
       { key: "work", label: getLifeLabel(dict, settings, "work"), enabled: true },
     ];
     return tabs.filter((t) => t.enabled);
   }, [dict, settings]);
 
+  const BAR_HEIGHT = 56;
+
   const headerStyle: React.CSSProperties = {
     background: MCL_HUSKET_THEME.colors.header,
     borderBottom: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
-    color: MCL_HUSKET_THEME.colors.darkSurface, // strong readable on cappuccino
+    color: MCL_HUSKET_THEME.colors.darkSurface,
+    minHeight: BAR_HEIGHT,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "8px 12px",
+    boxSizing: "border-box",
+  };
+
+  const tabsWrapStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "nowrap",
+    overflowX: "auto",
+    WebkitOverflowScrolling: "touch",
+    paddingBottom: 2,
   };
 
   const tabBaseStyle: React.CSSProperties = {
     border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
     borderRadius: 999,
-    padding: "8px 12px",
+    padding: "6px 10px",
     background: "transparent",
     color: MCL_HUSKET_THEME.colors.darkSurface,
     fontWeight: 700,
+    fontSize: 13,
     lineHeight: 1,
+    whiteSpace: "nowrap",
   };
 
   const tabActiveStyle: React.CSSProperties = {
-    background: MCL_HUSKET_THEME.colors.altSurface, // moka punch
+    background: MCL_HUSKET_THEME.colors.altSurface,
     border: `1px solid ${MCL_HUSKET_THEME.colors.altSurface}`,
     color: MCL_HUSKET_THEME.colors.textOnDark,
   };
 
   const burgerStyle: React.CSSProperties = {
-    border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
+    border: `1px solid ${MCL_HUSKET_THEME.colors.altSurface}`,
     borderRadius: 12,
-    background: "transparent",
+    background: MCL_HUSKET_THEME.colors.altSurface, // match active pills
     padding: 10,
+    width: 42,
+    height: 42,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxSizing: "border-box",
+    flex: "0 0 auto",
   };
 
   const burgerLinesStyle: React.CSSProperties = {
-    color: MCL_HUSKET_THEME.colors.darkSurface,
+    color: MCL_HUSKET_THEME.colors.textOnDark,
   };
 
   return (
     <div className="topRow" style={headerStyle}>
-      <div className="lifeTabs" role="tablist" aria-label="Lives">
+      <div className="lifeTabs" role="tablist" aria-label="Lives" style={tabsWrapStyle}>
         {lives.map((x) => (
           <button
             key={x.key}
