@@ -7,6 +7,7 @@ import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
 import { createHusket, countAllHuskets } from "../data/husketRepo";
 import { useToast } from "../components/ToastHost";
+import { HUSKET_TYPO } from "../theme/typography";
 
 type Props = {
   dict: I18nDict;
@@ -78,13 +79,7 @@ async function getGpsIfAllowed(args: {
  * - try once automatically
  * - always provide a big tappable button
  */
-export function CaptureScreen({
-  dict,
-  life,
-  settings,
-  onRequirePremium,
-  onSavedGoAlbum,
-}: Props) {
+export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedGoAlbum }: Props) {
   const toast = useToast();
 
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
@@ -207,6 +202,20 @@ export function CaptureScreen({
     onSavedGoAlbum();
   };
 
+  const labelTextStyle: React.CSSProperties = {
+    fontSize: HUSKET_TYPO.B.fontSize,
+    fontWeight: HUSKET_TYPO.B.fontWeight,
+    lineHeight: HUSKET_TYPO.B.lineHeight,
+    letterSpacing: HUSKET_TYPO.B.letterSpacing,
+  };
+
+  const helpTextStyle: React.CSSProperties = {
+    fontSize: HUSKET_TYPO.B.fontSize,
+    fontWeight: HUSKET_TYPO.B.fontWeight,
+    lineHeight: HUSKET_TYPO.B.lineHeight,
+    letterSpacing: HUSKET_TYPO.B.letterSpacing,
+  };
+
   return (
     <div>
       <div
@@ -262,7 +271,9 @@ export function CaptureScreen({
             </div>
           ) : (
             <div style={{ display: "grid", gap: 10, placeItems: "center", padding: 14 }}>
-              <div className="smallHelp">{tGet(dict, "capture.cameraHint")}</div>
+              <div className="smallHelp" style={helpTextStyle}>
+                {tGet(dict, "capture.cameraHint")}
+              </div>
               <button className="flatBtn primary" onClick={openCamera} type="button">
                 {tGet(dict, "capture.pickPhoto")}
               </button>
@@ -300,7 +311,9 @@ export function CaptureScreen({
         />
       </div>
 
-      <div className="label">{tGet(dict, "capture.like")}</div>
+      <div className="label" style={labelTextStyle}>
+        {tGet(dict, "capture.like")}
+      </div>
       <div className="ratingRow" aria-label="Rating">
         {ratingOpts.map((v) => (
           <button
@@ -314,19 +327,27 @@ export function CaptureScreen({
         ))}
       </div>
 
-      <div className="label">{tGet(dict, "capture.comment")}</div>
+      <div className="label" style={labelTextStyle}>
+        {tGet(dict, "capture.comment")}
+      </div>
       <textarea
         className="textarea"
         value={comment}
         onChange={(e) => setComment(clamp100(e.target.value))}
         placeholder={tGet(dict, "capture.commentPh")}
       />
-      <div className="smallHelp">{comment.length}/100</div>
+      <div className="smallHelp" style={helpTextStyle}>
+        {comment.length}/100
+      </div>
 
-      <div className="label">{tGet(dict, "capture.category")}</div>
+      <div className="label" style={labelTextStyle}>
+        {tGet(dict, "capture.category")}
+      </div>
       <div className="ratingRow" aria-label="Categories">
         {cats.length === 0 ? (
-          <div className="smallHelp">{tGet(dict, "capture.noCategories")}</div>
+          <div className="smallHelp" style={helpTextStyle}>
+            {tGet(dict, "capture.noCategories")}
+          </div>
         ) : (
           cats.map((c) => (
             <button
@@ -343,16 +364,15 @@ export function CaptureScreen({
       </div>
 
       <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-        <button
-          className="flatBtn confirm"
-          onClick={() => void onSave()}
-          type="button"
-          disabled={!canSave}
-        >
+        <button className="flatBtn confirm" onClick={() => void onSave()} type="button" disabled={!canSave}>
           {tGet(dict, "capture.save")}
         </button>
 
-        {!settings.premium ? <div className="smallHelp">Free: 100 husket maks</div> : null}
+        {!settings.premium ? (
+          <div className="smallHelp" style={helpTextStyle}>
+            Free: 100 husket maks
+          </div>
+        ) : null}
       </div>
     </div>
   );
