@@ -1,10 +1,12 @@
 // ===============================
 // src/components/ViewHusketModal.tsx
 // ===============================
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { Husket, Settings } from "../domain/types";
 import type { I18nDict } from "../i18n";
 import { HusketSwipeDeck } from "./HusketSwipeDeck";
+import { MCL_HUSKET_THEME } from "../theme";
+import { HUSKET_TYPO } from "../theme/typography";
 
 type Props = {
   dict: I18nDict;
@@ -33,6 +35,13 @@ export function ViewHusketModal({
 
   const canOlder = index < items.length - 1;
   const canNewer = index > 0;
+
+  const textA: React.CSSProperties = {
+    fontSize: HUSKET_TYPO.A.fontSize,
+    fontWeight: HUSKET_TYPO.A.fontWeight,
+    lineHeight: HUSKET_TYPO.A.lineHeight,
+    letterSpacing: HUSKET_TYPO.A.letterSpacing,
+  };
 
   const close = () => {
     if (busyDelete) return;
@@ -66,6 +75,29 @@ export function ViewHusketModal({
 
   if (!cur) return null;
 
+  const topBarStyle: React.CSSProperties = {
+    height: 56,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    padding: "8px 12px",
+    boxSizing: "border-box",
+    background: MCL_HUSKET_THEME.colors.header,
+    borderBottom: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
+    color: MCL_HUSKET_THEME.colors.darkSurface,
+  };
+
+  const topRightBadgeStyle: React.CSSProperties = {
+    ...textA,
+    border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
+    borderRadius: 999,
+    padding: "6px 10px",
+    background: "transparent",
+    color: MCL_HUSKET_THEME.colors.darkSurface,
+    whiteSpace: "nowrap",
+  };
+
   return (
     <div
       className="viewer"
@@ -75,16 +107,22 @@ export function ViewHusketModal({
         position: "fixed",
         inset: 0,
         zIndex: 99999,
+
+        // Same background family as TopBar/BottomNav/Drawer
+        background: MCL_HUSKET_THEME.colors.header,
+        color: MCL_HUSKET_THEME.colors.darkSurface,
+
+        // Keep bottom panel space for swipe deck
         paddingBottom: `calc(${DEFAULT_BOTTOM_PANEL_PX}px + env(safe-area-inset-bottom))`,
       }}
     >
-      {/* Top bar stays, but footer/bottombar is now behind the modal because zIndex is high */}
-      <div className="viewerTop">
-        <button className="flatBtn" onClick={close} type="button">
+      {/* Top bar */}
+      <div className="viewerTop" style={topBarStyle}>
+        <button className="flatBtn" onClick={close} type="button" disabled={busyDelete} style={textA}>
           ✕
         </button>
 
-        <div className="badge">
+        <div className="badge" style={topRightBadgeStyle}>
           {index + 1}/{items.length}
         </div>
       </div>
