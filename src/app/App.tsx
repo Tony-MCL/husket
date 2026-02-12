@@ -15,6 +15,8 @@ import { SharedWithMeScreen } from "../screens/SharedWithMeScreen";
 import { SettingsDrawer } from "../components/SettingsDrawer";
 import { PaywallModal } from "../components/PaywallModal";
 
+import { MCL_HUSKET_THEME } from "../theme";
+
 export function App() {
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
   const dict = useMemo(() => getDict(settings.language), [settings.language]);
@@ -53,7 +55,7 @@ export function App() {
 
   return (
     <ToastProvider>
-      <div className="appShell">
+      <div className="appShell" style={{ backgroundColor: MCL_HUSKET_THEME.colors.bg }}>
         <TopBar
           dict={dict}
           settings={settings}
@@ -97,5 +99,3 @@ export function App() {
     </ToastProvider>
   );
 }
-
-
