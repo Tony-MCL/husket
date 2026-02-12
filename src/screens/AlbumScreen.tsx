@@ -209,7 +209,11 @@ export function AlbumScreen({ dict, life, settings }: Props) {
   };
 
   const anyAppliedRatingSelected = useMemo(() => Object.values(applied.appliedRatings).some(Boolean), [applied.appliedRatings]);
-  const anyAppliedCategorySelected = useMemo(() => Object.values(applied.appliedCategoryIds).some(Boolean), [applied.appliedCategoryIds]);
+
+  const anyAppliedCategorySelected = useMemo(
+    () => Object.values(applied.appliedCategoryIds).some(Boolean),
+    [applied.appliedCategoryIds]
+  );
 
   const activeSummary = useMemo(() => {
     const parts: string[] = [];
@@ -225,9 +229,12 @@ export function AlbumScreen({ dict, life, settings }: Props) {
       const pickedIds = Object.entries(applied.appliedCategoryIds)
         .filter(([, v]) => v)
         .map(([k]) => k);
-      const labels = pickedIds.map((id) =>
-        id === "__none__ ? (lang === "no" ? "Ingen" : "None") : categoryLabel(id) ?? id`
-      );
+
+      const labels = pickedIds.map((id) => {
+        if (id === "__none__") return lang === "no" ? "Ingen" : "None";
+        return categoryLabel(id) ?? id;
+      });
+
       if (labels.length > 0) parts.push(`🏷 ${labels.join(", ")}`);
     }
 
@@ -236,7 +243,15 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     }
 
     return parts.length > 0 ? parts : [lang === "no" ? "Ingen filtre" : "No filters"];
-  }, [anyAppliedRatingSelected, anyAppliedCategorySelected, applied.appliedRatings, applied.appliedCategoryIds, applied.appliedTimeFilter, lang, cats]);
+  }, [
+    anyAppliedRatingSelected,
+    anyAppliedCategorySelected,
+    applied.appliedRatings,
+    applied.appliedCategoryIds,
+    applied.appliedTimeFilter,
+    lang,
+    cats,
+  ]);
 
   const toggleDraftRating = (val: string) => {
     setDraftRatings((prev) => ({ ...prev, [val]: !prev[val] }));
@@ -339,7 +354,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     cursor: "pointer",
     background: "transparent",
     color: MCL_HUSKET_THEME.colors.textOnDark,
-    border: `1px solid rgba(247, 243, 237, 0.18)`, // thin, discreet
+    border: `1px solid rgba(247, 243, 237, 0.18)`,
     borderRadius: 16,
   };
 
@@ -487,10 +502,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
                   </label>
                 ))}
 
-                <label
-                  style={flatChoiceRow}
-                  title={lang === "no" ? "Huskets uten vurdering" : "Huskets without rating"}
-                >
+                <label style={flatChoiceRow} title={lang === "no" ? "Huskets uten vurdering" : "Huskets without rating"}>
                   <input
                     type="checkbox"
                     checked={!!draftRatings["__none__"]}
@@ -524,10 +536,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
                     </label>
                   ))}
 
-                  <label
-                    style={flatChoiceRow}
-                    title={lang === "no" ? "Huskets uten kategori" : "Huskets without category"}
-                  >
+                  <label style={flatChoiceRow} title={lang === "no" ? "Huskets uten kategori" : "Huskets without category"}>
                     <input
                       type="checkbox"
                       checked={!!draftCategoryIds["__none__"]}
