@@ -105,12 +105,13 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
   if (!open) return null;
 
   const overlayStyle: React.CSSProperties = {
-    background: "rgba(27, 26, 23, 0.35)", // warm dim (not pure black)
+    background: "rgba(27, 26, 23, 0.35)", // warm dim
   };
 
+  // Drawer matches TopBar/BottomNav
   const drawerStyle: React.CSSProperties = {
-    background: MCL_HUSKET_THEME.colors.surface,
-    color: MCL_HUSKET_THEME.colors.text,
+    background: MCL_HUSKET_THEME.colors.header,
+    color: MCL_HUSKET_THEME.colors.darkSurface,
     borderLeft: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
     boxShadow: MCL_HUSKET_THEME.elevation.elev2,
   };
@@ -119,22 +120,35 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
     background: MCL_HUSKET_THEME.colors.outline,
   };
 
-  const boxedStyle: React.CSSProperties = {
-    border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
+  // Section box: “mørk mokka” (same family as active pills)
+  const sectionStyle: React.CSSProperties = {
+    border: `1px solid ${MCL_HUSKET_THEME.colors.altSurface}`,
     borderRadius: 14,
     padding: 10,
-    background: MCL_HUSKET_THEME.colors.bg, // subtle contrast inside drawer
+    background: MCL_HUSKET_THEME.colors.altSurface,
+    color: MCL_HUSKET_THEME.colors.textOnDark,
   };
 
+  // Rows inside section: slightly lighter for structure, still “dark family”
   const rowStyle: React.CSSProperties = {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 10,
-    border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
+    border: `1px solid rgba(247, 243, 237, 0.16)`,
     borderRadius: 14,
     padding: "8px 10px",
-    background: MCL_HUSKET_THEME.colors.surface,
+    background: "rgba(255, 250, 244, 0.06)",
+    color: MCL_HUSKET_THEME.colors.textOnDark,
+  };
+
+  // Optional: make “title row” always readable on header background
+  const headerRowStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    color: MCL_HUSKET_THEME.colors.darkSurface,
   };
 
   return (
@@ -147,8 +161,8 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
         aria-label={tGet(dict, "settings.title")}
         style={drawerStyle}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-          <div style={{ fontWeight: 700 }}>{tGet(dict, "settings.title")}</div>
+        <div style={headerRowStyle}>
+          <div style={{ fontWeight: 800 }}>{tGet(dict, "settings.title")}</div>
           <button className="flatBtn" onClick={onClose} type="button">
             {tGet(dict, "settings.close")}
           </button>
@@ -226,10 +240,11 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
           {(["custom1", "custom2"] as const).map((life) => {
             const enabled = life === "custom1" ? settings.lives.enabledCustom1 : settings.lives.enabledCustom2;
             const name = life === "custom1" ? settings.lives.custom1Name : settings.lives.custom2Name;
+
             return (
-              <div key={life} style={boxedStyle}>
+              <div key={life} style={sectionStyle}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                  <div style={{ fontWeight: 700 }}>{life.toUpperCase()}</div>
+                  <div style={{ fontWeight: 800 }}>{life.toUpperCase()}</div>
                   <button
                     className={`flatBtn ${enabled ? "confirm" : ""}`}
                     onClick={() => setLifeEnabled(life, !enabled)}
