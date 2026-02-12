@@ -6,6 +6,7 @@ import type { RouteKey } from "../app/routes";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
 import { MCL_HUSKET_THEME } from "../theme";
+import { HUSKET_TYPO } from "../theme/typography";
 
 type Props = {
   dict: I18nDict;
@@ -42,10 +43,13 @@ export function BottomNav({ dict, route, onRouteChange }: Props) {
     padding: "6px 10px", // smaller pills
     background: "transparent",
     color: MCL_HUSKET_THEME.colors.darkSurface,
-    fontWeight: 800,
-    fontSize: 13, // one notch down
-    lineHeight: 1,
     whiteSpace: "nowrap",
+
+    // Typography (A)
+    fontSize: HUSKET_TYPO.A.fontSize,
+    fontWeight: HUSKET_TYPO.A.fontWeight,
+    lineHeight: HUSKET_TYPO.A.lineHeight,
+    letterSpacing: HUSKET_TYPO.A.letterSpacing,
   };
 
   const btnActive: React.CSSProperties = {
