@@ -14,20 +14,38 @@ type Props = {
 };
 
 export function BottomNav({ dict, route, onRouteChange }: Props) {
+  const BAR_HEIGHT = 56;
+
   const navStyle: React.CSSProperties = {
-    background: MCL_HUSKET_THEME.colors.header, // SAME as TopBar
+    background: MCL_HUSKET_THEME.colors.header, // same as TopBar
     borderTop: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
     color: MCL_HUSKET_THEME.colors.darkSurface,
+    minHeight: BAR_HEIGHT,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "8px 12px",
+    boxSizing: "border-box",
+  };
+
+  const innerStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    width: "100%",
   };
 
   const btnBase: React.CSSProperties = {
     border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
     borderRadius: 999,
-    padding: "10px 12px",
+    padding: "6px 10px", // smaller pills
     background: "transparent",
     color: MCL_HUSKET_THEME.colors.darkSurface,
     fontWeight: 800,
+    fontSize: 13, // one notch down
     lineHeight: 1,
+    whiteSpace: "nowrap",
   };
 
   const btnActive: React.CSSProperties = {
@@ -38,7 +56,7 @@ export function BottomNav({ dict, route, onRouteChange }: Props) {
 
   return (
     <div className="bottomNav" role="navigation" aria-label="Bottom navigation" style={navStyle}>
-      <div className="bottomNavInner">
+      <div className="bottomNavInner" style={innerStyle}>
         <button
           className={`bottomBtn ${route === "capture" ? "active" : ""}`}
           onClick={() => onRouteChange("capture")}
