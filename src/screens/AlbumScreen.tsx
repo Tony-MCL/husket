@@ -7,6 +7,7 @@ import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
 import { listHuskets, getImageUrl, deleteHusketById } from "../data/husketRepo";
 import { ViewHusketModal } from "../components/ViewHusketModal";
+import { MCL_HUSKET_THEME } from "../theme";
 
 type Props = {
   dict: I18nDict;
@@ -36,18 +37,7 @@ function ratingOptionsFromPack(pack: Settings["ratingPack"]): string[] {
     case "check":
       return ["✓", "−", "✗"];
     case "tens":
-      return [
-        "10/10",
-        "9/10",
-        "8/10",
-        "7/10",
-        "6/10",
-        "5/10",
-        "4/10",
-        "3/10",
-        "2/10",
-        "1/10",
-      ];
+      return ["10/10", "9/10", "8/10", "7/10", "6/10", "5/10", "4/10", "3/10", "2/10", "1/10"];
     default:
       return ["😊", "😐", "😖"];
   }
@@ -70,11 +60,7 @@ function computeCutoffMs(timeKey: TimeFilterKey, nowMs: number): number | null {
   return null;
 }
 
-function applyFiltersToItems(args: {
-  items: Husket[];
-  applied: LifeFilters;
-  nowMs: number;
-}): Husket[] {
+function applyFiltersToItems(args: { items: Husket[]; applied: LifeFilters; nowMs: number }): Husket[] {
   const { items, applied, nowMs } = args;
 
   const ratingsActive = Object.values(applied.appliedRatings).some(Boolean);
@@ -132,10 +118,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     return cats.find((c) => c.id === id)?.label ?? null;
   };
 
-  const ratingOptions = useMemo(
-    () => ratingOptionsFromPack(settings.ratingPack),
-    [settings.ratingPack]
-  );
+  const ratingOptions = useMemo(() => ratingOptionsFromPack(settings.ratingPack), [settings.ratingPack]);
 
   const applied = useMemo<LifeFilters>(() => {
     return filtersByLife[life] ?? emptyLifeFilters();
@@ -182,12 +165,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     setDraftRatings(applied.appliedRatings);
     setDraftCategoryIds(applied.appliedCategoryIds);
     setDraftTimeFilter(applied.appliedTimeFilter);
-  }, [
-    filtersOpen,
-    applied.appliedRatings,
-    applied.appliedCategoryIds,
-    applied.appliedTimeFilter,
-  ]);
+  }, [filtersOpen, applied.appliedRatings, applied.appliedCategoryIds, applied.appliedTimeFilter]);
 
   // When switching life: close dropdown & close viewer
   useEffect(() => {
@@ -230,14 +208,8 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     return "Last year";
   };
 
-  const anyAppliedRatingSelected = useMemo(
-    () => Object.values(applied.appliedRatings).some(Boolean),
-    [applied.appliedRatings]
-  );
-  const anyAppliedCategorySelected = useMemo(
-    () => Object.values(applied.appliedCategoryIds).some(Boolean),
-    [applied.appliedCategoryIds]
-  );
+  const anyAppliedRatingSelected = useMemo(() => Object.values(applied.appliedRatings).some(Boolean), [applied.appliedRatings]);
+  const anyAppliedCategorySelected = useMemo(() => Object.values(applied.appliedCategoryIds).some(Boolean), [applied.appliedCategoryIds]);
 
   const activeSummary = useMemo(() => {
     const parts: string[] = [];
@@ -254,11 +226,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
         .filter(([, v]) => v)
         .map(([k]) => k);
       const labels = pickedIds.map((id) =>
-        id === "__none__"
-          ? lang === "no"
-            ? "Ingen"
-            : "None"
-          : categoryLabel(id) ?? id
+        id === "__none__" ? (lang === "no" ? "Ingen" : "None") : categoryLabel(id) ?? id
       );
       if (labels.length > 0) parts.push(`🏷 ${labels.join(", ")}`);
     }
@@ -268,15 +236,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     }
 
     return parts.length > 0 ? parts : [lang === "no" ? "Ingen filtre" : "No filters"];
-  }, [
-    anyAppliedRatingSelected,
-    anyAppliedCategorySelected,
-    applied.appliedRatings,
-    applied.appliedCategoryIds,
-    applied.appliedTimeFilter,
-    lang,
-    cats,
-  ]);
+  }, [anyAppliedRatingSelected, anyAppliedCategorySelected, applied.appliedRatings, applied.appliedCategoryIds, applied.appliedTimeFilter, lang, cats]);
 
   const toggleDraftRating = (val: string) => {
     setDraftRatings((prev) => ({ ...prev, [val]: !prev[val] }));
@@ -367,6 +327,69 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     { key: "365d", col: 2 },
   ];
 
+  // ---- MCL styles for filter UI ----
+  const filterBtnStyle: React.CSSProperties = {
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    padding: "10px 12px",
+    cursor: "pointer",
+    background: MCL_HUSKET_THEME.colors.header,
+    color: MCL_HUSKET_THEME.colors.darkSurface,
+    border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
+    borderRadius: 16,
+  };
+
+  const dropStyle: React.CSSProperties = {
+    position: "absolute",
+    top: "calc(100% + 8px)",
+    left: 0,
+    right: 0,
+    zIndex: 30,
+    borderRadius: 16,
+    padding: 12,
+    boxShadow: MCL_HUSKET_THEME.elevation.elev2,
+    background: MCL_HUSKET_THEME.colors.header,
+    color: MCL_HUSKET_THEME.colors.darkSurface,
+    border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
+    display: "grid",
+    gap: 12,
+  };
+
+  const chipStyle: React.CSSProperties = {
+    background: MCL_HUSKET_THEME.colors.altSurface,
+    color: MCL_HUSKET_THEME.colors.textOnDark,
+    border: `1px solid ${MCL_HUSKET_THEME.colors.altSurface}`,
+  };
+
+  const choicePillStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "6px 10px",
+    borderRadius: 12,
+    border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
+    cursor: "pointer",
+    userSelect: "none",
+    background: "rgba(255, 250, 244, 0.35)", // soft on cappuccino
+    color: MCL_HUSKET_THEME.colors.darkSurface,
+  };
+
+  const choiceRoundStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "6px 10px",
+    borderRadius: 999,
+    border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
+    cursor: "pointer",
+    userSelect: "none",
+    background: "rgba(255, 250, 244, 0.35)",
+    color: MCL_HUSKET_THEME.colors.darkSurface,
+  };
+
   if (items.length === 0) {
     return <div className="smallHelp">{tGet(dict, "album.empty")}</div>;
   }
@@ -379,30 +402,14 @@ export function AlbumScreen({ dict, life, settings }: Props) {
           type="button"
           className="flatBtn"
           onClick={() => setFiltersOpen((v) => !v)}
-          style={{
-            width: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 10,
-            padding: "10px 12px",
-            cursor: "pointer",
-          }}
+          style={filterBtnStyle}
           aria-expanded={filtersOpen}
         >
           <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
             <span aria-hidden>🔎</span>
-            <span
-              style={{
-                display: "flex",
-                gap: 8,
-                flexWrap: "wrap",
-                alignItems: "center",
-                minWidth: 0,
-              }}
-            >
+            <span style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", minWidth: 0 }}>
               {activeSummary.map((p) => (
-                <span key={p} className="badge" style={{ whiteSpace: "nowrap" }}>
+                <span key={p} className="badge" style={{ ...chipStyle, whiteSpace: "nowrap" }}>
                   {p}
                 </span>
               ))}
@@ -414,22 +421,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
         </button>
 
         {filtersOpen ? (
-          <div
-            style={{
-              position: "absolute",
-              top: "calc(100% + 8px)",
-              left: 0,
-              right: 0,
-              zIndex: 30,
-              borderRadius: 16,
-              padding: 12,
-              boxShadow: "0 12px 30px rgba(0,0,0,0.25)",
-              background: "rgba(20,20,20,0.98)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              display: "grid",
-              gap: 12,
-            }}
-          >
+          <div style={dropStyle}>
             {/* Time (checkbox-style UI, arranged on two lines) */}
             <div style={{ display: "grid", gap: 8 }}>
               <div className="label" style={{ margin: 0 }}>
@@ -438,20 +430,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 {timeChoices.map(({ key, col }) => (
-                  <label
-                    key={key}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      padding: "6px 10px",
-                      borderRadius: 12,
-                      border: "1px solid rgba(255,255,255,0.12)",
-                      cursor: "pointer",
-                      userSelect: "none",
-                      gridColumn: col,
-                    }}
-                  >
+                  <label key={key} style={{ ...choicePillStyle, gridColumn: col }}>
                     <input
                       type="checkbox"
                       checked={draftTimeFilter === key}
@@ -471,19 +450,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {ratingOptions.map((r) => (
-                  <label
-                    key={r}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: "6px 10px",
-                      borderRadius: 999,
-                      border: "1px solid rgba(255,255,255,0.12)",
-                      cursor: "pointer",
-                      userSelect: "none",
-                    }}
-                  >
+                  <label key={r} style={choiceRoundStyle}>
                     <input
                       type="checkbox"
                       checked={!!draftRatings[r]}
@@ -495,16 +462,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
                 ))}
 
                 <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "6px 10px",
-                    borderRadius: 999,
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    cursor: "pointer",
-                    userSelect: "none",
-                  }}
+                  style={choiceRoundStyle}
                   title={lang === "no" ? "Huskets uten vurdering" : "Huskets without rating"}
                 >
                   <input
@@ -528,19 +486,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
               ) : (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   {cats.map((c) => (
-                    <label
-                      key={c.id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        padding: "6px 10px",
-                        borderRadius: 999,
-                        border: "1px solid rgba(255,255,255,0.12)",
-                        cursor: "pointer",
-                        userSelect: "none",
-                      }}
-                    >
+                    <label key={c.id} style={choiceRoundStyle}>
                       <input
                         type="checkbox"
                         checked={!!draftCategoryIds[c.id]}
@@ -552,24 +498,13 @@ export function AlbumScreen({ dict, life, settings }: Props) {
                   ))}
 
                   <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: "6px 10px",
-                      borderRadius: 999,
-                      border: "1px solid rgba(255,255,255,0.12)",
-                      cursor: "pointer",
-                      userSelect: "none",
-                    }}
+                    style={choiceRoundStyle}
                     title={lang === "no" ? "Huskets uten kategori" : "Huskets without category"}
                   >
                     <input
                       type="checkbox"
                       checked={!!draftCategoryIds["__none__"]}
-                      onChange={() =>
-                        setDraftCategoryIds((p) => ({ ...p, __none__: !p.__none__ }))
-                      }
+                      onChange={() => setDraftCategoryIds((p) => ({ ...p, __none__: !p.__none__ }))}
                       style={{ transform: "scale(1.1)" }}
                     />
                     <span>{lang === "no" ? "Ingen" : "None"}</span>
@@ -605,18 +540,12 @@ export function AlbumScreen({ dict, life, settings }: Props) {
               type="button"
               style={{ padding: 0, textAlign: "left", cursor: "pointer" }}
             >
-              {thumbUrls[it.id] ? (
-                <img className="thumbImg" src={thumbUrls[it.id]} alt="" />
-              ) : (
-                <div className="capturePreview">Loading…</div>
-              )}
+              {thumbUrls[it.id] ? <img className="thumbImg" src={thumbUrls[it.id]} alt="" /> : <div className="capturePreview">Loading…</div>}
               <div className="thumbMeta">
                 <span>{formatThumbDate(it.createdAt, lang)}</span>
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   {it.gps ? <span title={tGet(dict, "album.gps")}>🌍</span> : null}
-                  {categoryLabel(it.categoryId) ? (
-                    <span className="badge">{categoryLabel(it.categoryId)}</span>
-                  ) : null}
+                  {categoryLabel(it.categoryId) ? <span className="badge">{categoryLabel(it.categoryId)}</span> : null}
                 </span>
               </div>
             </button>
