@@ -6,6 +6,7 @@ import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
 import type { CategoryDef, LifeKey, RatingPackKey, Settings } from "../domain/types";
 import { MCL_HUSKET_THEME } from "../theme";
+import { HUSKET_TYPO } from "../theme/typography";
 
 type Props = {
   dict: I18nDict;
@@ -104,6 +105,21 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
 
   if (!open) return null;
 
+  // ---- Typography helpers (A/B) ----
+  const textA: React.CSSProperties = {
+    fontSize: HUSKET_TYPO.A.fontSize,
+    fontWeight: HUSKET_TYPO.A.fontWeight,
+    lineHeight: HUSKET_TYPO.A.lineHeight,
+    letterSpacing: HUSKET_TYPO.A.letterSpacing,
+  };
+
+  const textB: React.CSSProperties = {
+    fontSize: HUSKET_TYPO.B.fontSize,
+    fontWeight: HUSKET_TYPO.B.fontWeight,
+    lineHeight: HUSKET_TYPO.B.lineHeight,
+    letterSpacing: HUSKET_TYPO.B.letterSpacing,
+  };
+
   const overlayStyle: React.CSSProperties = {
     background: "rgba(27, 26, 23, 0.35)", // warm dim
   };
@@ -151,6 +167,38 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
     color: MCL_HUSKET_THEME.colors.darkSurface,
   };
 
+  const drawerTitleStyle: React.CSSProperties = {
+    ...textA,
+  };
+
+  const actionTextStyle: React.CSSProperties = {
+    ...textA,
+  };
+
+  const labelStyle: React.CSSProperties = {
+    ...textB,
+  };
+
+  const smallHelpStyle: React.CSSProperties = {
+    ...textB,
+  };
+
+  const sectionTitleStyle: React.CSSProperties = {
+    ...textA,
+    color: MCL_HUSKET_THEME.colors.textOnDark,
+  };
+
+  const rowTitleStyle: React.CSSProperties = {
+    ...textB,
+    color: MCL_HUSKET_THEME.colors.textOnDark,
+  };
+
+  const rowHelpStyle: React.CSSProperties = {
+    ...textB,
+    color: MCL_HUSKET_THEME.colors.textOnDark,
+    opacity: 0.9,
+  };
+
   return (
     <>
       <div className="drawerOverlay" onClick={onClose} style={overlayStyle} />
@@ -162,15 +210,17 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
         style={drawerStyle}
       >
         <div style={headerRowStyle}>
-          <div style={{ fontWeight: 800 }}>{tGet(dict, "settings.title")}</div>
-          <button className="flatBtn" onClick={onClose} type="button">
+          <div style={drawerTitleStyle}>{tGet(dict, "settings.title")}</div>
+          <button className="flatBtn" onClick={onClose} type="button" style={actionTextStyle}>
             {tGet(dict, "settings.close")}
           </button>
         </div>
 
         <div className="hr" style={hrStyle} />
 
-        <div className="label">{tGet(dict, "settings.language")}</div>
+        <div className="label" style={labelStyle}>
+          {tGet(dict, "settings.language")}
+        </div>
         <select
           className="select"
           value={settings.language}
@@ -181,7 +231,9 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
           <option value="en">English</option>
         </select>
 
-        <div className="label">{tGet(dict, "settings.ratingPack")}</div>
+        <div className="label" style={labelStyle}>
+          {tGet(dict, "settings.ratingPack")}
+        </div>
         <select
           className="select"
           value={settings.ratingPack}
@@ -198,22 +250,27 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
           ))}
         </select>
 
-        <div className="label">{tGet(dict, "settings.gpsGlobal")}</div>
+        <div className="label" style={labelStyle}>
+          {tGet(dict, "settings.gpsGlobal")}
+        </div>
         <button
           className={`flatBtn ${settings.gpsGlobalEnabled ? "confirm" : ""}`}
           onClick={() => update({ gpsGlobalEnabled: !settings.gpsGlobalEnabled })}
           type="button"
+          style={actionTextStyle}
         >
           {settings.gpsGlobalEnabled ? "ON" : "OFF"}
         </button>
 
         <div className="hr" style={hrStyle} />
 
-        <div className="label">{tGet(dict, "settings.premium")}</div>
-        <div className="smallHelp" style={{ marginBottom: 8 }}>
+        <div className="label" style={labelStyle}>
+          {tGet(dict, "settings.premium")}
+        </div>
+        <div className="smallHelp" style={{ ...smallHelpStyle, marginBottom: 8 }}>
           {settings.premium ? tGet(dict, "settings.premiumOn") : tGet(dict, "settings.premiumOff")}
         </div>
-        <div className="smallHelp" style={{ marginBottom: 10 }}>
+        <div className="smallHelp" style={{ ...smallHelpStyle, marginBottom: 10 }}>
           {tGet(dict, "settings.premiumDesc")}
         </div>
         <button
@@ -227,14 +284,19 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
             onChange(next);
           }}
           type="button"
+          style={actionTextStyle}
         >
           {tGet(dict, "settings.buyPremium")}
         </button>
 
         <div className="hr" style={hrStyle} />
 
-        <div className="label">{tGet(dict, "settings.lives")}</div>
-        <div className="smallHelp">{tGet(dict, "settings.customLives")}</div>
+        <div className="label" style={labelStyle}>
+          {tGet(dict, "settings.lives")}
+        </div>
+        <div className="smallHelp" style={smallHelpStyle}>
+          {tGet(dict, "settings.customLives")}
+        </div>
 
         <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
           {(["custom1", "custom2"] as const).map((life) => {
@@ -244,19 +306,22 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
             return (
               <div key={life} style={sectionStyle}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                  <div style={{ fontWeight: 800 }}>{life.toUpperCase()}</div>
+                  <div style={sectionTitleStyle}>{life.toUpperCase()}</div>
                   <button
                     className={`flatBtn ${enabled ? "confirm" : ""}`}
                     onClick={() => setLifeEnabled(life, !enabled)}
                     type="button"
                     disabled={customLivesDisabled}
                     title={customLivesDisabled ? "Premium" : ""}
+                    style={actionTextStyle}
                   >
                     {tGet(dict, "settings.enable")} {enabled ? "ON" : "OFF"}
                   </button>
                 </div>
 
-                <div className="label">{tGet(dict, "settings.name")}</div>
+                <div className="label" style={labelStyle}>
+                  {tGet(dict, "settings.name")}
+                </div>
                 <input
                   className="input"
                   value={name}
@@ -264,8 +329,12 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
                   disabled={!settings.premium}
                 />
 
-                <div className="label">{tGet(dict, "settings.categories")}</div>
-                <div className="smallHelp">{tGet(dict, "settings.customCats")}</div>
+                <div className="label" style={labelStyle}>
+                  {tGet(dict, "settings.categories")}
+                </div>
+                <div className="smallHelp" style={smallHelpStyle}>
+                  {tGet(dict, "settings.customCats")}
+                </div>
 
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                   <input
@@ -275,7 +344,13 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
                     placeholder="Legg til…"
                     disabled={!canUseCustom || !enabled}
                   />
-                  <button className="flatBtn" onClick={() => addCustomCategory(life)} type="button" disabled={!canUseCustom || !enabled}>
+                  <button
+                    className="flatBtn"
+                    onClick={() => addCustomCategory(life)}
+                    type="button"
+                    disabled={!canUseCustom || !enabled}
+                    style={actionTextStyle}
+                  >
                     +
                   </button>
                 </div>
@@ -284,8 +359,8 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
                   {(settings.categories[life] ?? []).map((c) => (
                     <div key={c.id} style={rowStyle}>
                       <div style={{ display: "grid" }}>
-                        <div style={{ fontSize: 13 }}>{c.label}</div>
-                        <div className="smallHelp">
+                        <div style={rowTitleStyle}>{c.label}</div>
+                        <div className="smallHelp" style={rowHelpStyle}>
                           {tGet(dict, "settings.gpsPerCat")}:{" "}
                           {settings.categoryGpsOverrides[c.id] === undefined
                             ? c.gpsEligible
@@ -296,7 +371,13 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
                               : "OFF (override)"}
                         </div>
                       </div>
-                      <button className="flatBtn" onClick={() => toggleCategoryGpsOverride(c.id)} type="button" disabled={!enabled}>
+                      <button
+                        className="flatBtn"
+                        onClick={() => toggleCategoryGpsOverride(c.id)}
+                        type="button"
+                        disabled={!enabled}
+                        style={actionTextStyle}
+                      >
                         Toggle
                       </button>
                     </div>
