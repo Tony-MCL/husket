@@ -7,6 +7,8 @@ import type { Husket, Settings } from "../domain/types";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
 import { getImageUrl } from "../data/husketRepo";
+import { MCL_HUSKET_THEME } from "../theme";
+import { HUSKET_TYPO } from "../theme/typography";
 
 type Props = {
   dict: I18nDict;
@@ -87,6 +89,21 @@ export function HusketSwipeDeck({
     const { lat, lng } = cur.gps;
     return `https://www.google.com/maps?q=${lat},${lng}`;
   }, [cur?.gps]);
+
+  // ---- Typography helpers (A/B) ----
+  const textA: React.CSSProperties = {
+    fontSize: HUSKET_TYPO.A.fontSize,
+    fontWeight: HUSKET_TYPO.A.fontWeight,
+    lineHeight: HUSKET_TYPO.A.lineHeight,
+    letterSpacing: HUSKET_TYPO.A.letterSpacing,
+  };
+
+  const textB: React.CSSProperties = {
+    fontSize: HUSKET_TYPO.B.fontSize,
+    fontWeight: HUSKET_TYPO.B.fontWeight,
+    lineHeight: HUSKET_TYPO.B.lineHeight,
+    letterSpacing: HUSKET_TYPO.B.letterSpacing,
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -195,6 +212,9 @@ export function HusketSwipeDeck({
         placeItems: "center",
         padding: "0 12px",
         isolation: "isolate",
+
+        // Make viewer/deck background match TopBar/BottomNav/Drawer
+        background: MCL_HUSKET_THEME.colors.header,
       }}
     >
       {underItem ? (
@@ -212,12 +232,18 @@ export function HusketSwipeDeck({
           <div className="husketCard">
             <div className="husketCardTop">
               <div className="husketCardImg">
-                {underUrl ? <img src={underUrl} alt="" /> : <div className="smallHelp">Loading…</div>}
+                {underUrl ? (
+                  <img src={underUrl} alt="" />
+                ) : (
+                  <div className="smallHelp" style={textB}>
+                    Loading…
+                  </div>
+                )}
               </div>
               <div className="husketCardSide" />
             </div>
             <div className="husketCardMeta">
-              <div className="viewerMetaLine">
+              <div className="viewerMetaLine" style={textB}>
                 <div>
                   {tGet(dict, "album.created")}: {formatDate(underItem.createdAt, lang)}
                 </div>
@@ -279,6 +305,7 @@ export function HusketSwipeDeck({
             type="button"
             aria-label="Newer"
             title={lang === "no" ? "Nyere" : "Newer"}
+            style={textA}
           >
             ◀
           </button>
@@ -291,6 +318,7 @@ export function HusketSwipeDeck({
             type="button"
             aria-label="Older"
             title={lang === "no" ? "Eldre" : "Older"}
+            style={textA}
           >
             ▶
           </button>
@@ -299,14 +327,20 @@ export function HusketSwipeDeck({
         {/* Top: image + side rail */}
         <div className="husketCardTop">
           <div className="husketCardImg">
-            {topUrl ? <img src={topUrl} alt="" /> : <div className="smallHelp">Loading…</div>}
+            {topUrl ? (
+              <img src={topUrl} alt="" />
+            ) : (
+              <div className="smallHelp" style={textB}>
+                Loading…
+              </div>
+            )}
           </div>
 
           <div className="husketCardSide">
-            <div className="husketSidePill" title={lang === "no" ? "Rating" : "Rating"}>
+            <div className="husketSidePill" title={lang === "no" ? "Rating" : "Rating"} style={textB}>
               {sideRating}
             </div>
-            <div className="husketSidePill" title={lang === "no" ? "Kategori" : "Category"}>
+            <div className="husketSidePill" title={lang === "no" ? "Kategori" : "Category"} style={textB}>
               {sideCat}
             </div>
 
@@ -317,11 +351,12 @@ export function HusketSwipeDeck({
                 target="_blank"
                 rel="noreferrer"
                 title={tGet(dict, "album.map")}
+                style={textB}
               >
                 🌍
               </a>
             ) : (
-              <div className="husketSidePill" title="GPS">
+              <div className="husketSidePill" title="GPS" style={textB}>
                 {sideGps}
               </div>
             )}
@@ -330,7 +365,7 @@ export function HusketSwipeDeck({
 
         {/* Bottom: timestamp + comment + delete */}
         <div className="husketCardMeta">
-          <div className="viewerMetaLine">
+          <div className="viewerMetaLine" style={textB}>
             <div>
               {tGet(dict, "album.created")}: {formatDate(cur.createdAt, lang)}
             </div>
@@ -348,7 +383,7 @@ export function HusketSwipeDeck({
             </div>
           </div>
 
-          {cur.comment ? <div style={{ fontSize: 14 }}>{cur.comment}</div> : null}
+          {cur.comment ? <div style={textB}>{cur.comment}</div> : null}
 
           <div style={{ marginTop: 2, display: "flex", justifyContent: "center" }}>
             <button
@@ -356,12 +391,13 @@ export function HusketSwipeDeck({
               onClick={onDeleteCurrent}
               type="button"
               title={lang === "no" ? "Slett" : "Delete"}
+              style={textA}
             >
               🗑 {lang === "no" ? "Slett" : "Delete"}
             </button>
           </div>
 
-          <div className="smallHelp" style={{ textAlign: "center" }}>
+          <div className="smallHelp" style={{ ...textB, textAlign: "center" }}>
             {index + 1}/{items.length}
           </div>
         </div>
