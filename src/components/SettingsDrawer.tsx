@@ -5,6 +5,7 @@ import React, { useMemo, useState } from "react";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
 import type { CategoryDef, LifeKey, RatingPackKey, Settings } from "../domain/types";
+import { MCL_HUSKET_THEME } from "../theme";
 
 type Props = {
   dict: I18nDict;
@@ -103,10 +104,49 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
 
   if (!open) return null;
 
+  const overlayStyle: React.CSSProperties = {
+    background: "rgba(27, 26, 23, 0.35)", // warm dim (not pure black)
+  };
+
+  const drawerStyle: React.CSSProperties = {
+    background: MCL_HUSKET_THEME.colors.surface,
+    color: MCL_HUSKET_THEME.colors.text,
+    borderLeft: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
+    boxShadow: MCL_HUSKET_THEME.elevation.elev2,
+  };
+
+  const hrStyle: React.CSSProperties = {
+    background: MCL_HUSKET_THEME.colors.outline,
+  };
+
+  const boxedStyle: React.CSSProperties = {
+    border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
+    borderRadius: 14,
+    padding: 10,
+    background: MCL_HUSKET_THEME.colors.bg, // subtle contrast inside drawer
+  };
+
+  const rowStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
+    borderRadius: 14,
+    padding: "8px 10px",
+    background: MCL_HUSKET_THEME.colors.surface,
+  };
+
   return (
     <>
-      <div className="drawerOverlay" onClick={onClose} />
-      <aside className="drawer" role="dialog" aria-modal="true" aria-label={tGet(dict, "settings.title")}>
+      <div className="drawerOverlay" onClick={onClose} style={overlayStyle} />
+      <aside
+        className="drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label={tGet(dict, "settings.title")}
+        style={drawerStyle}
+      >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
           <div style={{ fontWeight: 700 }}>{tGet(dict, "settings.title")}</div>
           <button className="flatBtn" onClick={onClose} type="button">
@@ -114,7 +154,7 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
           </button>
         </div>
 
-        <div className="hr" />
+        <div className="hr" style={hrStyle} />
 
         <div className="label">{tGet(dict, "settings.language")}</div>
         <select
@@ -153,7 +193,7 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
           {settings.gpsGlobalEnabled ? "ON" : "OFF"}
         </button>
 
-        <div className="hr" />
+        <div className="hr" style={hrStyle} />
 
         <div className="label">{tGet(dict, "settings.premium")}</div>
         <div className="smallHelp" style={{ marginBottom: 8 }}>
@@ -177,7 +217,7 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
           {tGet(dict, "settings.buyPremium")}
         </button>
 
-        <div className="hr" />
+        <div className="hr" style={hrStyle} />
 
         <div className="label">{tGet(dict, "settings.lives")}</div>
         <div className="smallHelp">{tGet(dict, "settings.customLives")}</div>
@@ -187,7 +227,7 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
             const enabled = life === "custom1" ? settings.lives.enabledCustom1 : settings.lives.enabledCustom2;
             const name = life === "custom1" ? settings.lives.custom1Name : settings.lives.custom2Name;
             return (
-              <div key={life} style={{ border: "1px solid var(--line2)", borderRadius: 14, padding: 10 }}>
+              <div key={life} style={boxedStyle}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                   <div style={{ fontWeight: 700 }}>{life.toUpperCase()}</div>
                   <button
@@ -220,30 +260,14 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
                     placeholder="Legg til…"
                     disabled={!canUseCustom || !enabled}
                   />
-                  <button
-                    className="flatBtn"
-                    onClick={() => addCustomCategory(life)}
-                    type="button"
-                    disabled={!canUseCustom || !enabled}
-                  >
+                  <button className="flatBtn" onClick={() => addCustomCategory(life)} type="button" disabled={!canUseCustom || !enabled}>
                     +
                   </button>
                 </div>
 
                 <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
                   {(settings.categories[life] ?? []).map((c) => (
-                    <div
-                      key={c.id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 10,
-                        border: "1px solid var(--line2)",
-                        borderRadius: 14,
-                        padding: "8px 10px",
-                      }}
-                    >
+                    <div key={c.id} style={rowStyle}>
                       <div style={{ display: "grid" }}>
                         <div style={{ fontSize: 13 }}>{c.label}</div>
                         <div className="smallHelp">
@@ -257,12 +281,7 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
                               : "OFF (override)"}
                         </div>
                       </div>
-                      <button
-                        className="flatBtn"
-                        onClick={() => toggleCategoryGpsOverride(c.id)}
-                        type="button"
-                        disabled={!enabled}
-                      >
+                      <button className="flatBtn" onClick={() => toggleCategoryGpsOverride(c.id)} type="button" disabled={!enabled}>
                         Toggle
                       </button>
                     </div>
@@ -276,5 +295,3 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
     </>
   );
 }
-
-
