@@ -8,6 +8,7 @@ import { tGet } from "../i18n";
 import { listHuskets, getImageUrl, deleteHusketById } from "../data/husketRepo";
 import { ViewHusketModal } from "../components/ViewHusketModal";
 import { MCL_HUSKET_THEME } from "../theme";
+import { HUSKET_TYPO } from "../theme/typography";
 
 type Props = {
   dict: I18nDict;
@@ -341,6 +342,21 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     { key: "365d", col: 2 },
   ];
 
+  // ---- Typography helpers (A/B) ----
+  const textA: React.CSSProperties = {
+    fontSize: HUSKET_TYPO.A.fontSize,
+    fontWeight: HUSKET_TYPO.A.fontWeight,
+    lineHeight: HUSKET_TYPO.A.lineHeight,
+    letterSpacing: HUSKET_TYPO.A.letterSpacing,
+  };
+
+  const textB: React.CSSProperties = {
+    fontSize: HUSKET_TYPO.B.fontSize,
+    fontWeight: HUSKET_TYPO.B.fontWeight,
+    lineHeight: HUSKET_TYPO.B.lineHeight,
+    letterSpacing: HUSKET_TYPO.B.letterSpacing,
+  };
+
   // ---- MCL styles for filter UI (flat + minimal) ----
   const filterBtnStyle: React.CSSProperties = {
     width: "100%",
@@ -357,6 +373,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
   };
 
   const summaryTextStyle: React.CSSProperties = {
+    ...textB,
     color: MCL_HUSKET_THEME.colors.textOnDark,
     opacity: 0.95,
     whiteSpace: "nowrap",
@@ -379,12 +396,13 @@ export function AlbumScreen({ dict, life, settings }: Props) {
   };
 
   const dropLabelStyle: React.CSSProperties = {
+    ...textA,
     margin: 0,
     color: MCL_HUSKET_THEME.colors.darkSurface,
-    fontWeight: 800,
   };
 
   const flatChoiceRow: React.CSSProperties = {
+    ...textB,
     display: "flex",
     alignItems: "center",
     gap: 10,
@@ -408,10 +426,10 @@ export function AlbumScreen({ dict, life, settings }: Props) {
   };
 
   const actionBtnBase: React.CSSProperties = {
+    ...textA,
     border: "none",
     background: "transparent",
     padding: "6px 0",
-    fontWeight: 900,
     cursor: "pointer",
     color: MCL_HUSKET_THEME.colors.darkSurface,
   };
@@ -439,8 +457,16 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     gap: 12,
   };
 
+  const thumbMetaTypography: React.CSSProperties = {
+    ...textB,
+  };
+
   if (items.length === 0) {
-    return <div className="smallHelp">{tGet(dict, "album.empty")}</div>;
+    return (
+      <div className="smallHelp" style={textB}>
+        {tGet(dict, "album.empty")}
+      </div>
+    );
   }
 
   return (
@@ -542,7 +568,9 @@ export function AlbumScreen({ dict, life, settings }: Props) {
               </div>
 
               {cats.length === 0 ? (
-                <div className="smallHelp">{tGet(dict, "capture.noCategories")}</div>
+                <div className="smallHelp" style={textB}>
+                  {tGet(dict, "capture.noCategories")}
+                </div>
               ) : (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 18 }}>
                   {cats.map((c) => (
@@ -584,7 +612,9 @@ export function AlbumScreen({ dict, life, settings }: Props) {
       </div>
 
       {filteredItems.length === 0 ? (
-        <div className="smallHelp">{lang === "no" ? "Ingen treff på valgte filtre." : "No matches for selected filters."}</div>
+        <div className="smallHelp" style={textB}>
+          {lang === "no" ? "Ingen treff på valgte filtre." : "No matches for selected filters."}
+        </div>
       ) : (
         <div className="albumGrid">
           {filteredItems.map((it, index) => (
@@ -598,9 +628,11 @@ export function AlbumScreen({ dict, life, settings }: Props) {
               {thumbUrls[it.id] ? (
                 <img className="thumbImg" src={thumbUrls[it.id]} alt="" />
               ) : (
-                <div className="capturePreview">Loading…</div>
+                <div className="capturePreview" style={textB}>
+                  Loading…
+                </div>
               )}
-              <div className="thumbMeta">
+              <div className="thumbMeta" style={thumbMetaTypography}>
                 <span>{formatThumbDate(it.createdAt, lang)}</span>
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   {it.gps ? <span title={tGet(dict, "album.gps")}>🌍</span> : null}
