@@ -119,13 +119,6 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     if (fileRef.current) fileRef.current.value = "";
   };
 
-  const clearPhotoOnly = () => {
-    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
-    setImagePreviewUrl(null);
-    setImageBlob(null);
-    if (fileRef.current) fileRef.current.value = "";
-  };
-
   // Try auto-open camera once when entering Capture (camera-first UX)
   useEffect(() => {
     if (autoOpenAttemptedRef.current) return;
@@ -249,7 +242,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     borderRadius: 14,
   };
 
-  // ✅ Primary button style (Ta bilde + Lagre) with DARK text
+  // ✅ Primary button style (Ta bilde + “Ta nytt bilde” + Lagre) with DARK text
   const primaryBtnStyle: React.CSSProperties = {
     background: MCL_HUSKET_THEME.colors.header, // same as TopBar
     color: "rgba(27, 26, 23, 0.92)", // dark text for contrast on light background
@@ -257,20 +250,13 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     boxShadow: "none",
   };
 
-  // ---- Remove outline on non-primary buttons ----
-  const noOutlineBtn: React.CSSProperties = {
-    border: "none",
-    boxShadow: "none",
-    outline: "none",
-  };
-
-  // ✅ Center the standalone "Ta bilde" row button
+  // ✅ Always center the single button under preview
   const photoActionsStyle: React.CSSProperties = {
     marginTop: 10,
     display: "flex",
     gap: 10,
     flexWrap: "wrap",
-    justifyContent: !imageBlob ? "center" : "flex-start",
+    justifyContent: "center",
   };
 
   return (
@@ -343,22 +329,11 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
         <div style={dividerThin} />
       </div>
 
-      {/* Photo actions */}
+      {/* Photo action (ONE button only) */}
       <div style={photoActionsStyle}>
-        {!imageBlob ? (
-          <button className="flatBtn primary" style={primaryBtnStyle} onClick={openCamera} type="button">
-            {tGet(dict, "capture.pickPhoto")}
-          </button>
-        ) : (
-          <>
-            <button className="flatBtn primary" style={primaryBtnStyle} onClick={openCamera} type="button">
-              {tGet(dict, "capture.retakePhoto")}
-            </button>
-            <button className="flatBtn danger" style={noOutlineBtn} onClick={clearPhotoOnly} type="button">
-              {tGet(dict, "capture.removePhoto")}
-            </button>
-          </>
-        )}
+        <button className="flatBtn primary" style={primaryBtnStyle} onClick={openCamera} type="button">
+          {!imageBlob ? tGet(dict, "capture.pickPhoto") : tGet(dict, "capture.retakePhoto")}
+        </button>
 
         <input
           ref={fileRef}
@@ -459,7 +434,6 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
 
       {/* Save */}
       <div style={{ marginTop: 12, display: "grid", gap: 8, justifyItems: "center" }}>
-        {/* ✅ Use same style + same class as Ta bilde for identical sizing */}
         <button
           className="flatBtn primary"
           style={primaryBtnStyle}
