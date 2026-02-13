@@ -93,12 +93,19 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
     onChange(next);
   };
 
-  const toggleCategoryGpsOverride = (categoryId: string) => {
-    const current = settings.categoryGpsOverrides[categoryId];
-    const nextVal = current === undefined ? false : !current;
+  const setCategoryGpsOverride = (categoryId: string, mode: "default" | "on" | "off") => {
+    const nextOverrides = { ...settings.categoryGpsOverrides };
+
+    if (mode === "default") {
+      // remove override
+      if (categoryId in nextOverrides) delete nextOverrides[categoryId];
+    } else {
+      nextOverrides[categoryId] = mode === "on";
+    }
+
     const next: Settings = {
       ...settings,
-      categoryGpsOverrides: { ...settings.categoryGpsOverrides, [categoryId]: nextVal },
+      categoryGpsOverrides: nextOverrides,
     };
     onChange(next);
   };
@@ -253,14 +260,14 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
         <div className="label" style={labelStyle}>
           {tGet(dict, "settings.gpsGlobal")}
         </div>
-        <button
-          className={`flatBtn ${settings.gpsGlobalEnabled ? "confirm" : ""}`}
-          onClick={() => update({ gpsGlobalEnabled: !settings.gpsGlobalEnabled })}
-          type="button"
-          style={actionTextStyle}
+        <select
+          className="select"
+          value={settings.gpsGlobalEnabled ? "on" : "off"}
+          onChange={(e) => update({ gpsGlobalEnabled: e.target.value === "on" })}
         >
-          {settings.gpsGlobalEnabled ? "ON" : "OFF"}
-        </button>
+          <option value="on">ON</option>
+          <option value="off">OFF</option>
+        </select>
 
         <div className="hr" style={hrStyle} />
 
@@ -307,16 +314,21 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
               <div key={life} style={sectionStyle}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                   <div style={sectionTitleStyle}>{life.toUpperCase()}</div>
-                  <button
-                    className={`flatBtn ${enabled ? "confirm" : ""}`}
-                    onClick={() => setLifeEnabled(life, !enabled)}
-                    type="button"
+
+                  <select
+                    className="select"
+                    value={enabled ? "on" : "off"}
+                    onChange={(e) => setLifeEnabled(life, e.target.value === "on")}
                     disabled={customLivesDisabled}
                     title={customLivesDisabled ? "Premium" : ""}
-                    style={actionTextStyle}
                   >
-                    {tGet(dict, "settings.enable")} {enabled ? "ON" : "OFF"}
-                  </button>
+                    <option value="on">
+                      {tGet(dict, "settings.enable")} ON
+                    </option>
+                    <option value="off">
+                      {tGet(dict, "settings.enable")} OFF
+                    </option>
+                  </select>
                 </div>
 
                 <div className="label" style={labelStyle}>
@@ -356,32 +368,40 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
                 </div>
 
                 <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                  {(settings.categories[life] ?? []).map((c) => (
-                    <div key={c.id} style={rowStyle}>
-                      <div style={{ display: "grid" }}>
-                        <div style={rowTitleStyle}>{c.label}</div>
-                        <div className="smallHelp" style={rowHelpStyle}>
-                          {tGet(dict, "settings.gpsPerCat")}:{" "}
-                          {settings.categoryGpsOverrides[c.id] === undefined
-                            ? c.gpsEligible
-                              ? "ON (default)"
-                              : "OFF (default)"
-                            : settings.categoryGpsOverrides[c.id]
-                              ? "ON (override)"
-                              : "OFF (override)"}
+                  {(settings.categories[life] ?? []).map((c) => {
+                    const override = settings.categoryGpsOverrides[c.id];
+                    const mode: "default" | "on" | "off" =
+                      override === undefined ? "default" : override ? "on" : "off";
+
+                    return (
+                      <div key={c.id} style={rowStyle}>
+                        <div style={{ display: "grid" }}>
+                          <div style={rowTitleStyle}>{c.label}</div>
+                          <div className="smallHelp" style={rowHelpStyle}>
+                            {tGet(dict, "settings.gpsPerCat")}:{" "}
+                            {override === undefined
+                              ? c.gpsEligible
+                                ? "ON (default)"
+                                : "OFF (default)"
+                              : override
+                                ? "ON (override)"
+                                : "OFF (override)"}
+                          </div>
                         </div>
+
+                        <select
+                          className="select"
+                          value={mode}
+                          onChange={(e) => setCategoryGpsOverride(c.id, e.target.value as "default" | "on" | "off")}
+                          disabled={!enabled}
+                        >
+                          <option value="default">Default</option>
+                          <option value="on">Force ON</option>
+                          <option value="off">Force OFF</option>
+                        </select>
                       </div>
-                      <button
-                        className="flatBtn"
-                        onClick={() => toggleCategoryGpsOverride(c.id)}
-                        type="button"
-                        disabled={!enabled}
-                        style={actionTextStyle}
-                      >
-                        Toggle
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             );
