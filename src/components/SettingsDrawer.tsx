@@ -97,7 +97,6 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
     const nextOverrides = { ...settings.categoryGpsOverrides };
 
     if (mode === "default") {
-      // remove override
       if (categoryId in nextOverrides) delete nextOverrides[categoryId];
     } else {
       nextOverrides[categoryId] = mode === "on";
@@ -204,6 +203,19 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
     ...textB,
     color: MCL_HUSKET_THEME.colors.textOnDark,
     opacity: 0.9,
+  };
+
+  // Match drawer/menu background for the life dropdowns (as requested)
+  const menuSelectStyle: React.CSSProperties = {
+    background: MCL_HUSKET_THEME.colors.header,
+    color: MCL_HUSKET_THEME.colors.darkSurface,
+  };
+
+  const getLifeLabel = (life: "custom1" | "custom2") => {
+    const n = life === "custom1" ? "1" : "2";
+    const lang = settings.language; // "auto" | "no" | "en" (per Settings)
+    const isNo = lang === "no";
+    return isNo ? `Tilpasset liv ${n}` : `Custom life ${n}`;
   };
 
   return (
@@ -313,10 +325,11 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
             return (
               <div key={life} style={sectionStyle}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                  <div style={sectionTitleStyle}>{life.toUpperCase()}</div>
+                  <div style={sectionTitleStyle}>{getLifeLabel(life)}</div>
 
                   <select
                     className="select"
+                    style={menuSelectStyle}
                     value={enabled ? "on" : "off"}
                     onChange={(e) => setLifeEnabled(life, e.target.value === "on")}
                     disabled={customLivesDisabled}
