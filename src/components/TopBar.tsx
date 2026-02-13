@@ -62,10 +62,15 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: P
     overflowX: "auto",
     WebkitOverflowScrolling: "touch",
     paddingBottom: 2,
+
+    // ✅ Fjern eventuell "gruppe-chip" / ekstra ramme fra CSS
+    border: "none",
+    outline: "none",
+    boxShadow: "none",
+    background: "transparent",
+    borderRadius: 0,
   };
 
-  // Viktig: vi overstyrer ALLE "blås opp"-effekter lokalt i TopBar
-  // ved å låse typografi + slå av transform/transition på selve knappen.
   const tabBaseStyle: React.CSSProperties = {
     border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
     borderRadius: 999,
@@ -90,7 +95,6 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: P
     border: `1px solid ${MCL_HUSKET_THEME.colors.altSurface}`,
     color: MCL_HUSKET_THEME.colors.textOnDark,
 
-    // Lås typografi også i active (i tilfelle CSS prøver å endre den)
     fontSize: HUSKET_TYPO.A.fontSize,
     fontWeight: HUSKET_TYPO.A.fontWeight,
     lineHeight: HUSKET_TYPO.A.lineHeight,
@@ -99,7 +103,6 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: P
     transform: "none",
   };
 
-  // Hamburger skal ligge FLATT på header-bakgrunnen (ingen chip)
   const burgerStyle: React.CSSProperties = {
     border: "none",
     borderRadius: 12,
@@ -115,7 +118,6 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: P
     cursor: "pointer",
   };
 
-  // Streker mørke (samme som annen mørk tekst på header)
   const burgerLinesStyle: React.CSSProperties = {
     color: MCL_HUSKET_THEME.colors.darkSurface,
   };
