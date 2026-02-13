@@ -263,31 +263,10 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
   };
 
   const metaStyle: React.CSSProperties = {
-    padding: "12px 14px 14px",
+    padding: "12px 14px 12px",
     display: "grid",
     gap: 10,
     background: MCL_HUSKET_THEME.colors.altSurface,
-  };
-
-  const metaTopRow: React.CSSProperties = {
-    display: "flex",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 10,
-  };
-
-  const metaLeft: React.CSSProperties = {
-    display: "grid",
-    gap: 6,
-    minWidth: 0,
-  };
-
-  const metaBadges: React.CSSProperties = {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 10,
-    justifyContent: "flex-end",
-    alignItems: "center",
   };
 
   // ✅ FLAT: chips uten omriss/bakgrunn
@@ -331,9 +310,49 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
     cursor: "pointer",
   };
 
+  const flatEdgeBtn: React.CSSProperties = {
+    ...flatActionBtn,
+    padding: "10px 0",
+  };
+
   const flatDangerBtn: React.CSSProperties = {
     ...flatActionBtn,
     color: "rgba(255, 210, 210, 0.95)", // “danger” via tekstfarge, fortsatt flatt
+  };
+
+  const flatDangerEdgeBtn: React.CSSProperties = {
+    ...flatDangerBtn,
+    padding: "10px 0",
+  };
+
+  const dividerThin: React.CSSProperties = {
+    width: "100%",
+    height: 0,
+    borderTop: "1px solid rgba(247, 243, 237, 0.12)",
+    margin: 0,
+  };
+
+  const bottomBar: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "1fr auto 1fr",
+    alignItems: "center",
+    gap: 10,
+    paddingTop: 2,
+  };
+
+  const bottomLeft: React.CSSProperties = {
+    display: "flex",
+    justifyContent: "flex-start",
+  };
+
+  const bottomCenter: React.CSSProperties = {
+    display: "flex",
+    justifyContent: "center",
+  };
+
+  const bottomRight: React.CSSProperties = {
+    display: "flex",
+    justifyContent: "flex-end",
   };
 
   const fullOverlayStyle: React.CSSProperties = {
@@ -382,6 +401,8 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
   const underScale = 0.975;
   const underOpacity = 0.92;
 
+  const husketMomentLabel = lang === "no" ? "Husket øyeblikk" : "Saved moment";
+
   return (
     <div style={deckWrapStyle}>
       {/* Under card (peek) */}
@@ -411,13 +432,8 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
             </div>
 
             <div style={metaStyle}>
-              <div style={metaTopRow}>
-                <div style={metaLeft}>
-                  <div style={{ ...textB, color: "rgba(247,243,237,0.86)" }}>
-                    {tGet(dict, "album.created")}: {formatDate(underItem.createdAt, lang)}
-                  </div>
-                </div>
-                <div style={metaBadges} />
+              <div style={{ ...textB, color: "rgba(247,243,237,0.86)" }}>
+                {husketMomentLabel}: {formatDate(underItem.createdAt, lang)}
               </div>
             </div>
           </div>
@@ -530,38 +546,12 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
 
         {/* Meta */}
         <div style={metaStyle}>
-          <div style={metaTopRow}>
-            <div style={metaLeft}>
-              <div style={{ ...textB, color: "rgba(247,243,237,0.86)" }}>
-                {tGet(dict, "album.created")}: {formatDate(cur.createdAt, lang)}
-              </div>
-
-              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
-                {mapHref ? (
-                  <a
-                    href={mapHref}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={tGet(dict, "album.map")}
-                    style={flatActionLink}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    🌍 {lang === "no" ? "Kart" : "Map"}
-                  </a>
-                ) : (
-                  <span style={{ ...textB, color: "rgba(247,243,237,0.65)" }}>
-                    🌍 {lang === "no" ? "Ingen GPS" : "No GPS"}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div style={metaBadges}>
-              <span style={flatChip}>{categoryLabel ?? "—"}</span>
-              <span style={flatChip}>{cur.ratingValue ?? "—"}</span>
-            </div>
+          {/* Husket øyeblikk: (rett under bildet) */}
+          <div style={{ ...textB, color: "rgba(247,243,237,0.86)" }}>
+            {husketMomentLabel}: {formatDate(cur.createdAt, lang)}
           </div>
 
+          {/* Fritekst over info-linja */}
           {cur.comment ? (
             <div style={{ ...textB, color: "rgba(247,243,237,0.92)", whiteSpace: "pre-wrap", marginTop: 2 }}>
               {cur.comment}
@@ -572,35 +562,71 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
             </div>
           )}
 
-          {/* Actions: Lukk + Slett (flat text, no halos) */}
-          <div style={{ display: "flex", justifyContent: "center", marginTop: 6, gap: 12, flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onClose();
-              }}
-              style={flatActionBtn}
-              title={lang === "no" ? "Lukk" : "Close"}
-            >
-              ✕ {lang === "no" ? "Lukk" : "Close"}
-            </button>
+          {/* Rating + kategori + GPS i én linje */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+              {mapHref ? (
+                <a
+                  href={mapHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={tGet(dict, "album.map")}
+                  style={flatActionLink}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  🌍 {lang === "no" ? "Kart" : "Map"}
+                </a>
+              ) : (
+                <span style={{ ...textB, color: "rgba(247,243,237,0.65)" }}>
+                  🌍 {lang === "no" ? "Ingen GPS" : "No GPS"}
+                </span>
+              )}
+            </div>
 
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteCurrent();
-              }}
-              style={flatDangerBtn}
-              title={lang === "no" ? "Slett" : "Delete"}
-            >
-              🗑 {lang === "no" ? "Slett" : "Delete"}
-            </button>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <span style={flatChip}>{categoryLabel ?? "—"}</span>
+              <span style={flatChip}>{cur.ratingValue ?? "—"}</span>
+            </div>
           </div>
 
-          <div className="smallHelp" style={{ ...textB, textAlign: "center", color: "rgba(247,243,237,0.70)", marginTop: 4 }}>
-            {index + 1}/{items.length}
+          {/* Tynn skillelinje rett over bunnlinja */}
+          <div style={dividerThin} />
+
+          {/* Bunnlinje: Slett | 1/2 | Lukk (helt ned) */}
+          <div style={bottomBar}>
+            <div style={bottomLeft}>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteCurrent();
+                }}
+                style={flatDangerEdgeBtn}
+                title={lang === "no" ? "Slett" : "Delete"}
+              >
+                🗑 {lang === "no" ? "Slett" : "Delete"}
+              </button>
+            </div>
+
+            <div style={bottomCenter}>
+              <div className="smallHelp" style={{ ...textB, textAlign: "center", color: "rgba(247,243,237,0.70)" }}>
+                {index + 1}/{items.length}
+              </div>
+            </div>
+
+            <div style={bottomRight}>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose();
+                }}
+                style={flatEdgeBtn}
+                title={lang === "no" ? "Lukk" : "Close"}
+              >
+                ✕ {lang === "no" ? "Lukk" : "Close"}
+              </button>
+            </div>
           </div>
         </div>
       </motion.div>
