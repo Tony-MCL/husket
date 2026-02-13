@@ -151,7 +151,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
       return;
     }
 
-    // Free: max 100
+    // Standard: max 100 (paywall triggers elsewhere)
     const total = countAllHuskets();
     if (!settings.premium && total >= 100) {
       onRequirePremium();
@@ -195,7 +195,6 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     letterSpacing: HUSKET_TYPO.B.letterSpacing,
   };
 
-  // ---- Light text styling (for this dark surface) ----
   const labelTextStyle: React.CSSProperties = {
     ...baseTextB,
     color: "rgba(247, 243, 237, 0.78)",
@@ -213,11 +212,16 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     margin: 0,
   };
 
-  // ---- Remove outlines everywhere except the primary "Ta bilde" button ----
-  const noOutlineBtn: React.CSSProperties = {
+  // ---- Flat reset for rows that previously had a “frame” around them ----
+  const flatChoiceRowStyle: React.CSSProperties = {
     border: "none",
     boxShadow: "none",
     outline: "none",
+    background: "transparent",
+    padding: 0,
+    borderRadius: 0,
+    justifyContent: "center",
+    textAlign: "center",
   };
 
   // ---- Flat pill style (no outline) ----
@@ -243,6 +247,21 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     boxShadow: "none",
     outline: "none",
     borderRadius: 14,
+  };
+
+  // ---- Primary button style (Ta bilde + Lagre) ----
+  const primaryBtnStyle: React.CSSProperties = {
+    background: MCL_HUSKET_THEME.colors.header, // same as TopBar
+    color: "rgba(247, 243, 237, 0.92)",
+    border: "1px solid rgba(247, 243, 237, 0.14)",
+    boxShadow: "none",
+  };
+
+  // ---- Remove outline on non-primary buttons ----
+  const noOutlineBtn: React.CSSProperties = {
+    border: "none",
+    boxShadow: "none",
+    outline: "none",
   };
 
   return (
@@ -301,8 +320,8 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
               <div className="smallHelp" style={helpTextStyle}>
                 {tGet(dict, "capture.cameraHint")}
               </div>
-              {/* ✅ Keep outline on this button (primary) */}
-              <button className="flatBtn primary" onClick={openCamera} type="button">
+
+              <button className="flatBtn primary" style={primaryBtnStyle} onClick={openCamera} type="button">
                 {tGet(dict, "capture.pickPhoto")}
               </button>
             </div>
@@ -318,17 +337,14 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
       {/* Photo actions */}
       <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
         {!imageBlob ? (
-          // ✅ Keep outline on this button (primary)
-          <button className="flatBtn primary" onClick={openCamera} type="button">
+          <button className="flatBtn primary" style={primaryBtnStyle} onClick={openCamera} type="button">
             {tGet(dict, "capture.pickPhoto")}
           </button>
         ) : (
           <>
-            {/* ✅ Keep outline on this button (primary) */}
-            <button className="flatBtn primary" onClick={openCamera} type="button">
+            <button className="flatBtn primary" style={primaryBtnStyle} onClick={openCamera} type="button">
               {tGet(dict, "capture.retakePhoto")}
             </button>
-            {/* ❌ Remove outline */}
             <button className="flatBtn danger" style={noOutlineBtn} onClick={clearPhotoOnly} type="button">
               {tGet(dict, "capture.removePhoto")}
             </button>
@@ -357,7 +373,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
       <div className="label" style={{ ...labelTextStyle, marginTop: 10 }}>
         {tGet(dict, "capture.like")}
       </div>
-      <div className="ratingRow" aria-label="Rating">
+      <div className="ratingRow" aria-label="Rating" style={flatChoiceRowStyle}>
         {ratingOpts.map((v) => {
           const active = rating === v;
           return (
@@ -403,7 +419,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
       <div className="label" style={{ ...labelTextStyle, marginTop: 10 }}>
         {tGet(dict, "capture.category")}
       </div>
-      <div className="ratingRow" aria-label="Categories">
+      <div className="ratingRow" aria-label="Categories" style={flatChoiceRowStyle}>
         {cats.length === 0 ? (
           <div className="smallHelp" style={helpTextStyle}>
             {tGet(dict, "capture.noCategories")}
@@ -434,22 +450,15 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
 
       {/* Save */}
       <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-        {/* ❌ Remove outline */}
         <button
           className="flatBtn confirm"
-          style={noOutlineBtn}
+          style={primaryBtnStyle}
           onClick={() => void onSave()}
           type="button"
           disabled={!canSave}
         >
           {tGet(dict, "capture.save")}
         </button>
-
-        {!settings.premium ? (
-          <div className="smallHelp" style={helpTextStyle}>
-            Free: 100 husket maks
-          </div>
-        ) : null}
       </div>
     </div>
   );
