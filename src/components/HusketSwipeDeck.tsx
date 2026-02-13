@@ -224,6 +224,7 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
     overflow: "hidden",
     background: MCL_HUSKET_THEME.colors.altSurface,
     color: MCL_HUSKET_THEME.colors.textOnDark,
+    // behold lett separasjon fra bakgrunn (kortet i seg selv), men ALT inni blir flatt:
     border: `1px solid rgba(27, 26, 23, 0.16)`,
     boxShadow: MCL_HUSKET_THEME.elevation.elev2,
     display: "grid",
@@ -245,6 +246,7 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
     width: "100%",
     borderRadius: 18,
     overflow: "hidden",
+    // du vil ha kort-bakgrunn rundt bildet -> vi beholder en diskret “frame”
     border: `1px solid rgba(247, 243, 237, 0.14)`,
     background: "rgba(0,0,0,0.35)",
     maxHeight: "min(58vh, 520px)",
@@ -276,35 +278,39 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
 
   const metaLeft: React.CSSProperties = {
     display: "grid",
-    gap: 4,
+    gap: 6,
     minWidth: 0,
   };
 
   const metaBadges: React.CSSProperties = {
     display: "flex",
     flexWrap: "wrap",
-    gap: 8,
+    gap: 10,
     justifyContent: "flex-end",
     alignItems: "center",
   };
 
-  const darkBadge: React.CSSProperties = {
+  // ✅ FLAT: chips uten omriss/bakgrunn
+  const flatChip: React.CSSProperties = {
     ...textB,
-    border: `1px solid rgba(247, 243, 237, 0.22)`,
-    borderRadius: 999,
-    padding: "6px 10px",
-    color: MCL_HUSKET_THEME.colors.textOnDark,
-    background: "rgba(255, 250, 244, 0.06)",
+    border: "none",
+    background: "transparent",
+    boxShadow: "none",
+    padding: 0,
+    margin: 0,
+    color: "rgba(247, 243, 237, 0.92)",
     whiteSpace: "nowrap",
   };
 
-  const mapBtnStyle: React.CSSProperties = {
+  // ✅ FLAT: Kart som ren tekst-aksjon (men fortsatt god tapp-flate)
+  const flatActionLink: React.CSSProperties = {
     ...textA,
-    border: "none", // ✅ no outline / no “markering”
-    borderRadius: 999,
-    padding: "8px 12px",
-    background: "rgba(255, 250, 244, 0.06)",
-    color: MCL_HUSKET_THEME.colors.textOnDark,
+    border: "none",
+    outline: "none",
+    background: "transparent",
+    boxShadow: "none",
+    padding: "10px 0", // tapp-flate uten synlig “pill”
+    color: "rgba(247, 243, 237, 0.92)",
     textDecoration: "none",
     display: "inline-flex",
     alignItems: "center",
@@ -312,28 +318,22 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
     whiteSpace: "nowrap",
   };
 
-  // ✅ Unified action button style (no borders/markers, always white text)
-  const actionBtnBase: React.CSSProperties = {
+  // ✅ FLAT: Lukk/Slett som tekst-aksjoner (ingen bleke flater / ingen omriss)
+  const flatActionBtn: React.CSSProperties = {
     ...textA,
-    border: "none", // ✅ removes the “markeringer”
-    borderRadius: 999,
-    padding: "10px 14px",
-    background: "rgba(255, 250, 244, 0.06)",
-    color: MCL_HUSKET_THEME.colors.textOnDark, // ✅ always white
+    border: "none",
+    outline: "none",
+    background: "transparent",
+    boxShadow: "none",
+    padding: "10px 14px", // tapp-flate
+    color: "rgba(247, 243, 237, 0.92)",
     lineHeight: 1,
     cursor: "pointer",
   };
 
-  const actionBtnDanger: React.CSSProperties = {
-    ...actionBtnBase,
-    background: "rgba(194, 59, 59, 0.14)", // subtle danger tint, still dark-family
-  };
-
-  const dividerStyle: React.CSSProperties = {
-    height: 1,
-    width: "100%",
-    background: "rgba(247, 243, 237, 0.14)",
-    borderRadius: 999,
+  const flatDangerBtn: React.CSSProperties = {
+    ...flatActionBtn,
+    color: "rgba(255, 210, 210, 0.95)", // “danger” via tekstfarge, fortsatt flatt
   };
 
   const fullOverlayStyle: React.CSSProperties = {
@@ -356,8 +356,9 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
   const fullCloseBtn: React.CSSProperties = {
     ...textA,
     border: "none",
-    borderRadius: 999,
-    background: "rgba(0,0,0,0.25)",
+    outline: "none",
+    background: "transparent",
+    boxShadow: "none",
     color: "rgba(255,255,255,0.92)",
     padding: "10px 14px",
     lineHeight: 1,
@@ -535,14 +536,14 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
                 {tGet(dict, "album.created")}: {formatDate(cur.createdAt, lang)}
               </div>
 
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
                 {mapHref ? (
                   <a
                     href={mapHref}
                     target="_blank"
                     rel="noreferrer"
                     title={tGet(dict, "album.map")}
-                    style={mapBtnStyle}
+                    style={flatActionLink}
                     onClick={(e) => e.stopPropagation()}
                   >
                     🌍 {lang === "no" ? "Kart" : "Map"}
@@ -556,28 +557,30 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
             </div>
 
             <div style={metaBadges}>
-              {categoryLabel ? <span style={darkBadge}>{categoryLabel}</span> : <span style={darkBadge}>—</span>}
-              {cur.ratingValue ? <span style={darkBadge}>{cur.ratingValue}</span> : <span style={darkBadge}>—</span>}
+              <span style={flatChip}>{categoryLabel ?? "—"}</span>
+              <span style={flatChip}>{cur.ratingValue ?? "—"}</span>
             </div>
           </div>
 
-          <div style={dividerStyle} />
-
           {cur.comment ? (
-            <div style={{ ...textB, color: "rgba(247,243,237,0.92)", whiteSpace: "pre-wrap" }}>{cur.comment}</div>
+            <div style={{ ...textB, color: "rgba(247,243,237,0.92)", whiteSpace: "pre-wrap", marginTop: 2 }}>
+              {cur.comment}
+            </div>
           ) : (
-            <div style={{ ...textB, color: "rgba(247,243,237,0.60)" }}>{lang === "no" ? "Ingen kommentar." : "No comment."}</div>
+            <div style={{ ...textB, color: "rgba(247,243,237,0.60)", marginTop: 2 }}>
+              {lang === "no" ? "Ingen kommentar." : "No comment."}
+            </div>
           )}
 
-          {/* Actions: Lukk + Slett (both white, no borders) */}
-          <div style={{ display: "flex", justifyContent: "center", marginTop: 2, gap: 10, flexWrap: "wrap" }}>
+          {/* Actions: Lukk + Slett (flat text, no halos) */}
+          <div style={{ display: "flex", justifyContent: "center", marginTop: 6, gap: 12, flexWrap: "wrap" }}>
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onClose();
               }}
-              style={actionBtnBase}
+              style={flatActionBtn}
               title={lang === "no" ? "Lukk" : "Close"}
             >
               ✕ {lang === "no" ? "Lukk" : "Close"}
@@ -589,14 +592,14 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
                 e.stopPropagation();
                 onDeleteCurrent();
               }}
-              style={actionBtnDanger}
+              style={flatDangerBtn}
               title={lang === "no" ? "Slett" : "Delete"}
             >
               🗑 {lang === "no" ? "Slett" : "Delete"}
             </button>
           </div>
 
-          <div className="smallHelp" style={{ ...textB, textAlign: "center", color: "rgba(247,243,237,0.70)" }}>
+          <div className="smallHelp" style={{ ...textB, textAlign: "center", color: "rgba(247,243,237,0.70)", marginTop: 4 }}>
             {index + 1}/{items.length}
           </div>
         </div>
