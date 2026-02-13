@@ -46,13 +46,12 @@ function clamp(n: number, a: number, b: number) {
 
 export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onClose, onDeleteCurrent }: Props) {
   const cur = items[index];
-  const canOlder = index < items.length - 1; // index 0 = newest, so older is +1
+  const canOlder = index < items.length - 1;
   const canNewer = index > 0;
 
   const [topUrl, setTopUrl] = useState<string | null>(null);
   const [underUrl, setUnderUrl] = useState<string | null>(null);
   const urlCacheRef = useRef<Map<string, string>>(new Map());
-
   const controls = useAnimation();
 
   const [fullOpen, setFullOpen] = useState(false);
@@ -75,7 +74,6 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
   const categoryLabel = useMemo(() => {
     if (!cur) return null;
     const cats = settings.categories[cur.life] ?? [];
-    if (!cur.categoryId) return null;
     return cats.find((c) => c.id === cur.categoryId)?.label ?? null;
   }, [cur?.categoryId, cur?.life, settings.categories]);
 
@@ -119,6 +117,7 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
       const underKey = underItem?.imageKey ?? null;
 
       const [t, u] = await Promise.all([loadOne(topKey), underKey ? loadOne(underKey) : Promise.resolve(null)]);
+
       if (cancelled) return;
 
       setTopUrl(t);
@@ -158,20 +157,26 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
     };
   }, []);
 
-  // Close fullscreen on ESC
   useEffect(() => {
-    if (!fullOpen) return;
+    setFullOpen(false);
+  }, [cur?.id]);
 
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setFullOpen(false);
+      if (e.key !== "Escape") return;
+      if (fullOpen) {
+        setFullOpen(false);
+        return;
+      }
+      onClose();
     };
-
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [fullOpen]);
+  }, [fullOpen, onClose]);
 
   const commitSwipe = async (dir: "left" | "right") => {
-    if (fullOpen) return; // don't swipe while fullscreen
+    if (fullOpen) return;
+
     const w = Math.max(window.innerWidth || 360, 360);
     const exitX = dir === "left" ? -w : w;
 
@@ -199,15 +204,10 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
 
   if (!cur) return null;
 
-  // Under card: ensure it NEVER peeks wider than top card
-  const underScale = 0.965;
-  const underOpacity = 0.92;
+  const CARD_MAX_W = 520;
+  const UNDER_CARD_MAX_W = CARD_MAX_W - 18;
 
-  const ratingValue = cur.ratingValue ?? null;
-  const catValue = categoryLabel ?? null;
-
-  // ---- Flat, no-outline styles ----
-  const deckWrap: React.CSSProperties = {
+  const deckWrapStyle: React.CSSProperties = {
     position: "relative",
     height: "100%",
     display: "grid",
@@ -217,166 +217,174 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
     background: MCL_HUSKET_THEME.colors.header,
   };
 
-  const cardStyle: React.CSSProperties = {
+  const makeCardBase = (maxW: number): React.CSSProperties => ({
     width: "100%",
-    maxWidth: 980,
-    height: "min(84vh, 820px)",
+    maxWidth: maxW,
     borderRadius: 22,
     overflow: "hidden",
-    background: MCL_HUSKET_THEME.colors.altSurface, // dark card on light-ish backdrop
+    background: MCL_HUSKET_THEME.colors.altSurface,
     color: MCL_HUSKET_THEME.colors.textOnDark,
-    display: "grid",
-    gridTemplateRows: "1fr auto",
-    position: "relative",
+    // behold lett separasjon fra bakgrunn (kortet i seg selv), men ALT inni blir flatt:
+    border: `1px solid rgba(27, 26, 23, 0.16)`,
     boxShadow: MCL_HUSKET_THEME.elevation.elev2,
-    backfaceVisibility: "hidden",
-    WebkitBackfaceVisibility: "hidden",
-    transformStyle: "preserve-3d",
-  };
+    display: "grid",
+    gridTemplateRows: "auto auto",
+    position: "relative",
+  });
 
-  // Image panel: leave visible card background around image
-  const imageWrap: React.CSSProperties = {
-    background: MCL_HUSKET_THEME.colors.darkSurface,
-    padding: 10,
-    boxSizing: "border-box",
+  const cardBaseStyle = makeCardBase(CARD_MAX_W);
+  const underCardBaseStyle = makeCardBase(UNDER_CARD_MAX_W);
+
+  const imageFrameStyle: React.CSSProperties = {
+    padding: 12,
+    background: MCL_HUSKET_THEME.colors.altSurface,
     display: "grid",
     placeItems: "center",
   };
 
-  const imageInner: React.CSSProperties = {
+  const imageShellStyle: React.CSSProperties = {
     width: "100%",
-    height: "100%",
     borderRadius: 18,
     overflow: "hidden",
-    background: "#000",
+    // du vil ha kort-bakgrunn rundt bildet -> vi beholder en diskret “frame”
+    border: `1px solid rgba(247, 243, 237, 0.14)`,
+    background: "rgba(0,0,0,0.35)",
+    maxHeight: "min(58vh, 520px)",
     display: "grid",
     placeItems: "center",
     cursor: topUrl ? "pointer" : "default",
   };
 
-  const imgStyle: React.CSSProperties = {
+  const imageStyle: React.CSSProperties = {
     width: "100%",
     height: "100%",
-    objectFit: "contain", // no crop
+    objectFit: "contain",
     display: "block",
   };
 
-  const metaWrap: React.CSSProperties = {
-    padding: "12px 14px 12px",
+  const metaStyle: React.CSSProperties = {
+    padding: "12px 14px 14px",
     display: "grid",
     gap: 10,
     background: MCL_HUSKET_THEME.colors.altSurface,
   };
 
-  const createdLine: React.CSSProperties = {
-    ...textB,
-    opacity: 0.92,
-  };
-
-  const commentStyle: React.CSSProperties = {
-    ...textB,
-    fontWeight: 700, // readable without being “shouty”
-    opacity: 0.98,
-    wordBreak: "break-word",
-  };
-
-  // Rating / category / GPS line (ONE line, wraps if needed)
-  const infoRow: React.CSSProperties = {
+  const metaTopRow: React.CSSProperties = {
     display: "flex",
-    alignItems: "center",
-    gap: 14,
-    flexWrap: "wrap",
-    ...textB,
-    opacity: 0.95,
-  };
-
-  const infoItem: React.CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 8,
-    minWidth: 0,
-  };
-
-  const divider: React.CSSProperties = {
-    height: 1,
-    width: "100%",
-    background: "rgba(247, 243, 237, 0.18)", // subtle on dark
-    borderRadius: 999,
-  };
-
-  // Footer: Slett (left), 1/2 (center), Lukk (right)
-  const footerRow: React.CSSProperties = {
-    display: "grid",
-    gridTemplateColumns: "1fr auto 1fr",
-    alignItems: "center",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
     gap: 10,
   };
 
-  const footerBtn: React.CSSProperties = {
-    ...textA,
+  const metaLeft: React.CSSProperties = {
+    display: "grid",
+    gap: 6,
+    minWidth: 0,
+  };
+
+  const metaBadges: React.CSSProperties = {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 10,
+    justifyContent: "flex-end",
+    alignItems: "center",
+  };
+
+  // ✅ FLAT: chips uten omriss/bakgrunn
+  const flatChip: React.CSSProperties = {
+    ...textB,
     border: "none",
     background: "transparent",
-    color: MCL_HUSKET_THEME.colors.textOnDark,
-    padding: "8px 6px",
+    boxShadow: "none",
+    padding: 0,
+    margin: 0,
+    color: "rgba(247, 243, 237, 0.92)",
+    whiteSpace: "nowrap",
+  };
+
+  // ✅ FLAT: Kart som ren tekst-aksjon (men fortsatt god tapp-flate)
+  const flatActionLink: React.CSSProperties = {
+    ...textA,
+    border: "none",
+    outline: "none",
+    background: "transparent",
+    boxShadow: "none",
+    padding: "10px 0", // tapp-flate uten synlig “pill”
+    color: "rgba(247, 243, 237, 0.92)",
+    textDecoration: "none",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    whiteSpace: "nowrap",
+  };
+
+  // ✅ FLAT: Lukk/Slett som tekst-aksjoner (ingen bleke flater / ingen omriss)
+  const flatActionBtn: React.CSSProperties = {
+    ...textA,
+    border: "none",
+    outline: "none",
+    background: "transparent",
+    boxShadow: "none",
+    padding: "10px 14px", // tapp-flate
+    color: "rgba(247, 243, 237, 0.92)",
+    lineHeight: 1,
     cursor: "pointer",
   };
 
-  const footerBtnLeft: React.CSSProperties = {
-    ...footerBtn,
-    justifySelf: "start",
-    textAlign: "left",
+  const flatDangerBtn: React.CSSProperties = {
+    ...flatActionBtn,
+    color: "rgba(255, 210, 210, 0.95)", // “danger” via tekstfarge, fortsatt flatt
   };
 
-  const footerBtnRight: React.CSSProperties = {
-    ...footerBtn,
-    justifySelf: "end",
-    textAlign: "right",
-  };
-
-  const counterStyle: React.CSSProperties = {
-    ...textB,
-    justifySelf: "center",
-    opacity: 0.85,
-  };
-
-  // Fullscreen overlay
-  const fullOverlay: React.CSSProperties = {
+  const fullOverlayStyle: React.CSSProperties = {
     position: "fixed",
     inset: 0,
-    zIndex: 999999, // above the viewer modal
+    zIndex: 100000,
     background: "rgba(0,0,0,0.92)",
     display: "grid",
-    placeItems: "center",
-    padding: 12,
+    gridTemplateRows: "auto 1fr",
+    padding: "10px 10px calc(10px + env(safe-area-inset-bottom))",
+  };
+
+  const fullTopStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  };
+
+  const fullCloseBtn: React.CSSProperties = {
+    ...textA,
+    border: "none",
+    outline: "none",
+    background: "transparent",
+    boxShadow: "none",
+    color: "rgba(255,255,255,0.92)",
+    padding: "10px 14px",
+    lineHeight: 1,
+    cursor: "pointer",
   };
 
   const fullImgWrap: React.CSSProperties = {
     width: "100%",
     height: "100%",
-    maxWidth: 1200,
-    maxHeight: "92vh",
     display: "grid",
     placeItems: "center",
   };
 
-  return (
-    <div style={deckWrap}>
-      {/* Fullscreen image */}
-      {fullOpen && topUrl ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={fullOverlay}
-          onClick={() => setFullOpen(false)}
-          title={lang === "no" ? "Trykk for å lukke" : "Tap to close"}
-        >
-          <div style={fullImgWrap}>
-            <img src={topUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
-          </div>
-        </div>
-      ) : null}
+  const fullImgStyle: React.CSSProperties = {
+    maxWidth: "100%",
+    maxHeight: "100%",
+    objectFit: "contain",
+    display: "block",
+  };
 
-      {/* UNDER card (smaller + guaranteed not wider) */}
+  const underScale = 0.975;
+  const underOpacity = 0.92;
+
+  return (
+    <div style={deckWrapStyle}>
+      {/* Under card (peek) */}
       {underItem ? (
         <div
           style={{
@@ -389,38 +397,54 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
             transform: `scale(${underScale})`,
           }}
         >
-          <div style={cardStyle}>
-            <div style={imageWrap}>
-              <div style={{ ...imageInner, cursor: "default" }}>
+          <div style={underCardBaseStyle}>
+            <div style={imageFrameStyle}>
+              <div style={{ ...imageShellStyle, cursor: "default" }}>
                 {underUrl ? (
-                  <img src={underUrl} alt="" style={imgStyle} />
+                  <img src={underUrl} alt="" style={imageStyle} />
                 ) : (
-                  <div className="smallHelp" style={{ ...textB, color: MCL_HUSKET_THEME.colors.textOnDark, opacity: 0.75 }}>
+                  <div className="smallHelp" style={{ ...textB, padding: 14, color: "rgba(247,243,237,0.8)" }}>
                     Loading…
                   </div>
                 )}
               </div>
             </div>
-            <div style={metaWrap}>
-              <div style={createdLine}>
-                {(lang === "no" ? "Husket øyeblikk" : "Husket moment")}: {formatDate(underItem.createdAt, lang)}
-              </div>
-              <div style={divider} />
-              <div style={footerRow}>
-                <div />
-                <div style={counterStyle}>
-                  {Math.min(index + 1, items.length)}/{items.length}
+
+            <div style={metaStyle}>
+              <div style={metaTopRow}>
+                <div style={metaLeft}>
+                  <div style={{ ...textB, color: "rgba(247,243,237,0.86)" }}>
+                    {tGet(dict, "album.created")}: {formatDate(underItem.createdAt, lang)}
+                  </div>
                 </div>
-                <div />
+                <div style={metaBadges} />
               </div>
             </div>
           </div>
         </div>
       ) : null}
 
-      {/* TOP card (swipe) */}
+      {/* Fullscreen photo */}
+      {fullOpen && topUrl ? (
+        <div role="dialog" aria-modal="true" style={fullOverlayStyle} onClick={() => setFullOpen(false)}>
+          <div style={fullTopStyle} onClick={(e) => e.stopPropagation()}>
+            <button type="button" onClick={() => setFullOpen(false)} style={fullCloseBtn}>
+              ✕
+            </button>
+            <div style={{ ...textA, color: "rgba(255,255,255,0.85)" }}>
+              {index + 1}/{items.length}
+            </div>
+          </div>
+
+          <div style={fullImgWrap} onClick={(e) => e.stopPropagation()}>
+            <img src={topUrl} alt="" style={fullImgStyle} />
+          </div>
+        </div>
+      ) : null}
+
+      {/* Top (swipe) card */}
       <motion.div
-        style={cardStyle}
+        style={cardBaseStyle}
         drag={fullOpen ? false : "x"}
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.12}
@@ -438,13 +462,11 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
           const w = Math.max(window.innerWidth || 360, 360);
           const threshold = Math.max(90, w * 0.22);
 
-          // swipe LEFT => older
           if (dx < -threshold && canOlder) {
             await commitSwipe("left");
             return;
           }
 
-          // swipe RIGHT => newer
           if (dx > threshold && canNewer) {
             await commitSwipe("right");
             return;
@@ -457,7 +479,7 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
           });
         }}
       >
-        {/* Arrow overlay (only when available) */}
+        {/* Arrow overlay */}
         {canNewer ? (
           <button
             className="husketCardArrow left"
@@ -484,94 +506,101 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
           </button>
         ) : null}
 
-        {/* Image panel */}
-        <div style={imageWrap}>
+        {/* Image (tap => fullscreen) */}
+        <div style={imageFrameStyle}>
           <div
-            style={imageInner}
-            onClick={() => {
+            style={imageShellStyle}
+            onClick={(e) => {
+              e.stopPropagation();
               if (!topUrl) return;
               setFullOpen(true);
             }}
             role={topUrl ? "button" : undefined}
-            aria-label={topUrl ? (lang === "no" ? "Åpne bilde i fullskjerm" : "Open image fullscreen") : undefined}
-            tabIndex={topUrl ? 0 : -1}
-            onKeyDown={(e) => {
-              if (!topUrl) return;
-              if (e.key === "Enter" || e.key === " ") setFullOpen(true);
-            }}
+            aria-label={topUrl ? (lang === "no" ? "Åpne bilde i fullskjerm" : "Open photo fullscreen") : undefined}
           >
             {topUrl ? (
-              <img src={topUrl} alt="" style={imgStyle} />
+              <img src={topUrl} alt="" style={imageStyle} />
             ) : (
-              <div className="smallHelp" style={{ ...textB, color: MCL_HUSKET_THEME.colors.textOnDark, opacity: 0.75 }}>
+              <div className="smallHelp" style={{ ...textB, padding: 14, color: "rgba(247,243,237,0.8)" }}>
                 Loading…
               </div>
             )}
           </div>
         </div>
 
-        {/* Meta panel */}
-        <div style={metaWrap}>
-          {/* Date directly under image */}
-          <div style={createdLine}>
-            {(lang === "no" ? "Husket øyeblikk" : "Husket moment")}: {formatDate(cur.createdAt, lang)}
-          </div>
+        {/* Meta */}
+        <div style={metaStyle}>
+          <div style={metaTopRow}>
+            <div style={metaLeft}>
+              <div style={{ ...textB, color: "rgba(247,243,237,0.86)" }}>
+                {tGet(dict, "album.created")}: {formatDate(cur.createdAt, lang)}
+              </div>
 
-          {/* Free text above info line */}
-          {cur.comment ? <div style={commentStyle}>{cur.comment}</div> : null}
-
-          {/* Rating / Category / GPS in one line */}
-          <div style={infoRow}>
-            <span style={infoItem} title={lang === "no" ? "Vurdering" : "Rating"}>
-              <span aria-hidden>⭐</span>
-              <span>{ratingValue ?? "—"}</span>
-            </span>
-
-            <span style={infoItem} title={lang === "no" ? "Kategori" : "Category"}>
-              <span aria-hidden>🏷</span>
-              <span>{catValue ?? "—"}</span>
-            </span>
-
-            {mapHref ? (
-              <a
-                href={mapHref}
-                target="_blank"
-                rel="noreferrer"
-                style={{
-                  ...infoItem,
-                  color: MCL_HUSKET_THEME.colors.textOnDark,
-                  textDecoration: "none",
-                  cursor: "pointer",
-                }}
-                title={tGet(dict, "album.map")}
-              >
-                <span aria-hidden>🌍</span>
-                <span>{lang === "no" ? "Kart" : "Map"} </span>
-              </a>
-            ) : (
-              <span style={infoItem} title="GPS">
-                <span aria-hidden>🌍</span>
-                <span>{"—"}</span>
-              </span>
-            )}
-          </div>
-
-          {/* Thin divider (no extra height padding) */}
-          <div style={divider} />
-
-          {/* Bottom row: Slett | 1/2 | Lukk */}
-          <div style={footerRow}>
-            <button type="button" onClick={onDeleteCurrent} style={footerBtnLeft} title={lang === "no" ? "Slett" : "Delete"}>
-              🗑 {lang === "no" ? "Slett" : "Delete"}
-            </button>
-
-            <div style={counterStyle}>
-              {index + 1}/{items.length}
+              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+                {mapHref ? (
+                  <a
+                    href={mapHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={tGet(dict, "album.map")}
+                    style={flatActionLink}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    🌍 {lang === "no" ? "Kart" : "Map"}
+                  </a>
+                ) : (
+                  <span style={{ ...textB, color: "rgba(247,243,237,0.65)" }}>
+                    🌍 {lang === "no" ? "Ingen GPS" : "No GPS"}
+                  </span>
+                )}
+              </div>
             </div>
 
-            <button type="button" onClick={onClose} style={footerBtnRight} title={lang === "no" ? "Lukk" : "Close"}>
+            <div style={metaBadges}>
+              <span style={flatChip}>{categoryLabel ?? "—"}</span>
+              <span style={flatChip}>{cur.ratingValue ?? "—"}</span>
+            </div>
+          </div>
+
+          {cur.comment ? (
+            <div style={{ ...textB, color: "rgba(247,243,237,0.92)", whiteSpace: "pre-wrap", marginTop: 2 }}>
+              {cur.comment}
+            </div>
+          ) : (
+            <div style={{ ...textB, color: "rgba(247,243,237,0.60)", marginTop: 2 }}>
+              {lang === "no" ? "Ingen kommentar." : "No comment."}
+            </div>
+          )}
+
+          {/* Actions: Lukk + Slett (flat text, no halos) */}
+          <div style={{ display: "flex", justifyContent: "center", marginTop: 6, gap: 12, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
+              style={flatActionBtn}
+              title={lang === "no" ? "Lukk" : "Close"}
+            >
               ✕ {lang === "no" ? "Lukk" : "Close"}
             </button>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteCurrent();
+              }}
+              style={flatDangerBtn}
+              title={lang === "no" ? "Slett" : "Delete"}
+            >
+              🗑 {lang === "no" ? "Slett" : "Delete"}
+            </button>
+          </div>
+
+          <div className="smallHelp" style={{ ...textB, textAlign: "center", color: "rgba(247,243,237,0.70)", marginTop: 4 }}>
+            {index + 1}/{items.length}
           </div>
         </div>
       </motion.div>
