@@ -46,16 +46,14 @@ function clamp(n: number, a: number, b: number) {
 
 export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onClose, onDeleteCurrent }: Props) {
   const cur = items[index];
-  const canOlder = index < items.length - 1; // index 0 = newest, so older is +1
+  const canOlder = index < items.length - 1;
   const canNewer = index > 0;
 
   const [topUrl, setTopUrl] = useState<string | null>(null);
   const [underUrl, setUnderUrl] = useState<string | null>(null);
   const urlCacheRef = useRef<Map<string, string>>(new Map());
-
   const controls = useAnimation();
 
-  // Fullscreen image view (tap photo)
   const [fullOpen, setFullOpen] = useState(false);
 
   const lang: "no" | "en" = useMemo(() => {
@@ -159,12 +157,10 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
     };
   }, []);
 
-  // Close fullscreen when husket changes
   useEffect(() => {
     setFullOpen(false);
   }, [cur?.id]);
 
-  // ESC closes fullscreen first, else closes modal
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
@@ -208,10 +204,7 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
 
   if (!cur) return null;
 
-  // --- Card style: “fotballkort”-prinsipp (A) ---
   const CARD_MAX_W = 520;
-
-  // ✅ Under-card is slightly narrower so it never sticks out
   const UNDER_CARD_MAX_W = CARD_MAX_W - 18;
 
   const deckWrapStyle: React.CSSProperties = {
@@ -221,7 +214,7 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
     placeItems: "center",
     padding: "0 12px",
     isolation: "isolate",
-    background: MCL_HUSKET_THEME.colors.header, // light background behind card
+    background: MCL_HUSKET_THEME.colors.header,
   };
 
   const makeCardBase = (maxW: number): React.CSSProperties => ({
@@ -229,7 +222,7 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
     maxWidth: maxW,
     borderRadius: 22,
     overflow: "hidden",
-    background: MCL_HUSKET_THEME.colors.altSurface, // dark card
+    background: MCL_HUSKET_THEME.colors.altSurface,
     color: MCL_HUSKET_THEME.colors.textOnDark,
     border: `1px solid rgba(27, 26, 23, 0.16)`,
     boxShadow: MCL_HUSKET_THEME.elevation.elev2,
@@ -242,7 +235,7 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
   const underCardBaseStyle = makeCardBase(UNDER_CARD_MAX_W);
 
   const imageFrameStyle: React.CSSProperties = {
-    padding: 12, // visible card background around image
+    padding: 12,
     background: MCL_HUSKET_THEME.colors.altSurface,
     display: "grid",
     placeItems: "center",
@@ -254,7 +247,6 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
     overflow: "hidden",
     border: `1px solid rgba(247, 243, 237, 0.14)`,
     background: "rgba(0,0,0,0.35)",
-    // Keep space for metadata: image may not exceed ~58vh
     maxHeight: "min(58vh, 520px)",
     display: "grid",
     placeItems: "center",
@@ -308,7 +300,7 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
 
   const mapBtnStyle: React.CSSProperties = {
     ...textA,
-    border: `1px solid rgba(247, 243, 237, 0.22)`,
+    border: "none", // ✅ no outline / no “markering”
     borderRadius: 999,
     padding: "8px 12px",
     background: "rgba(255, 250, 244, 0.06)",
@@ -320,14 +312,21 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
     whiteSpace: "nowrap",
   };
 
-  const actionBtnStyle: React.CSSProperties = {
+  // ✅ Unified action button style (no borders/markers, always white text)
+  const actionBtnBase: React.CSSProperties = {
     ...textA,
-    border: `1px solid rgba(247, 243, 237, 0.22)`,
+    border: "none", // ✅ removes the “markeringer”
     borderRadius: 999,
     padding: "10px 14px",
     background: "rgba(255, 250, 244, 0.06)",
-    color: MCL_HUSKET_THEME.colors.textOnDark,
+    color: MCL_HUSKET_THEME.colors.textOnDark, // ✅ always white
     lineHeight: 1,
+    cursor: "pointer",
+  };
+
+  const actionBtnDanger: React.CSSProperties = {
+    ...actionBtnBase,
+    background: "rgba(194, 59, 59, 0.14)", // subtle danger tint, still dark-family
   };
 
   const dividerStyle: React.CSSProperties = {
@@ -356,12 +355,13 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
 
   const fullCloseBtn: React.CSSProperties = {
     ...textA,
-    border: `1px solid rgba(255,255,255,0.22)`,
+    border: "none",
     borderRadius: 999,
     background: "rgba(0,0,0,0.25)",
     color: "rgba(255,255,255,0.92)",
     padding: "10px 14px",
     lineHeight: 1,
+    cursor: "pointer",
   };
 
   const fullImgWrap: React.CSSProperties = {
@@ -461,13 +461,11 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
           const w = Math.max(window.innerWidth || 360, 360);
           const threshold = Math.max(90, w * 0.22);
 
-          // swipe LEFT => older
           if (dx < -threshold && canOlder) {
             await commitSwipe("left");
             return;
           }
 
-          // swipe RIGHT => newer
           if (dx > threshold && canNewer) {
             await commitSwipe("right");
             return;
@@ -480,7 +478,7 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
           });
         }}
       >
-        {/* Arrow overlay (only when available) */}
+        {/* Arrow overlay */}
         {canNewer ? (
           <button
             className="husketCardArrow left"
@@ -507,7 +505,7 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
           </button>
         ) : null}
 
-        {/* Image block (tap => fullscreen) */}
+        {/* Image (tap => fullscreen) */}
         <div style={imageFrameStyle}>
           <div
             style={imageShellStyle}
@@ -529,7 +527,7 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
           </div>
         </div>
 
-        {/* Meta block (UNDER image) */}
+        {/* Meta */}
         <div style={metaStyle}>
           <div style={metaTopRow}>
             <div style={metaLeft}>
@@ -571,7 +569,7 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
             <div style={{ ...textB, color: "rgba(247,243,237,0.60)" }}>{lang === "no" ? "Ingen kommentar." : "No comment."}</div>
           )}
 
-          {/* ✅ Actions: Lukk + Slett (instead of hard-to-reach X) */}
+          {/* Actions: Lukk + Slett (both white, no borders) */}
           <div style={{ display: "flex", justifyContent: "center", marginTop: 2, gap: 10, flexWrap: "wrap" }}>
             <button
               type="button"
@@ -579,21 +577,20 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
                 e.stopPropagation();
                 onClose();
               }}
-              style={actionBtnStyle}
+              style={actionBtnBase}
               title={lang === "no" ? "Lukk" : "Close"}
             >
               ✕ {lang === "no" ? "Lukk" : "Close"}
             </button>
 
             <button
-              className="flatBtn danger"
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onDeleteCurrent();
               }}
-              type="button"
+              style={actionBtnDanger}
               title={lang === "no" ? "Slett" : "Delete"}
-              style={textA}
             >
               🗑 {lang === "no" ? "Slett" : "Delete"}
             </button>
