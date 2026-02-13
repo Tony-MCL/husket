@@ -8,6 +8,7 @@ import { tGet } from "../i18n";
 import { createHusket, countAllHuskets } from "../data/husketRepo";
 import { useToast } from "../components/ToastHost";
 import { HUSKET_TYPO } from "../theme/typography";
+import { MCL_HUSKET_THEME } from "../theme";
 
 type Props = {
   dict: I18nDict;
@@ -26,18 +27,7 @@ function ratingOptions(settings: Settings): string[] {
     case "check":
       return ["✓", "−", "✗"];
     case "tens":
-      return [
-        "10/10",
-        "9/10",
-        "8/10",
-        "7/10",
-        "6/10",
-        "5/10",
-        "4/10",
-        "3/10",
-        "2/10",
-        "1/10",
-      ];
+      return ["10/10", "9/10", "8/10", "7/10", "6/10", "5/10", "4/10", "3/10", "2/10", "1/10"];
     default:
       return ["😊", "😐", "😖"];
   }
@@ -102,7 +92,6 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
   const ratingOpts = useMemo(() => ratingOptions(settings), [settings]);
 
   const openCamera = () => {
-    // always safe to call on button tap
     fileRef.current?.click();
   };
 
@@ -112,8 +101,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     const blob = file.slice(0, file.size, file.type);
     setImageBlob(blob);
 
-    setRating(null); // optional: reset rating on new photo
-    // keep comment/category (user might just retake the photo)
+    setRating(null);
 
     if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
     setImagePreviewUrl(URL.createObjectURL(blob));
@@ -143,15 +131,13 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     if (autoOpenAttemptedRef.current) return;
     autoOpenAttemptedRef.current = true;
 
-    // If we already have a photo, don't open
     if (imageBlob) return;
 
-    // Small delay so layout paints before camera prompt
     const t = window.setTimeout(() => {
       try {
         fileRef.current?.click();
       } catch {
-        // ignore (some environments block it)
+        // ignore
       }
     }, 250);
 
@@ -197,31 +183,74 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
 
     toast.show(tGet(dict, "capture.saved"));
 
-    // "skrelles av" animasjon kommer senere – nå: direkte til album
     resetAll();
     onSavedGoAlbum();
   };
 
-  const labelTextStyle: React.CSSProperties = {
+  // ---- Typography (B) ----
+  const baseTextB: React.CSSProperties = {
     fontSize: HUSKET_TYPO.B.fontSize,
     fontWeight: HUSKET_TYPO.B.fontWeight,
     lineHeight: HUSKET_TYPO.B.lineHeight,
     letterSpacing: HUSKET_TYPO.B.letterSpacing,
   };
 
+  // ---- Light text styling (for this dark surface) ----
+  const labelTextStyle: React.CSSProperties = {
+    ...baseTextB,
+    color: "rgba(247, 243, 237, 0.78)",
+  };
+
   const helpTextStyle: React.CSSProperties = {
-    fontSize: HUSKET_TYPO.B.fontSize,
-    fontWeight: HUSKET_TYPO.B.fontWeight,
-    lineHeight: HUSKET_TYPO.B.lineHeight,
-    letterSpacing: HUSKET_TYPO.B.letterSpacing,
+    ...baseTextB,
+    color: "rgba(247, 243, 237, 0.60)",
+  };
+
+  const dividerThin: React.CSSProperties = {
+    width: "100%",
+    height: 0,
+    borderTop: "1px solid rgba(247, 243, 237, 0.12)",
+    margin: 0,
+  };
+
+  // ---- Remove outlines everywhere except the primary "Ta bilde" button ----
+  const noOutlineBtn: React.CSSProperties = {
+    border: "none",
+    boxShadow: "none",
+    outline: "none",
+  };
+
+  // ---- Flat pill style (no outline) ----
+  const pillFlatBase: React.CSSProperties = {
+    border: "none",
+    boxShadow: "none",
+    outline: "none",
+    background: "transparent",
+    color: "rgba(247, 243, 237, 0.88)",
+  };
+
+  const pillFlatActive: React.CSSProperties = {
+    background: "rgba(247, 243, 237, 0.10)",
+    color: "rgba(247, 243, 237, 0.95)",
+  };
+
+  // ---- Textarea border matches divider ----
+  const textareaStyle: React.CSSProperties = {
+    ...baseTextB,
+    color: "rgba(247, 243, 237, 0.92)",
+    background: "transparent",
+    border: "1px solid rgba(247, 243, 237, 0.12)",
+    boxShadow: "none",
+    outline: "none",
+    borderRadius: 14,
   };
 
   return (
     <div>
+      {/* Preview panel */}
       <div
         className="captureFrame"
         style={{
-          // Keep preview clearly as a "panel", not a full-view viewer
           maxWidth: 680,
           margin: "0 auto",
         }}
@@ -229,7 +258,6 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
         <div
           className="capturePreview"
           style={{
-            // Force a preview-sized area (no full-height behavior)
             width: "100%",
             height: "min(260px, 38vh)",
             borderRadius: 16,
@@ -240,7 +268,6 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
           {imagePreviewUrl ? (
             <div
               style={{
-                // Inner frame to make it feel like a preview, not a viewer
                 width: "100%",
                 height: "100%",
                 padding: 10,
@@ -274,6 +301,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
               <div className="smallHelp" style={helpTextStyle}>
                 {tGet(dict, "capture.cameraHint")}
               </div>
+              {/* ✅ Keep outline on this button (primary) */}
               <button className="flatBtn primary" onClick={openCamera} type="button">
                 {tGet(dict, "capture.pickPhoto")}
               </button>
@@ -282,17 +310,26 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
         </div>
       </div>
 
-      <div style={{ marginTop: 10, display: "flex", gap: 10 }}>
+      {/* Divider */}
+      <div style={{ marginTop: 12 }}>
+        <div style={dividerThin} />
+      </div>
+
+      {/* Photo actions */}
+      <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
         {!imageBlob ? (
+          // ✅ Keep outline on this button (primary)
           <button className="flatBtn primary" onClick={openCamera} type="button">
             {tGet(dict, "capture.pickPhoto")}
           </button>
         ) : (
           <>
+            {/* ✅ Keep outline on this button (primary) */}
             <button className="flatBtn primary" onClick={openCamera} type="button">
               {tGet(dict, "capture.retakePhoto")}
             </button>
-            <button className="flatBtn danger" onClick={clearPhotoOnly} type="button">
+            {/* ❌ Remove outline */}
+            <button className="flatBtn danger" style={noOutlineBtn} onClick={clearPhotoOnly} type="button">
               {tGet(dict, "capture.removePhoto")}
             </button>
           </>
@@ -311,27 +348,44 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
         />
       </div>
 
-      <div className="label" style={labelTextStyle}>
+      {/* Divider */}
+      <div style={{ marginTop: 12 }}>
+        <div style={dividerThin} />
+      </div>
+
+      {/* Rating */}
+      <div className="label" style={{ ...labelTextStyle, marginTop: 10 }}>
         {tGet(dict, "capture.like")}
       </div>
       <div className="ratingRow" aria-label="Rating">
-        {ratingOpts.map((v) => (
-          <button
-            key={v}
-            className={`pill ${rating === v ? "active" : ""}`}
-            onClick={() => setRating((prev) => (prev === v ? null : v))}
-            type="button"
-          >
-            {v}
-          </button>
-        ))}
+        {ratingOpts.map((v) => {
+          const active = rating === v;
+          return (
+            <button
+              key={v}
+              className={`pill ${active ? "active" : ""}`}
+              onClick={() => setRating((prev) => (prev === v ? null : v))}
+              type="button"
+              style={{ ...(active ? pillFlatActive : pillFlatBase) }}
+            >
+              {v}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="label" style={labelTextStyle}>
+      {/* Divider */}
+      <div style={{ marginTop: 12 }}>
+        <div style={dividerThin} />
+      </div>
+
+      {/* Comment */}
+      <div className="label" style={{ ...labelTextStyle, marginTop: 10 }}>
         {tGet(dict, "capture.comment")}
       </div>
       <textarea
         className="textarea"
+        style={textareaStyle}
         value={comment}
         onChange={(e) => setComment(clamp100(e.target.value))}
         placeholder={tGet(dict, "capture.commentPh")}
@@ -340,7 +394,13 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
         {comment.length}/100
       </div>
 
-      <div className="label" style={labelTextStyle}>
+      {/* Divider */}
+      <div style={{ marginTop: 12 }}>
+        <div style={dividerThin} />
+      </div>
+
+      {/* Category */}
+      <div className="label" style={{ ...labelTextStyle, marginTop: 10 }}>
         {tGet(dict, "capture.category")}
       </div>
       <div className="ratingRow" aria-label="Categories">
@@ -349,22 +409,39 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
             {tGet(dict, "capture.noCategories")}
           </div>
         ) : (
-          cats.map((c) => (
-            <button
-              key={c.id}
-              className={`pill ${categoryId === c.id ? "active" : ""}`}
-              onClick={() => setCategoryId((prev) => (prev === c.id ? null : c.id))}
-              type="button"
-              title={c.label}
-            >
-              {c.label}
-            </button>
-          ))
+          cats.map((c) => {
+            const active = categoryId === c.id;
+            return (
+              <button
+                key={c.id}
+                className={`pill ${active ? "active" : ""}`}
+                onClick={() => setCategoryId((prev) => (prev === c.id ? null : c.id))}
+                type="button"
+                title={c.label}
+                style={{ ...(active ? pillFlatActive : pillFlatBase) }}
+              >
+                {c.label}
+              </button>
+            );
+          })
         )}
       </div>
 
+      {/* Divider */}
+      <div style={{ marginTop: 12 }}>
+        <div style={dividerThin} />
+      </div>
+
+      {/* Save */}
       <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-        <button className="flatBtn confirm" onClick={() => void onSave()} type="button" disabled={!canSave}>
+        {/* ❌ Remove outline */}
+        <button
+          className="flatBtn confirm"
+          style={noOutlineBtn}
+          onClick={() => void onSave()}
+          type="button"
+          disabled={!canSave}
+        >
           {tGet(dict, "capture.save")}
         </button>
 
