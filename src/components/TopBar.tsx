@@ -64,6 +64,8 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: P
     paddingBottom: 2,
   };
 
+  // Viktig: vi overstyrer ALLE "blås opp"-effekter lokalt i TopBar
+  // ved å låse typografi + slå av transform/transition på selve knappen.
   const tabBaseStyle: React.CSSProperties = {
     border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
     borderRadius: 999,
@@ -72,23 +74,36 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: P
     color: MCL_HUSKET_THEME.colors.darkSurface,
     whiteSpace: "nowrap",
 
-    // Typography (A)
+    // Typography (A) – låses likt i begge states
     fontSize: HUSKET_TYPO.A.fontSize,
     fontWeight: HUSKET_TYPO.A.fontWeight,
     lineHeight: HUSKET_TYPO.A.lineHeight,
     letterSpacing: HUSKET_TYPO.A.letterSpacing,
+
+    // Kill "pop" fra CSS (hvis .active gjør transform/scale/font-size)
+    transform: "none",
+    transition: "background-color 120ms ease, border-color 120ms ease, color 120ms ease",
   };
 
   const tabActiveStyle: React.CSSProperties = {
     background: MCL_HUSKET_THEME.colors.altSurface,
     border: `1px solid ${MCL_HUSKET_THEME.colors.altSurface}`,
     color: MCL_HUSKET_THEME.colors.textOnDark,
+
+    // Lås typografi også i active (i tilfelle CSS prøver å endre den)
+    fontSize: HUSKET_TYPO.A.fontSize,
+    fontWeight: HUSKET_TYPO.A.fontWeight,
+    lineHeight: HUSKET_TYPO.A.lineHeight,
+    letterSpacing: HUSKET_TYPO.A.letterSpacing,
+
+    transform: "none",
   };
 
+  // Hamburger skal ligge FLATT på header-bakgrunnen (ingen chip)
   const burgerStyle: React.CSSProperties = {
-    border: `1px solid ${MCL_HUSKET_THEME.colors.altSurface}`,
+    border: "none",
     borderRadius: 12,
-    background: MCL_HUSKET_THEME.colors.altSurface, // match active pills
+    background: "transparent",
     padding: 10,
     width: 42,
     height: 42,
@@ -97,10 +112,12 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: P
     justifyContent: "center",
     boxSizing: "border-box",
     flex: "0 0 auto",
+    cursor: "pointer",
   };
 
+  // Streker mørke (samme som annen mørk tekst på header)
   const burgerLinesStyle: React.CSSProperties = {
-    color: MCL_HUSKET_THEME.colors.textOnDark,
+    color: MCL_HUSKET_THEME.colors.darkSurface,
   };
 
   return (
