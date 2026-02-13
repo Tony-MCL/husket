@@ -44,24 +44,17 @@ function clamp(n: number, a: number, b: number) {
   return Math.max(a, Math.min(b, n));
 }
 
-export function HusketSwipeDeck({
-  dict,
-  settings,
-  items,
-  index,
-  onSetIndex,
-  onClose,
-  onDeleteCurrent,
-}: Props) {
+export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onClose, onDeleteCurrent }: Props) {
   const cur = items[index];
-  const canOlder = index < items.length - 1; // index 0 = newest, so older is +1
+  const canOlder = index < items.length - 1;
   const canNewer = index > 0;
 
   const [topUrl, setTopUrl] = useState<string | null>(null);
   const [underUrl, setUnderUrl] = useState<string | null>(null);
   const urlCacheRef = useRef<Map<string, string>>(new Map());
-
   const controls = useAnimation();
+
+  const [fullOpen, setFullOpen] = useState(false);
 
   const lang: "no" | "en" = useMemo(() => {
     if (settings.language === "no") return "no";
@@ -123,10 +116,7 @@ export function HusketSwipeDeck({
       const topKey = cur.imageKey;
       const underKey = underItem?.imageKey ?? null;
 
-      const [t, u] = await Promise.all([
-        loadOne(topKey),
-        underKey ? loadOne(underKey) : Promise.resolve(null),
-      ]);
+      const [t, u] = await Promise.all([loadOne(topKey), underKey ? loadOne(underKey) : Promise.resolve(null)]);
 
       if (cancelled) return;
 
@@ -167,7 +157,26 @@ export function HusketSwipeDeck({
     };
   }, []);
 
+  useEffect(() => {
+    setFullOpen(false);
+  }, [cur?.id]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (fullOpen) {
+        setFullOpen(false);
+        return;
+      }
+      onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullOpen, onClose]);
+
   const commitSwipe = async (dir: "left" | "right") => {
+    if (fullOpen) return;
+
     const w = Math.max(window.innerWidth || 360, 360);
     const exitX = dir === "left" ? -w : w;
 
@@ -195,71 +204,187 @@ export function HusketSwipeDeck({
 
   if (!cur) return null;
 
-  // Under card slightly smaller (so top covers edges)
+  const CARD_MAX_W = 520;
+  const UNDER_CARD_MAX_W = CARD_MAX_W - 18;
+
+  const deckWrapStyle: React.CSSProperties = {
+    position: "relative",
+    height: "100%",
+    display: "grid",
+    placeItems: "center",
+    padding: "0 12px",
+    isolation: "isolate",
+    background: MCL_HUSKET_THEME.colors.header,
+  };
+
+  const makeCardBase = (maxW: number): React.CSSProperties => ({
+    width: "100%",
+    maxWidth: maxW,
+    borderRadius: 22,
+    overflow: "hidden",
+    background: MCL_HUSKET_THEME.colors.altSurface,
+    color: MCL_HUSKET_THEME.colors.textOnDark,
+    // behold lett separasjon fra bakgrunn (kortet i seg selv), men ALT inni blir flatt:
+    border: `1px solid rgba(27, 26, 23, 0.16)`,
+    boxShadow: MCL_HUSKET_THEME.elevation.elev2,
+    display: "grid",
+    gridTemplateRows: "auto auto",
+    position: "relative",
+  });
+
+  const cardBaseStyle = makeCardBase(CARD_MAX_W);
+  const underCardBaseStyle = makeCardBase(UNDER_CARD_MAX_W);
+
+  const imageFrameStyle: React.CSSProperties = {
+    padding: 12,
+    background: MCL_HUSKET_THEME.colors.altSurface,
+    display: "grid",
+    placeItems: "center",
+  };
+
+  const imageShellStyle: React.CSSProperties = {
+    width: "100%",
+    borderRadius: 18,
+    overflow: "hidden",
+    // du vil ha kort-bakgrunn rundt bildet -> vi beholder en diskret “frame”
+    border: `1px solid rgba(247, 243, 237, 0.14)`,
+    background: "rgba(0,0,0,0.35)",
+    maxHeight: "min(58vh, 520px)",
+    display: "grid",
+    placeItems: "center",
+    cursor: topUrl ? "pointer" : "default",
+  };
+
+  const imageStyle: React.CSSProperties = {
+    width: "100%",
+    height: "100%",
+    objectFit: "contain",
+    display: "block",
+  };
+
+  const metaStyle: React.CSSProperties = {
+    padding: "12px 14px 14px",
+    display: "grid",
+    gap: 10,
+    background: MCL_HUSKET_THEME.colors.altSurface,
+  };
+
+  const metaTopRow: React.CSSProperties = {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 10,
+  };
+
+  const metaLeft: React.CSSProperties = {
+    display: "grid",
+    gap: 6,
+    minWidth: 0,
+  };
+
+  const metaBadges: React.CSSProperties = {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 10,
+    justifyContent: "flex-end",
+    alignItems: "center",
+  };
+
+  // ✅ FLAT: chips uten omriss/bakgrunn
+  const flatChip: React.CSSProperties = {
+    ...textB,
+    border: "none",
+    background: "transparent",
+    boxShadow: "none",
+    padding: 0,
+    margin: 0,
+    color: "rgba(247, 243, 237, 0.92)",
+    whiteSpace: "nowrap",
+  };
+
+  // ✅ FLAT: Kart som ren tekst-aksjon (men fortsatt god tapp-flate)
+  const flatActionLink: React.CSSProperties = {
+    ...textA,
+    border: "none",
+    outline: "none",
+    background: "transparent",
+    boxShadow: "none",
+    padding: "10px 0", // tapp-flate uten synlig “pill”
+    color: "rgba(247, 243, 237, 0.92)",
+    textDecoration: "none",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    whiteSpace: "nowrap",
+  };
+
+  // ✅ FLAT: Lukk/Slett som tekst-aksjoner (ingen bleke flater / ingen omriss)
+  const flatActionBtn: React.CSSProperties = {
+    ...textA,
+    border: "none",
+    outline: "none",
+    background: "transparent",
+    boxShadow: "none",
+    padding: "10px 14px", // tapp-flate
+    color: "rgba(247, 243, 237, 0.92)",
+    lineHeight: 1,
+    cursor: "pointer",
+  };
+
+  const flatDangerBtn: React.CSSProperties = {
+    ...flatActionBtn,
+    color: "rgba(255, 210, 210, 0.95)", // “danger” via tekstfarge, fortsatt flatt
+  };
+
+  const fullOverlayStyle: React.CSSProperties = {
+    position: "fixed",
+    inset: 0,
+    zIndex: 100000,
+    background: "rgba(0,0,0,0.92)",
+    display: "grid",
+    gridTemplateRows: "auto 1fr",
+    padding: "10px 10px calc(10px + env(safe-area-inset-bottom))",
+  };
+
+  const fullTopStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  };
+
+  const fullCloseBtn: React.CSSProperties = {
+    ...textA,
+    border: "none",
+    outline: "none",
+    background: "transparent",
+    boxShadow: "none",
+    color: "rgba(255,255,255,0.92)",
+    padding: "10px 14px",
+    lineHeight: 1,
+    cursor: "pointer",
+  };
+
+  const fullImgWrap: React.CSSProperties = {
+    width: "100%",
+    height: "100%",
+    display: "grid",
+    placeItems: "center",
+  };
+
+  const fullImgStyle: React.CSSProperties = {
+    maxWidth: "100%",
+    maxHeight: "100%",
+    objectFit: "contain",
+    display: "block",
+  };
+
   const underScale = 0.975;
   const underOpacity = 0.92;
 
-  // ====== Minimal changes for the new layout request ======
-  // 1) created line should be directly under image, with "Husket øyeblikk:"
-  // 2) comment above the info-row
-  // 3) info-row contains rating + category + GPS (globe link)
-  // 4) thin divider under info-row
-  // 5) bottom row: Slett | 1/2 | Lukk (edges + center)
-  // NOTE: We keep the existing card structure + CSS classes intact.
-
-  const createdLabel = lang === "no" ? "Husket øyeblikk" : "Husket moment";
-  const mapText = lang === "no" ? "Kart" : "Map";
-
-  // Flat-ish, but we do NOT rewrite global button/chip styling here.
-  // We keep existing classes and only introduce a local divider + footer row layout.
-  const dividerStyle: React.CSSProperties = {
-    height: 1,
-    background: "rgba(247, 243, 237, 0.18)",
-  };
-
-  const infoRowStyle: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    flexWrap: "wrap",
-  };
-
-  const footerRowStyle: React.CSSProperties = {
-    display: "grid",
-    gridTemplateColumns: "1fr auto 1fr",
-    alignItems: "center",
-    gap: 10,
-    marginTop: 2,
-  };
-
-  const footerLeftStyle: React.CSSProperties = {
-    justifySelf: "start",
-  };
-
-  const footerCenterStyle: React.CSSProperties = {
-    justifySelf: "center",
-  };
-
-  const footerRightStyle: React.CSSProperties = {
-    justifySelf: "end",
-  };
-
-  // Keep the original side rail (not touched here) + keep swipe behavior intact.
-
   return (
-    <div
-      style={{
-        position: "relative",
-        height: "100%",
-        display: "grid",
-        placeItems: "center",
-        padding: "0 12px",
-        isolation: "isolate",
-
-        // Keep viewer/deck background match TopBar/BottomNav/Drawer
-        background: MCL_HUSKET_THEME.colors.header,
-      }}
-    >
+    <div style={deckWrapStyle}>
+      {/* Under card (peek) */}
       {underItem ? (
         <div
           style={{
@@ -272,69 +397,76 @@ export function HusketSwipeDeck({
             transform: `scale(${underScale})`,
           }}
         >
-          {/* Under-card: keep same structure as before */}
-          <div className="husketCard" style={{ maxWidth: "calc(100% - 2px)" }}>
-            <div className="husketCardTop">
-              <div className="husketCardImg">
-                {underUrl ? <img src={underUrl} alt="" /> : <div className="smallHelp" style={textB}>Loading…</div>}
+          <div style={underCardBaseStyle}>
+            <div style={imageFrameStyle}>
+              <div style={{ ...imageShellStyle, cursor: "default" }}>
+                {underUrl ? (
+                  <img src={underUrl} alt="" style={imageStyle} />
+                ) : (
+                  <div className="smallHelp" style={{ ...textB, padding: 14, color: "rgba(247,243,237,0.8)" }}>
+                    Loading…
+                  </div>
+                )}
               </div>
-              <div className="husketCardSide" />
             </div>
 
-            <div className="husketCardMeta">
-              {/* Date directly under image */}
-              <div style={{ ...textB, opacity: 0.9 }}>
-                {createdLabel}: {formatDate(underItem.createdAt, lang)}
-              </div>
-
-              {/* Divider */}
-              <div style={dividerStyle} />
-
-              {/* Bottom row (no buttons on under-card) */}
-              <div style={footerRowStyle}>
-                <div />
-                <div style={{ ...textB, ...footerCenterStyle, opacity: 0.75 }}>
-                  {index + 1}/{items.length}
+            <div style={metaStyle}>
+              <div style={metaTopRow}>
+                <div style={metaLeft}>
+                  <div style={{ ...textB, color: "rgba(247,243,237,0.86)" }}>
+                    {tGet(dict, "album.created")}: {formatDate(underItem.createdAt, lang)}
+                  </div>
                 </div>
-                <div />
+                <div style={metaBadges} />
               </div>
             </div>
           </div>
         </div>
       ) : null}
 
+      {/* Fullscreen photo */}
+      {fullOpen && topUrl ? (
+        <div role="dialog" aria-modal="true" style={fullOverlayStyle} onClick={() => setFullOpen(false)}>
+          <div style={fullTopStyle} onClick={(e) => e.stopPropagation()}>
+            <button type="button" onClick={() => setFullOpen(false)} style={fullCloseBtn}>
+              ✕
+            </button>
+            <div style={{ ...textA, color: "rgba(255,255,255,0.85)" }}>
+              {index + 1}/{items.length}
+            </div>
+          </div>
+
+          <div style={fullImgWrap} onClick={(e) => e.stopPropagation()}>
+            <img src={topUrl} alt="" style={fullImgStyle} />
+          </div>
+        </div>
+      ) : null}
+
+      {/* Top (swipe) card */}
       <motion.div
-        className="husketCard"
-        style={{
-          boxShadow: "0 14px 40px rgba(0,0,0,0.22)",
-          touchAction: "pan-y",
-          background: "#fff",
-          opacity: 1,
-          backfaceVisibility: "hidden",
-          WebkitBackfaceVisibility: "hidden",
-          transformStyle: "preserve-3d",
-        }}
-        drag="x"
+        style={cardBaseStyle}
+        drag={fullOpen ? false : "x"}
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.12}
         animate={controls}
         onDrag={(_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+          if (fullOpen) return;
           const w = Math.max(window.innerWidth || 360, 360);
           const p = clamp(info.offset.x / w, -1, 1);
           controls.set({ rotate: p * 6 });
         }}
         onDragEnd={async (_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+          if (fullOpen) return;
+
           const dx = info.offset.x;
           const w = Math.max(window.innerWidth || 360, 360);
           const threshold = Math.max(90, w * 0.22);
 
-          // swipe LEFT => older
           if (dx < -threshold && canOlder) {
             await commitSwipe("left");
             return;
           }
 
-          // swipe RIGHT => newer
           if (dx > threshold && canNewer) {
             await commitSwipe("right");
             return;
@@ -347,7 +479,7 @@ export function HusketSwipeDeck({
           });
         }}
       >
-        {/* Arrow overlay (only when available) */}
+        {/* Arrow overlay */}
         {canNewer ? (
           <button
             className="husketCardArrow left"
@@ -374,105 +506,101 @@ export function HusketSwipeDeck({
           </button>
         ) : null}
 
-        {/* Top: image + side rail (UNCHANGED) */}
-        <div className="husketCardTop">
-          <div className="husketCardImg">
-            {topUrl ? <img src={topUrl} alt="" /> : <div className="smallHelp" style={textB}>Loading…</div>}
-          </div>
-
-          <div className="husketCardSide">
-            {/* keep as-is (existing behavior) */}
-            <div className="husketSidePill" title={lang === "no" ? "Rating" : "Rating"} style={textB}>
-              {cur.ratingValue ?? "—"}
-            </div>
-            <div className="husketSidePill" title={lang === "no" ? "Kategori" : "Category"} style={textB}>
-              {categoryLabel ?? "—"}
-            </div>
-
-            {mapHref ? (
-              <a
-                className="husketSidePill"
-                href={mapHref}
-                target="_blank"
-                rel="noreferrer"
-                title={tGet(dict, "album.map")}
-                style={textB}
-              >
-                🌍
-              </a>
+        {/* Image (tap => fullscreen) */}
+        <div style={imageFrameStyle}>
+          <div
+            style={imageShellStyle}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!topUrl) return;
+              setFullOpen(true);
+            }}
+            role={topUrl ? "button" : undefined}
+            aria-label={topUrl ? (lang === "no" ? "Åpne bilde i fullskjerm" : "Open photo fullscreen") : undefined}
+          >
+            {topUrl ? (
+              <img src={topUrl} alt="" style={imageStyle} />
             ) : (
-              <div className="husketSidePill" title="GPS" style={textB}>
-                —
+              <div className="smallHelp" style={{ ...textB, padding: 14, color: "rgba(247,243,237,0.8)" }}>
+                Loading…
               </div>
             )}
           </div>
         </div>
 
-        {/* Bottom meta area: re-ordered per request */}
-        <div className="husketCardMeta">
-          {/* Date directly under image */}
-          <div style={{ ...textB, opacity: 0.9 }}>
-            {createdLabel}: {formatDate(cur.createdAt, lang)}
+        {/* Meta */}
+        <div style={metaStyle}>
+          <div style={metaTopRow}>
+            <div style={metaLeft}>
+              <div style={{ ...textB, color: "rgba(247,243,237,0.86)" }}>
+                {tGet(dict, "album.created")}: {formatDate(cur.createdAt, lang)}
+              </div>
+
+              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+                {mapHref ? (
+                  <a
+                    href={mapHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={tGet(dict, "album.map")}
+                    style={flatActionLink}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    🌍 {lang === "no" ? "Kart" : "Map"}
+                  </a>
+                ) : (
+                  <span style={{ ...textB, color: "rgba(247,243,237,0.65)" }}>
+                    🌍 {lang === "no" ? "Ingen GPS" : "No GPS"}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div style={metaBadges}>
+              <span style={flatChip}>{categoryLabel ?? "—"}</span>
+              <span style={flatChip}>{cur.ratingValue ?? "—"}</span>
+            </div>
           </div>
 
-          {/* Free text above info row */}
           {cur.comment ? (
-            <div style={{ ...textB, opacity: 0.98, whiteSpace: "pre-wrap" }}>{cur.comment}</div>
-          ) : null}
+            <div style={{ ...textB, color: "rgba(247,243,237,0.92)", whiteSpace: "pre-wrap", marginTop: 2 }}>
+              {cur.comment}
+            </div>
+          ) : (
+            <div style={{ ...textB, color: "rgba(247,243,237,0.60)", marginTop: 2 }}>
+              {lang === "no" ? "Ingen kommentar." : "No comment."}
+            </div>
+          )}
 
-          {/* Rating + Category + GPS on one line */}
-          <div style={{ ...infoRowStyle, ...textB, opacity: 0.92 }}>
-            <span>⭐ {cur.ratingValue ?? "—"}</span>
-            <span>🏷 {categoryLabel ?? "—"}</span>
+          {/* Actions: Lukk + Slett (flat text, no halos) */}
+          <div style={{ display: "flex", justifyContent: "center", marginTop: 6, gap: 12, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
+              style={flatActionBtn}
+              title={lang === "no" ? "Lukk" : "Close"}
+            >
+              ✕ {lang === "no" ? "Lukk" : "Close"}
+            </button>
 
-            {mapHref ? (
-              <a
-                href={mapHref}
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: "inherit", textDecoration: "none" }}
-                title={tGet(dict, "album.map")}
-                onClick={(e) => e.stopPropagation()}
-              >
-                🌍 {mapText}
-              </a>
-            ) : (
-              <span>🌍 —</span>
-            )}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteCurrent();
+              }}
+              style={flatDangerBtn}
+              title={lang === "no" ? "Slett" : "Delete"}
+            >
+              🗑 {lang === "no" ? "Slett" : "Delete"}
+            </button>
           </div>
 
-          {/* Thin divider (no extra spacing height) */}
-          <div style={dividerStyle} />
-
-          {/* Bottom row: Slett | 1/2 | Lukk */}
-          <div style={footerRowStyle}>
-            <div style={footerLeftStyle}>
-              <button
-                className="flatBtn danger"
-                onClick={onDeleteCurrent}
-                type="button"
-                title={lang === "no" ? "Slett" : "Delete"}
-                style={textA}
-              >
-                🗑 {lang === "no" ? "Slett" : "Delete"}
-              </button>
-            </div>
-
-            <div className="smallHelp" style={{ ...textB, ...footerCenterStyle, textAlign: "center" }}>
-              {index + 1}/{items.length}
-            </div>
-
-            <div style={footerRightStyle}>
-              <button
-                className="flatBtn"
-                onClick={onClose}
-                type="button"
-                title={lang === "no" ? "Lukk" : "Close"}
-                style={textA}
-              >
-                ✕ {lang === "no" ? "Lukk" : "Close"}
-              </button>
-            </div>
+          <div className="smallHelp" style={{ ...textB, textAlign: "center", color: "rgba(247,243,237,0.70)", marginTop: 4 }}>
+            {index + 1}/{items.length}
           </div>
         </div>
       </motion.div>
