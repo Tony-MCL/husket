@@ -212,7 +212,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     margin: 0,
   };
 
-  // ---- Flat reset for rows that previously had a “frame” around them ----
+  // ---- Flat reset for rows ----
   const flatChoiceRowStyle: React.CSSProperties = {
     border: "none",
     boxShadow: "none",
@@ -249,10 +249,10 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     borderRadius: 14,
   };
 
-  // ---- Primary button style (Ta bilde + Lagre) ----
+  // ✅ Primary button style (Ta bilde + Lagre) with DARK text
   const primaryBtnStyle: React.CSSProperties = {
     background: MCL_HUSKET_THEME.colors.header, // same as TopBar
-    color: "rgba(247, 243, 237, 0.92)",
+    color: "rgba(27, 26, 23, 0.92)", // dark text for contrast on light background
     border: "1px solid rgba(247, 243, 237, 0.14)",
     boxShadow: "none",
   };
@@ -262,6 +262,15 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     border: "none",
     boxShadow: "none",
     outline: "none",
+  };
+
+  // ✅ Center the standalone "Ta bilde" row button
+  const photoActionsStyle: React.CSSProperties = {
+    marginTop: 10,
+    display: "flex",
+    gap: 10,
+    flexWrap: "wrap",
+    justifyContent: !imageBlob ? "center" : "flex-start",
   };
 
   return (
@@ -335,7 +344,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
       </div>
 
       {/* Photo actions */}
-      <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
+      <div style={photoActionsStyle}>
         {!imageBlob ? (
           <button className="flatBtn primary" style={primaryBtnStyle} onClick={openCamera} type="button">
             {tGet(dict, "capture.pickPhoto")}
@@ -449,9 +458,10 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
       </div>
 
       {/* Save */}
-      <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+      <div style={{ marginTop: 12, display: "grid", gap: 8, justifyItems: "center" }}>
+        {/* ✅ Use same style + same class as Ta bilde for identical sizing */}
         <button
-          className="flatBtn confirm"
+          className="flatBtn primary"
           style={primaryBtnStyle}
           onClick={() => void onSave()}
           type="button"
