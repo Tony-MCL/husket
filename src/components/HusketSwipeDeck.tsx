@@ -56,6 +56,9 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
 
   const [fullOpen, setFullOpen] = useState(false);
 
+  // ✅ Ny: Underkortet skal IKKE synes i hvile. Kun når man begynner å dra/sveipe.
+  const [showUnder, setShowUnder] = useState(false);
+
   const lang: "no" | "en" = useMemo(() => {
     if (settings.language === "no") return "no";
     if (settings.language === "en") return "en";
@@ -162,6 +165,11 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
   }, [cur?.id]);
 
   useEffect(() => {
+    // ✅ Når nytt kort blir aktivt, vil vi ikke “vise underkortet” før neste swipe.
+    setShowUnder(false);
+  }, [cur?.id]);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (fullOpen) {
@@ -177,6 +185,9 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
   const commitSwipe = async (dir: "left" | "right") => {
     if (fullOpen) return;
 
+    // ✅ Underkortet skal være synlig når vi faktisk “blar” i bunken
+    setShowUnder(true);
+
     const w = Math.max(window.innerWidth || 360, 360);
     const exitX = dir === "left" ? -w : w;
 
@@ -190,6 +201,9 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
     if (dir === "right" && canNewer) onSetIndex(index - 1);
 
     controls.set({ x: 0, rotate: 0 });
+
+    // ✅ Ikke vis underkort i hvile etter at vi “landet”
+    setShowUnder(false);
   };
 
   const goOlderAnimated = async () => {
@@ -401,6 +415,9 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
   const underScale = 0.975;
   const underOpacity = 0.92;
 
+  // ✅ Underkort synlig KUN når vi drar/sveiper (og aldri i fullskjerm).
+  const underVisible = showUnder && !fullOpen;
+
   const husketMomentLabel = lang === "no" ? "Husket øyeblikk" : "Saved moment";
 
   return (
@@ -414,8 +431,9 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
             display: "grid",
             placeItems: "center",
             pointerEvents: "none",
-            opacity: underOpacity,
-            transform: `scale(${underScale})`,
+            opacity: underVisible ? underOpacity : 0,
+            transform: underVisible ? `scale(${underScale})` : "scale(1)",
+            transition: "opacity 140ms ease, transform 140ms ease",
           }}
         >
           <div style={underCardBaseStyle}>
@@ -465,6 +483,10 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.12}
         animate={controls}
+        onDragStart={() => {
+          if (fullOpen) return;
+          setShowUnder(true);
+        }}
         onDrag={(_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
           if (fullOpen) return;
           const w = Math.max(window.innerWidth || 360, 360);
@@ -493,6 +515,9 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
             rotate: 0,
             transition: { type: "spring", stiffness: 520, damping: 36 },
           });
+
+          // ✅ Snap-back til hvile => underkort skal ikke synes
+          setShowUnder(false);
         }}
       >
         {/* Arrow overlay */}
