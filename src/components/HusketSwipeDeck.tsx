@@ -59,6 +59,9 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
   // ✅ Ny: Underkortet skal IKKE synes i hvile. Kun når man begynner å dra/sveipe.
   const [showUnder, setShowUnder] = useState(false);
 
+  // ✅ Ny: Myk “grow-in” når nytt kort blir toppkort (bremser poppingen)
+  const [growInToken, setGrowInToken] = useState(0);
+
   const lang: "no" | "en" = useMemo(() => {
     if (settings.language === "no") return "no";
     if (settings.language === "en") return "en";
@@ -167,7 +170,24 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
   useEffect(() => {
     // ✅ Når nytt kort blir aktivt, vil vi ikke “vise underkortet” før neste swipe.
     setShowUnder(false);
+
+    // ✅ Trigger grow-in på nytt toppkort (subtilt, men synlig)
+    setGrowInToken((n) => n + 1);
   }, [cur?.id]);
+
+  useEffect(() => {
+    // ✅ Myk “voks opp” fra under-kortets størrelse til full størrelse
+    // Vi gjør dette når nytt kort blir aktivt, men ikke hvis vi er i fullskjerm.
+    if (fullOpen) return;
+
+    const startScale = 0.985; // subtil grow-in (juster senere om du vil)
+    controls.set({ x: 0, rotate: 0, scale: startScale });
+
+    void controls.start({
+      scale: 1,
+      transition: { type: "spring", stiffness: 260, damping: 26, mass: 0.9 },
+    });
+  }, [growInToken, fullOpen, controls]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -194,13 +214,15 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
     await controls.start({
       x: exitX,
       rotate: dir === "left" ? -6 : 6,
+      // behold nåværende scale mens vi sveiper ut
       transition: { type: "spring", stiffness: 420, damping: 34 },
     });
 
     if (dir === "left" && canOlder) onSetIndex(index + 1);
     if (dir === "right" && canNewer) onSetIndex(index - 1);
 
-    controls.set({ x: 0, rotate: 0 });
+    // reset pos/rot/scale for neste kort (selve grow-in skjer i useEffect)
+    controls.set({ x: 0, rotate: 0, scale: 1 });
 
     // ✅ Ikke vis underkort i hvile etter at vi “landet”
     setShowUnder(false);
@@ -513,6 +535,7 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
           await controls.start({
             x: 0,
             rotate: 0,
+            scale: 1,
             transition: { type: "spring", stiffness: 520, damping: 36 },
           });
 
