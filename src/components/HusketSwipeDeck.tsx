@@ -1,7 +1,7 @@
 // ===============================
 // src/components/HusketSwipeDeck.tsx
 // ===============================
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { motion, useAnimation, type PanInfo } from "framer-motion";
 import type { Husket, Settings } from "../domain/types";
 import type { I18nDict } from "../i18n";
@@ -56,11 +56,8 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
 
   const [fullOpen, setFullOpen] = useState(false);
 
-  // ✅ Ny: Underkortet skal IKKE synes i hvile. Kun når man begynner å dra/sveipe.
+  // ✅ Underkortet skal IKKE synes i hvile. Kun når man begynner å dra/sveipe.
   const [showUnder, setShowUnder] = useState(false);
-
-  // ✅ Ny: Myk “grow-in” når nytt kort blir toppkort (bremser poppingen)
-  const [growInToken, setGrowInToken] = useState(0);
 
   const lang: "no" | "en" = useMemo(() => {
     if (settings.language === "no") return "no";
@@ -170,24 +167,27 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
   useEffect(() => {
     // ✅ Når nytt kort blir aktivt, vil vi ikke “vise underkortet” før neste swipe.
     setShowUnder(false);
-
-    // ✅ Trigger grow-in på nytt toppkort (subtilt, men synlig)
-    setGrowInToken((n) => n + 1);
   }, [cur?.id]);
 
-  useEffect(() => {
-    // ✅ Myk “voks opp” fra under-kortets størrelse til full størrelse
-    // Vi gjør dette når nytt kort blir aktivt, men ikke hvis vi er i fullskjerm.
+  // ✅ Grow-in uten dobbel-pop:
+  // useLayoutEffect setter start-scale før første paint av nytt kort.
+  useLayoutEffect(() => {
+    if (!cur) return;
     if (fullOpen) return;
 
-    const startScale = 0.985; // subtil grow-in (juster senere om du vil)
+    const startScale = 0.985; // subtil, men synlig “vokser opp”
     controls.set({ x: 0, rotate: 0, scale: startScale });
 
-    void controls.start({
-      scale: 1,
-      transition: { type: "spring", stiffness: 260, damping: 26, mass: 0.9 },
+    // neste frame: animér rolig til full størrelse
+    const raf = window.requestAnimationFrame(() => {
+      void controls.start({
+        scale: 1,
+        transition: { type: "spring", stiffness: 260, damping: 26, mass: 0.9 },
+      });
     });
-  }, [growInToken, fullOpen, controls]);
+
+    return () => window.cancelAnimationFrame(raf);
+  }, [cur?.id, fullOpen, controls]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -214,15 +214,14 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
     await controls.start({
       x: exitX,
       rotate: dir === "left" ? -6 : 6,
-      // behold nåværende scale mens vi sveiper ut
       transition: { type: "spring", stiffness: 420, damping: 34 },
     });
 
     if (dir === "left" && canOlder) onSetIndex(index + 1);
     if (dir === "right" && canNewer) onSetIndex(index - 1);
 
-    // reset pos/rot/scale for neste kort (selve grow-in skjer i useEffect)
-    controls.set({ x: 0, rotate: 0, scale: 1 });
+    // reset pos/rot (scale blir satt “før paint” i useLayoutEffect for nytt kort)
+    controls.set({ x: 0, rotate: 0 });
 
     // ✅ Ikke vis underkort i hvile etter at vi “landet”
     setShowUnder(false);
@@ -260,7 +259,6 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
     overflow: "hidden",
     background: MCL_HUSKET_THEME.colors.altSurface,
     color: MCL_HUSKET_THEME.colors.textOnDark,
-    // behold lett separasjon fra bakgrunn (kortet i seg selv), men ALT inni blir flatt:
     border: `1px solid rgba(27, 26, 23, 0.16)`,
     boxShadow: MCL_HUSKET_THEME.elevation.elev2,
     display: "grid",
@@ -282,7 +280,6 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
     width: "100%",
     borderRadius: 18,
     overflow: "hidden",
-    // du vil ha kort-bakgrunn rundt bildet -> vi beholder en diskret “frame”
     border: `1px solid rgba(247, 243, 237, 0.14)`,
     background: "rgba(0,0,0,0.35)",
     maxHeight: "min(58vh, 520px)",
@@ -305,7 +302,6 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
     background: MCL_HUSKET_THEME.colors.altSurface,
   };
 
-  // ✅ FLAT: chips uten omriss/bakgrunn
   const flatChip: React.CSSProperties = {
     ...textB,
     border: "none",
@@ -317,14 +313,13 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
     whiteSpace: "nowrap",
   };
 
-  // ✅ FLAT: Kart som ren tekst-aksjon (men fortsatt god tapp-flate)
   const flatActionLink: React.CSSProperties = {
     ...textA,
     border: "none",
     outline: "none",
     background: "transparent",
     boxShadow: "none",
-    padding: "10px 0", // tapp-flate uten synlig “pill”
+    padding: "10px 0",
     color: "rgba(247, 243, 237, 0.92)",
     textDecoration: "none",
     display: "inline-flex",
@@ -333,14 +328,13 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
     whiteSpace: "nowrap",
   };
 
-  // ✅ FLAT: Lukk/Slett som tekst-aksjoner (ingen bleke flater / ingen omriss)
   const flatActionBtn: React.CSSProperties = {
     ...textA,
     border: "none",
     outline: "none",
     background: "transparent",
     boxShadow: "none",
-    padding: "10px 14px", // tapp-flate
+    padding: "10px 14px",
     color: "rgba(247, 243, 237, 0.92)",
     lineHeight: 1,
     cursor: "pointer",
@@ -353,7 +347,7 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
 
   const flatDangerBtn: React.CSSProperties = {
     ...flatActionBtn,
-    color: "rgba(255, 210, 210, 0.95)", // “danger” via tekstfarge, fortsatt flatt
+    color: "rgba(255, 210, 210, 0.95)",
   };
 
   const flatDangerEdgeBtn: React.CSSProperties = {
@@ -437,7 +431,6 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
   const underScale = 0.975;
   const underOpacity = 0.92;
 
-  // ✅ Underkort synlig KUN når vi drar/sveiper (og aldri i fullskjerm).
   const underVisible = showUnder && !fullOpen;
 
   const husketMomentLabel = lang === "no" ? "Husket øyeblikk" : "Saved moment";
@@ -539,7 +532,6 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
             transition: { type: "spring", stiffness: 520, damping: 36 },
           });
 
-          // ✅ Snap-back til hvile => underkort skal ikke synes
           setShowUnder(false);
         }}
       >
@@ -594,12 +586,10 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
 
         {/* Meta */}
         <div style={metaStyle}>
-          {/* Husket øyeblikk: (rett under bildet) */}
           <div style={{ ...textB, color: "rgba(247,243,237,0.86)" }}>
             {husketMomentLabel}: {formatDate(cur.createdAt, lang)}
           </div>
 
-          {/* Fritekst over info-linja */}
           {cur.comment ? (
             <div style={{ ...textB, color: "rgba(247,243,237,0.92)", whiteSpace: "pre-wrap", marginTop: 2 }}>
               {cur.comment}
@@ -610,7 +600,6 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
             </div>
           )}
 
-          {/* Rating + kategori + GPS i én linje */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
               {mapHref ? (
@@ -637,10 +626,8 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
             </div>
           </div>
 
-          {/* Tynn skillelinje rett over bunnlinja */}
           <div style={dividerThin} />
 
-          {/* Bunnlinje: Slett | 1/2 | Lukk (helt ned) */}
           <div style={bottomBar}>
             <div style={bottomLeft}>
               <button
