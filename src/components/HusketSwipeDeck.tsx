@@ -4,6 +4,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, useAnimation, type PanInfo } from "framer-motion";
 import type { Husket, Settings } from "../domain/types";
+import { renderRatingValue } from "../domain/ratingPacks";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
 import { getImageUrl } from "../data/husketRepo";
@@ -610,7 +611,7 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
 
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
               <span style={flatChip}>{categoryLabel ?? "—"}</span>
-              <span style={flatChip}>{cur.ratingValue ?? "—"}</span>
+              <span style={flatChip}>{cur.ratingValue ? renderRatingValue(cur.ratingValue) : "—"}</span>
             </div>
           </div>
 
