@@ -346,6 +346,23 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
     opacity: 0.75,
   };
 
+  // Flat toggle button styles (matches TopBar / BottomNav vibe)
+  const toggleWrapStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+  };
+
+  const toggleBtnStyle = (active: boolean): React.CSSProperties => ({
+    ...textB,
+    padding: "6px 10px",
+    borderRadius: 12,
+    border: "1px solid rgba(27, 26, 23, 0.14)",
+    background: active ? "rgba(255, 250, 244, 0.22)" : "rgba(255, 250, 244, 0.12)",
+    color: MCL_HUSKET_THEME.colors.darkSurface,
+    cursor: "pointer",
+  });
+
   const openCategories = openSection === "categories";
   const openLives = openSection === "lives";
 
@@ -402,6 +419,36 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
 
         <div className="hr" style={hrStyle} />
 
+        {/* GPS (global) - flat toggle */}
+        <div style={lineRow}>
+          <div style={lineLeft}>
+            <div style={lineTitle}>{tGet(dict, "settings.gpsGlobal")}</div>
+          </div>
+
+          <div style={toggleWrapStyle}>
+            <button
+              type="button"
+              className="flatBtn"
+              style={toggleBtnStyle(settings.gpsGlobalEnabled)}
+              onClick={() => update({ gpsGlobalEnabled: true })}
+              aria-pressed={settings.gpsGlobalEnabled}
+            >
+              ON
+            </button>
+            <button
+              type="button"
+              className="flatBtn"
+              style={toggleBtnStyle(!settings.gpsGlobalEnabled)}
+              onClick={() => update({ gpsGlobalEnabled: false })}
+              aria-pressed={!settings.gpsGlobalEnabled}
+            >
+              OFF
+            </button>
+          </div>
+        </div>
+
+        <div className="hr" style={hrStyle} />
+
         {/* Rating pack (per active life) */}
         <div style={lineRow}>
           <div style={lineLeft}>
@@ -447,9 +494,10 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
             <div className="smallHelp" style={panelHelp}>
               Maks {maxActiveCats} aktive kategorier per liv.
             </div>
+
             <div className="smallHelp" style={{ ...panelHelp, marginTop: 6 }}>
-            Endringer her vil kun påvirke nye huskets, huskets du allerede har lagret vil ikke påvirkes.
-          </div>
+              Endringer her vil kun påvirke nye huskets, huskets du allerede har lagret vil ikke påvirkes.
+            </div>
 
             {/* Add category only for custom lives (and only if premium + life enabled) */}
             {activeLifeIsCustom ? (
@@ -537,25 +585,6 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
             </div>
           </div>
         ) : null}
-
-        <div className="hr" style={hrStyle} />
-
-        {/* GPS (global) */}
-        <div style={lineRow}>
-          <div style={lineLeft}>
-            <div style={lineTitle}>{tGet(dict, "settings.gpsGlobal")}</div>
-          </div>
-
-          <select
-            className="select"
-            style={topbarSelectStyle}
-            value={settings.gpsGlobalEnabled ? "on" : "off"}
-            onChange={(e) => update({ gpsGlobalEnabled: e.target.value === "on" })}
-          >
-            <option value="on">ON</option>
-            <option value="off">OFF</option>
-          </select>
-        </div>
 
         <div className="hr" style={hrStyle} />
 
