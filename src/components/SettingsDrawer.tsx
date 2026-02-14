@@ -346,22 +346,50 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
     opacity: 0.75,
   };
 
-  // Flat toggle button styles (matches TopBar / BottomNav vibe)
-  const toggleWrapStyle: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
+    // Flat toggle button styles (match TopBar active chip)
+    const toggleWrapStyle: React.CSSProperties = {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+    };
+  
+    const toggleBaseStyle: React.CSSProperties = {
+      border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
+      borderRadius: 999,
+      padding: "6px 10px",
+      background: "transparent",
+      color: MCL_HUSKET_THEME.colors.darkSurface,
+      whiteSpace: "nowrap",
+  
+      // Typography (A) – same as TopBar chips
+      fontSize: HUSKET_TYPO.A.fontSize,
+      fontWeight: HUSKET_TYPO.A.fontWeight,
+      lineHeight: HUSKET_TYPO.A.lineHeight,
+      letterSpacing: HUSKET_TYPO.A.letterSpacing,
+  
+      transform: "none",
+      transition: "background-color 120ms ease, border-color 120ms ease, color 120ms ease",
+    };
+
+  const toggleActiveStyle: React.CSSProperties = {
+    background: MCL_HUSKET_THEME.colors.altSurface,
+    border: `1px solid ${MCL_HUSKET_THEME.colors.altSurface}`,
+    color: MCL_HUSKET_THEME.colors.textOnDark,
+
+    // lock typo identical
+    fontSize: HUSKET_TYPO.A.fontSize,
+    fontWeight: HUSKET_TYPO.A.fontWeight,
+    lineHeight: HUSKET_TYPO.A.lineHeight,
+    letterSpacing: HUSKET_TYPO.A.letterSpacing,
+
+    transform: "none",
   };
 
   const toggleBtnStyle = (active: boolean): React.CSSProperties => ({
-    ...textB,
-    padding: "6px 10px",
-    borderRadius: 12,
-    border: "1px solid rgba(27, 26, 23, 0.14)",
-    background: active ? "rgba(255, 250, 244, 0.22)" : "rgba(255, 250, 244, 0.12)",
-    color: MCL_HUSKET_THEME.colors.darkSurface,
-    cursor: "pointer",
+    ...toggleBaseStyle,
+    ...(active ? toggleActiveStyle : null),
   });
+
 
   const openCategories = openSection === "categories";
   const openLives = openSection === "lives";
