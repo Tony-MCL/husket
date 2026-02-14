@@ -12,19 +12,30 @@ export type RatingPackDef = {
   label: string; // short label for Settings select
 };
 
-const TENS: string[] = ["10/10", "9/10", "8/10", "7/10", "6/10", "5/10", "4/10", "3/10", "2/10", "1/10"];
+const TENS: string[] = [
+  "1/10",
+  "2/10",
+  "3/10",
+  "4/10",
+  "5/10",
+  "6/10",
+  "7/10",
+  "8/10",
+  "9/10",
+  "10/10",
+];
 
 const DICE: string[] = ["dice:1", "dice:2", "dice:3", "dice:4", "dice:5", "dice:6"];
 
 export const RATING_PACKS: Record<RatingPackKey, RatingPackDef> = {
-  emoji: { key: "emoji", premiumOnly: false, options: ["😍", "😐", "😖"], label: "😍 😐 😖" },
-  thumbs: { key: "thumbs", premiumOnly: false, options: ["👍", "🤏", "👎"], label: "👍 🤏 👎" },
-  check: { key: "check", premiumOnly: false, options: ["✓", "−", "✗"], label: "✓ − ✗" },
+  emoji: { key: "emoji", premiumOnly: false, options: ["😖", "😐", "😍"], label: "😖 😐 😍" },
+  thumbs: { key: "thumbs", premiumOnly: false, options: ["👎", "🤏", "👍"], label: "👎 🤏 👍" },
+  check: { key: "check", premiumOnly: false, options: ["✗", "−", "✓"], label: "✗ − ✓" },
 
   tens: { key: "tens", premiumOnly: true, options: TENS, label: "1/10 … 10/10" },
-  progress: { key: "progress", premiumOnly: true, options: ["▰▰▰", "▰▰▱", "▰▱▱"], label: "▰▰▰ ▰▰▱ ▰▱▱" },
-  weather: { key: "weather", premiumOnly: true, options: ["☀️", "🌤", "🌧"], label: "☀️ 🌤 🌧" },
-  heartpoop: { key: "heartpoop", premiumOnly: true, options: ["❤️", "👀", "💩"], label: "❤️ 👀 💩" },
+  progress: { key: "progress", premiumOnly: true, options: ["▰▱▱", "▰▰▱", "▰▰▰"], label: "▰▱▱ ▰▰▱ ▰▰▰" },
+  weather: { key: "weather", premiumOnly: true, options: ["🌧", "🌤", "☀️"], label: "🌧 🌤 ☀️" },
+  heartpoop: { key: "heartpoop", premiumOnly: true, options: ["💩", "👀", "❤️"], label: "💩 👀 ❤️" },
   dice: { key: "dice", premiumOnly: true, options: DICE, label: "🎲 1–6" },
 };
 
