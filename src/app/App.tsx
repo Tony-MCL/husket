@@ -30,14 +30,16 @@ export function App() {
     setSettings(next);
     saveSettings(next);
 
-    // if premium turned off, ensure life is valid
-    const customEnabled = [
-      next.lives.enabledCustom1 ? "custom1" : null,
-      next.lives.enabledCustom2 ? "custom2" : null,
-    ].filter(Boolean) as LifeKey[];
+    const allowed: LifeKey[] = [
+      ...(next.lives.enabledPrivate ? (["private"] as LifeKey[]) : []),
+      ...(next.lives.enabledCustom1 ? (["custom1"] as LifeKey[]) : []),
+      ...(next.lives.enabledCustom2 ? (["custom2"] as LifeKey[]) : []),
+      ...(next.lives.enabledWork ? (["work"] as LifeKey[]) : []),
+    ];
 
-    const allowed: LifeKey[] = ["private", "work", ...customEnabled];
-    if (!allowed.includes(life)) setLife("private");
+    // Always keep at least one valid life selected
+    const fallback: LifeKey = allowed[0] ?? "private";
+    if (!allowed.includes(life)) setLife(fallback);
   };
 
   const requirePremium = () => {
@@ -57,7 +59,7 @@ export function App() {
       <div
         className="appShell"
         style={{
-          backgroundColor: MCL_HUSKET_THEME.colors.altSurface, // “mørk mokka” hero/base
+          backgroundColor: MCL_HUSKET_THEME.colors.altSurface,
           color: MCL_HUSKET_THEME.colors.textOnDark,
         }}
       >
@@ -70,13 +72,7 @@ export function App() {
         />
 
         {route === "capture" ? (
-          <CaptureScreen
-            dict={dict}
-            life={life}
-            settings={settings}
-            onRequirePremium={requirePremium}
-            onSavedGoAlbum={onSavedGoAlbum}
-          />
+          <CaptureScreen dict={dict} life={life} settings={settings} onRequirePremium={requirePremium} onSavedGoAlbum={onSavedGoAlbum} />
         ) : null}
 
         {route === "album" ? <AlbumScreen dict={dict} life={life} settings={settings} /> : null}
@@ -93,12 +89,7 @@ export function App() {
           onRequirePremium={requirePremium}
         />
 
-        <PaywallModal
-          dict={dict}
-          open={paywallOpen}
-          onCancel={() => setPaywallOpen(false)}
-          onActivate={activatePremiumMock}
-        />
+        <PaywallModal dict={dict} open={paywallOpen} onCancel={() => setPaywallOpen(false)} onActivate={activatePremiumMock} />
 
         <BottomNav dict={dict} route={route} onRouteChange={setRoute} />
       </div>
