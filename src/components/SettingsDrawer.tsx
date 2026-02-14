@@ -502,6 +502,8 @@ export function SettingsDrawer({
           </select>
         </div>
 
+        <div className="hr" style={hrStyle} />
+
         {/* Categories (per active life) */}
         <button
           type="button"
