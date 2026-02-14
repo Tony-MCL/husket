@@ -491,9 +491,6 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
                           </div>
                         )}
 
-                        <div style={panelHelp}>{enabled ? "ON" : "OFF"}</div>
-                      </div>
-
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: locked || lifeLocked ? "not-allowed" : "pointer" }}>
                           <input
@@ -503,7 +500,6 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
                             disabled={locked || lifeLocked}
                             title={locked ? "Premium" : lifeLocked ? "OFF" : ""}
                           />
-                          <span style={{ ...panelHelp, opacity: 0.9 }}>ON</span>
                         </label>
                       </div>
                     </div>
