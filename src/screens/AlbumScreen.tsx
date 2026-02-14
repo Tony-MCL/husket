@@ -9,6 +9,7 @@ import { listHuskets, getImageUrl, deleteHusketById } from "../data/husketRepo";
 import { ViewHusketModal } from "../components/ViewHusketModal";
 import { MCL_HUSKET_THEME } from "../theme";
 import { HUSKET_TYPO } from "../theme/typography";
+import { getEffectiveRatingPack } from "../domain/settingsCore";
 
 type Props = {
   dict: I18nDict;
@@ -120,7 +121,8 @@ export function AlbumScreen({ dict, life, settings }: Props) {
   };
 
   // Keep pack options (used for ordering), but the filter list should include *anything present in data* too.
-  const packRatingOptions = useMemo(() => ratingOptionsFromPack(settings.ratingPack), [settings.ratingPack]);
+  const effectivePack = useMemo(() => getEffectiveRatingPack(settings, life), [settings, life]);
+  const packRatingOptions = useMemo(() => ratingOptionsFromPack(effectivePack), [effectivePack]);
 
   useEffect(() => {
     const next = listHuskets(life)
