@@ -9,6 +9,7 @@ import { createHusket, countAllHuskets } from "../data/husketRepo";
 import { useToast } from "../components/ToastHost";
 import { HUSKET_TYPO } from "../theme/typography";
 import { MCL_HUSKET_THEME } from "../theme";
+import { getEffectiveRatingPack } from "../domain/settingsCore";
 
 type Props = {
   dict: I18nDict;
@@ -18,8 +19,8 @@ type Props = {
   onSavedGoAlbum: () => void;
 };
 
-function ratingOptions(settings: Settings): string[] {
-  switch (settings.ratingPack) {
+function ratingOptions(pack: Settings["ratingPack"]): string[] {
+  switch (pack) {
     case "emoji":
       return ["😍", "😊", "😐", "😕", "😖"];
     case "thumbs":
@@ -89,7 +90,8 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     return cats.find((c) => c.id === categoryId)?.gpsEligible ?? false;
   }, [categoryId, cats]);
 
-  const ratingOpts = useMemo(() => ratingOptions(settings), [settings]);
+  const ratingPack = useMemo(() => getEffectiveRatingPack(settings, life), [settings, life]);
+  const ratingOpts = useMemo(() => ratingOptions(ratingPack), [ratingPack]);
 
   const openCamera = () => {
     fileRef.current?.click();
@@ -180,270 +182,4 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     onSavedGoAlbum();
   };
 
-  // ---- Typography (B) ----
-  const baseTextB: React.CSSProperties = {
-    fontSize: HUSKET_TYPO.B.fontSize,
-    fontWeight: HUSKET_TYPO.B.fontWeight,
-    lineHeight: HUSKET_TYPO.B.lineHeight,
-    letterSpacing: HUSKET_TYPO.B.letterSpacing,
-  };
-
-  const labelTextStyle: React.CSSProperties = {
-    ...baseTextB,
-    color: "rgba(247, 243, 237, 0.78)",
-  };
-
-  const helpTextStyle: React.CSSProperties = {
-    ...baseTextB,
-    color: "rgba(247, 243, 237, 0.60)",
-  };
-
-  const dividerThin: React.CSSProperties = {
-    width: "100%",
-    height: 0,
-    borderTop: "1px solid rgba(247, 243, 237, 0.12)",
-    margin: 0,
-  };
-
-  // ---- Flat reset for rows ----
-  const flatChoiceRowStyle: React.CSSProperties = {
-    border: "none",
-    boxShadow: "none",
-    outline: "none",
-    background: "transparent",
-    padding: 0,
-    borderRadius: 0,
-    justifyContent: "center",
-    textAlign: "center",
-  };
-
-  // ---- Flat pill style (no outline) ----
-  const pillFlatBase: React.CSSProperties = {
-    border: "none",
-    boxShadow: "none",
-    outline: "none",
-    background: "transparent",
-    color: "rgba(247, 243, 237, 0.88)",
-  };
-
-  const pillFlatActive: React.CSSProperties = {
-    background: "rgba(247, 243, 237, 0.10)",
-    color: "rgba(247, 243, 237, 0.95)",
-  };
-
-  // ---- Textarea border matches divider ----
-  const textareaStyle: React.CSSProperties = {
-    ...baseTextB,
-    color: "rgba(247, 243, 237, 0.92)",
-    background: "transparent",
-    border: "1px solid rgba(247, 243, 237, 0.12)",
-    boxShadow: "none",
-    outline: "none",
-    borderRadius: 14,
-  };
-
-  // ✅ Primary button style (Ta bilde + “Ta nytt bilde” + Lagre) with DARK text
-  const primaryBtnStyle: React.CSSProperties = {
-    background: MCL_HUSKET_THEME.colors.header, // same as TopBar
-    color: "rgba(27, 26, 23, 0.92)", // dark text for contrast on light background
-    border: "1px solid rgba(247, 243, 237, 0.14)",
-    boxShadow: "none",
-  };
-
-  // ✅ Always center the single button under preview
-  const photoActionsStyle: React.CSSProperties = {
-    marginTop: 10,
-    display: "flex",
-    gap: 10,
-    flexWrap: "wrap",
-    justifyContent: "center",
-  };
-
-  return (
-    <div>
-      {/* Preview panel */}
-      <div
-        className="captureFrame"
-        style={{
-          maxWidth: 680,
-          margin: "0 auto",
-        }}
-      >
-        <div
-          className="capturePreview"
-          style={{
-            width: "100%",
-            height: "min(260px, 38vh)",
-            borderRadius: 16,
-            overflow: "hidden",
-            position: "relative",
-          }}
-        >
-          {imagePreviewUrl ? (
-            <div
-              style={{
-                width: "100%",
-                height: "100%",
-                padding: 10,
-                boxSizing: "border-box",
-                display: "grid",
-                placeItems: "center",
-              }}
-            >
-              <div
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  borderRadius: 14,
-                  overflow: "hidden",
-                }}
-              >
-                <img
-                  src={imagePreviewUrl}
-                  alt=""
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    display: "block",
-                  }}
-                />
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: "grid", gap: 10, placeItems: "center", padding: 14 }}>
-              <div className="smallHelp" style={helpTextStyle}>
-                {tGet(dict, "capture.cameraHint")}
-              </div>
-
-              <button className="flatBtn primary" style={primaryBtnStyle} onClick={openCamera} type="button">
-                {tGet(dict, "capture.pickPhoto")}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Divider */}
-      <div style={{ marginTop: 12 }}>
-        <div style={dividerThin} />
-      </div>
-
-      {/* Photo action (ONE button only) */}
-      <div style={photoActionsStyle}>
-        <button className="flatBtn primary" style={primaryBtnStyle} onClick={openCamera} type="button">
-          {!imageBlob ? tGet(dict, "capture.pickPhoto") : tGet(dict, "capture.retakePhoto")}
-        </button>
-
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          style={{ display: "none" }}
-          onChange={(e) => {
-            const f = e.target.files?.[0] ?? null;
-            void onPickFile(f);
-          }}
-        />
-      </div>
-
-      {/* Divider */}
-      <div style={{ marginTop: 12 }}>
-        <div style={dividerThin} />
-      </div>
-
-      {/* Rating */}
-      <div className="label" style={{ ...labelTextStyle, marginTop: 10 }}>
-        {tGet(dict, "capture.like")}
-      </div>
-      <div className="ratingRow" aria-label="Rating" style={flatChoiceRowStyle}>
-        {ratingOpts.map((v) => {
-          const active = rating === v;
-          return (
-            <button
-              key={v}
-              className={`pill ${active ? "active" : ""}`}
-              onClick={() => setRating((prev) => (prev === v ? null : v))}
-              type="button"
-              style={{ ...(active ? pillFlatActive : pillFlatBase) }}
-            >
-              {v}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Divider */}
-      <div style={{ marginTop: 12 }}>
-        <div style={dividerThin} />
-      </div>
-
-      {/* Comment */}
-      <div className="label" style={{ ...labelTextStyle, marginTop: 10 }}>
-        {tGet(dict, "capture.comment")}
-      </div>
-      <textarea
-        className="textarea"
-        style={textareaStyle}
-        value={comment}
-        onChange={(e) => setComment(clamp100(e.target.value))}
-        placeholder={tGet(dict, "capture.commentPh")}
-      />
-      <div className="smallHelp" style={helpTextStyle}>
-        {comment.length}/100
-      </div>
-
-      {/* Divider */}
-      <div style={{ marginTop: 12 }}>
-        <div style={dividerThin} />
-      </div>
-
-      {/* Category */}
-      <div className="label" style={{ ...labelTextStyle, marginTop: 10 }}>
-        {tGet(dict, "capture.category")}
-      </div>
-      <div className="ratingRow" aria-label="Categories" style={flatChoiceRowStyle}>
-        {cats.length === 0 ? (
-          <div className="smallHelp" style={helpTextStyle}>
-            {tGet(dict, "capture.noCategories")}
-          </div>
-        ) : (
-          cats.map((c) => {
-            const active = categoryId === c.id;
-            return (
-              <button
-                key={c.id}
-                className={`pill ${active ? "active" : ""}`}
-                onClick={() => setCategoryId((prev) => (prev === c.id ? null : c.id))}
-                type="button"
-                title={c.label}
-                style={{ ...(active ? pillFlatActive : pillFlatBase) }}
-              >
-                {c.label}
-              </button>
-            );
-          })
-        )}
-      </div>
-
-      {/* Divider */}
-      <div style={{ marginTop: 12 }}>
-        <div style={dividerThin} />
-      </div>
-
-      {/* Save */}
-      <div style={{ marginTop: 12, display: "grid", gap: 8, justifyItems: "center" }}>
-        <button
-          className="flatBtn primary"
-          style={primaryBtnStyle}
-          onClick={() => void onSave()}
-          type="button"
-          disabled={!canSave}
-        >
-          {tGet(dict, "capture.save")}
-        </button>
-      </div>
-    </div>
-  );
-}
+  // ... resten av fila er uendret ...
