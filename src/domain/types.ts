@@ -39,7 +39,10 @@ export type Settings = {
   };
 
   categories: Record<LifeKey, CategoryDef[]>;
-
+  
+  // Per-life disabled categories (true = disabled)
+  disabledCategoryIdsByLife?: Partial<Record<LifeKey, Record<CategoryId, true>>>;
+  
   categoryGpsOverrides: Record<CategoryId, boolean>;
 
   /**
