@@ -205,16 +205,15 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
     opacity: 0.9,
   };
 
-  // Match drawer/menu background for the life dropdowns (as requested)
-  const menuSelectStyle: React.CSSProperties = {
+  // All selects should match TopBar background
+  const topbarSelectStyle: React.CSSProperties = {
     background: MCL_HUSKET_THEME.colors.header,
     color: MCL_HUSKET_THEME.colors.darkSurface,
   };
 
   const getLifeLabel = (life: "custom1" | "custom2") => {
     const n = life === "custom1" ? "1" : "2";
-    const lang = settings.language; // "auto" | "no" | "en" (per Settings)
-    const isNo = lang === "no";
+    const isNo = settings.language === "no";
     return isNo ? `Tilpasset liv ${n}` : `Custom life ${n}`;
   };
 
@@ -242,6 +241,7 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
         </div>
         <select
           className="select"
+          style={topbarSelectStyle}
           value={settings.language}
           onChange={(e) => update({ language: e.target.value as Settings["language"] })}
         >
@@ -255,6 +255,7 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
         </div>
         <select
           className="select"
+          style={topbarSelectStyle}
           value={settings.ratingPack}
           onChange={(e) => {
             const next = e.target.value as RatingPackKey;
@@ -274,6 +275,7 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
         </div>
         <select
           className="select"
+          style={topbarSelectStyle}
           value={settings.gpsGlobalEnabled ? "on" : "off"}
           onChange={(e) => update({ gpsGlobalEnabled: e.target.value === "on" })}
         >
@@ -323,99 +325,106 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
             const name = life === "custom1" ? settings.lives.custom1Name : settings.lives.custom2Name;
 
             return (
-              <div key={life} style={sectionStyle}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                  <div style={sectionTitleStyle}>{getLifeLabel(life)}</div>
+              <div key={life} style={{ display: "grid", gap: 8 }}>
+                {/* One-line row always visible */}
+                <div style={rowStyle}>
+                  <div style={rowTitleStyle}>{getLifeLabel(life)}</div>
 
                   <select
                     className="select"
-                    style={menuSelectStyle}
+                    style={topbarSelectStyle}
                     value={enabled ? "on" : "off"}
                     onChange={(e) => setLifeEnabled(life, e.target.value === "on")}
                     disabled={customLivesDisabled}
                     title={customLivesDisabled ? "Premium" : ""}
                   >
-                    <option value="on">
-                      {tGet(dict, "settings.enable")} ON
-                    </option>
-                    <option value="off">
-                      {tGet(dict, "settings.enable")} OFF
-                    </option>
+                    <option value="off">OFF</option>
+                    <option value="on">ON</option>
                   </select>
                 </div>
 
-                <div className="label" style={labelStyle}>
-                  {tGet(dict, "settings.name")}
-                </div>
-                <input
-                  className="input"
-                  value={name}
-                  onChange={(e) => setLifeName(life, e.target.value)}
-                  disabled={!settings.premium}
-                />
+                {/* Expanded content only when ON (Premium) */}
+                {enabled && settings.premium ? (
+                  <div style={sectionStyle}>
+                    <div style={sectionTitleStyle}>{getLifeLabel(life)}</div>
 
-                <div className="label" style={labelStyle}>
-                  {tGet(dict, "settings.categories")}
-                </div>
-                <div className="smallHelp" style={smallHelpStyle}>
-                  {tGet(dict, "settings.customCats")}
-                </div>
+                    <div className="label" style={labelStyle}>
+                      {tGet(dict, "settings.name")}
+                    </div>
+                    <input
+                      className="input"
+                      value={name}
+                      onChange={(e) => setLifeName(life, e.target.value)}
+                      disabled={!settings.premium}
+                    />
 
-                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                  <input
-                    className="input"
-                    value={customCatText}
-                    onChange={(e) => setCustomCatText(e.target.value)}
-                    placeholder="Legg til…"
-                    disabled={!canUseCustom || !enabled}
-                  />
-                  <button
-                    className="flatBtn"
-                    onClick={() => addCustomCategory(life)}
-                    type="button"
-                    disabled={!canUseCustom || !enabled}
-                    style={actionTextStyle}
-                  >
-                    +
-                  </button>
-                </div>
+                    <div className="label" style={labelStyle}>
+                      {tGet(dict, "settings.categories")}
+                    </div>
+                    <div className="smallHelp" style={smallHelpStyle}>
+                      {tGet(dict, "settings.customCats")}
+                    </div>
 
-                <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                  {(settings.categories[life] ?? []).map((c) => {
-                    const override = settings.categoryGpsOverrides[c.id];
-                    const mode: "default" | "on" | "off" =
-                      override === undefined ? "default" : override ? "on" : "off";
+                    <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                      <input
+                        className="input"
+                        value={customCatText}
+                        onChange={(e) => setCustomCatText(e.target.value)}
+                        placeholder="Legg til…"
+                        disabled={!canUseCustom || !enabled}
+                      />
+                      <button
+                        className="flatBtn"
+                        onClick={() => addCustomCategory(life)}
+                        type="button"
+                        disabled={!canUseCustom || !enabled}
+                        style={actionTextStyle}
+                      >
+                        +
+                      </button>
+                    </div>
 
-                    return (
-                      <div key={c.id} style={rowStyle}>
-                        <div style={{ display: "grid" }}>
-                          <div style={rowTitleStyle}>{c.label}</div>
-                          <div className="smallHelp" style={rowHelpStyle}>
-                            {tGet(dict, "settings.gpsPerCat")}:{" "}
-                            {override === undefined
-                              ? c.gpsEligible
-                                ? "ON (default)"
-                                : "OFF (default)"
-                              : override
-                                ? "ON (override)"
-                                : "OFF (override)"}
+                    <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                      {(settings.categories[life] ?? []).map((c) => {
+                        const override = settings.categoryGpsOverrides[c.id];
+                        const mode: "default" | "on" | "off" =
+                          override === undefined ? "default" : override ? "on" : "off";
+
+                        return (
+                          <div key={c.id} style={rowStyle}>
+                            <div style={{ display: "grid" }}>
+                              <div style={rowTitleStyle}>{c.label}</div>
+                              <div className="smallHelp" style={rowHelpStyle}>
+                                {tGet(dict, "settings.gpsPerCat")}:{" "}
+                                {override === undefined
+                                  ? c.gpsEligible
+                                    ? "ON (default)"
+                                    : "OFF (default)"
+                                  : override
+                                    ? "ON (override)"
+                                    : "OFF (override)"}
+                              </div>
+                            </div>
+
+                            <select
+                              className="select"
+                              style={topbarSelectStyle}
+                              value={mode}
+                              onChange={(e) =>
+                                setCategoryGpsOverride(c.id, e.target.value as "default" | "on" | "off")
+                              }
+                              disabled={!enabled}
+                            >
+                              <option value="default">Default</option>
+                              <option value="on">Force ON</option>
+                              <option value="off">Force OFF</option>
+                            </select>
                           </div>
-                        </div>
-
-                        <select
-                          className="select"
-                          value={mode}
-                          onChange={(e) => setCategoryGpsOverride(c.id, e.target.value as "default" | "on" | "off")}
-                          disabled={!enabled}
-                        >
-                          <option value="default">Default</option>
-                          <option value="on">Force ON</option>
-                          <option value="off">Force OFF</option>
-                        </select>
-                      </div>
-                    );
-                  })}
-                </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             );
           })}
