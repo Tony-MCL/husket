@@ -9,6 +9,8 @@ import { createHusket, countAllHuskets } from "../data/husketRepo";
 import { useToast } from "../components/ToastHost";
 import { HUSKET_TYPO } from "../theme/typography";
 import { MCL_HUSKET_THEME } from "../theme";
+import { getEffectiveRatingPack } from "../domain/settingsCore";
+import type { RatingPackKey } from "../domain/types";
 
 type Props = {
   dict: I18nDict;
@@ -18,8 +20,11 @@ type Props = {
   onSavedGoAlbum: () => void;
 };
 
-function ratingOptions(settings: Settings): string[] {
-  switch (settings.ratingPack) {
+function ratingOptionsFromPack(pack: RatingPackKey, premium: boolean): string[] {
+  // Defensive: tens is premium-only
+  if (pack === "tens" && !premium) pack = "emoji";
+
+  switch (pack) {
     case "emoji":
       return ["😍", "😊", "😐", "😕", "😖"];
     case "thumbs":
@@ -103,7 +108,9 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     return catsAll.find((c) => c.id === categoryId)?.gpsEligible ?? false;
   }, [categoryId, catsAll]);
 
-  const ratingOpts = useMemo(() => ratingOptions(settings), [settings]);
+  // Rating pack is PER LIFE (falls back to global in Settings)
+  const activePack = useMemo(() => getEffectiveRatingPack(settings, life), [settings, life]);
+  const ratingOpts = useMemo(() => ratingOptionsFromPack(activePack, settings.premium), [activePack, settings.premium]);
 
   const openCamera = () => {
     fileRef.current?.click();
@@ -118,54 +125,34 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     setRating(null);
 
     if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
-    setImagePreviewUrl(URL.createObjectURL(blob));
+
+    const url = URL.createObjectURL(blob);
+    setImagePreviewUrl(url);
   };
 
-  const canSave = !!imageBlob;
-
-  const resetAll = () => {
-    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
-    setImagePreviewUrl(null);
-    setImageBlob(null);
-    setRating(null);
-    setComment("");
-    setCategoryId(null);
-    if (fileRef.current) fileRef.current.value = "";
-  };
-
-  // Try auto-open camera once when entering Capture (camera-first UX)
   useEffect(() => {
+    // Attempt auto-open once
     if (autoOpenAttemptedRef.current) return;
     autoOpenAttemptedRef.current = true;
 
-    if (imageBlob) return;
+    // Only if there is no image yet (prevents annoying loops)
+    if (imagePreviewUrl) return;
 
-    const t = window.setTimeout(() => {
-      try {
-        fileRef.current?.click();
-      } catch {
-        // ignore
-      }
-    }, 250);
-
-    return () => window.clearTimeout(t);
+    // Some browsers will ignore this without a user gesture; that's fine.
+    setTimeout(() => openCamera(), 50);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const onSave = async () => {
-    if (!imageBlob) {
-      toast.show(tGet(dict, "capture.photoRequired"));
-      return;
-    }
+  const canSave = !!imageBlob;
 
-    // Standard: max 100 (paywall triggers elsewhere)
-    const total = countAllHuskets();
-    if (!settings.premium && total >= 100) {
+  const onSave = async () => {
+    if (!imageBlob) return;
+
+    // If tens is somehow active without premium (defensive), treat as emoji pack
+    if (activePack === "tens" && !settings.premium) {
       onRequirePremium();
       return;
     }
-
-    const imageKey = `img:${crypto.randomUUID()}`;
 
     const gps = await getGpsIfAllowed({
       settings,
@@ -173,288 +160,123 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
       categoryDefaultGpsEligible: catDefaultGpsEligible,
     });
 
-    const trimmed = clamp100(comment.trim());
-    const commentOrNull = trimmed.length > 0 ? trimmed : null;
-
-    const husketBase: Omit<Husket, "id"> = {
+    const next: Omit<Husket, "id"> = {
       life,
       createdAt: Date.now(),
-      imageKey,
+      imageKey: "", // set in repo
       ratingValue: rating,
-      comment: commentOrNull,
-      categoryId,
+      comment: comment.trim() ? clamp100(comment.trim()) : null,
+      categoryId: categoryId,
       gps,
     };
 
-    await createHusket({ husket: husketBase, imageBlob });
+    await createHusket(next, imageBlob);
+
+    // Clear form
+    setImageBlob(null);
+    setRating(null);
+    setComment("");
+    setCategoryId(null);
+
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    setImagePreviewUrl(null);
 
     toast.show(tGet(dict, "capture.saved"));
-
-    resetAll();
     onSavedGoAlbum();
   };
 
-  // ---- Typography (B) ----
-  const baseTextB: React.CSSProperties = {
+  const remaining = useMemo(() => {
+    const max = settings.premium ? 999999 : 25;
+    const used = countAllHuskets();
+    return Math.max(0, max - used);
+  }, [settings.premium]);
+
+  // ---- Typography helpers ----
+  const textA: React.CSSProperties = {
+    fontSize: HUSKET_TYPO.A.fontSize,
+    fontWeight: HUSKET_TYPO.A.fontWeight,
+    lineHeight: HUSKET_TYPO.A.lineHeight,
+    letterSpacing: HUSKET_TYPO.A.letterSpacing,
+  };
+
+  const textB: React.CSSProperties = {
     fontSize: HUSKET_TYPO.B.fontSize,
     fontWeight: HUSKET_TYPO.B.fontWeight,
     lineHeight: HUSKET_TYPO.B.lineHeight,
     letterSpacing: HUSKET_TYPO.B.letterSpacing,
   };
 
-  const labelTextStyle: React.CSSProperties = {
-    ...baseTextB,
-    color: "rgba(247, 243, 237, 0.78)",
-  };
-
-  const helpTextStyle: React.CSSProperties = {
-    ...baseTextB,
-    color: "rgba(247, 243, 237, 0.60)",
-  };
-
-  const dividerThin: React.CSSProperties = {
-    width: "100%",
-    height: 0,
-    borderTop: "1px solid rgba(247, 243, 237, 0.12)",
-    margin: 0,
-  };
-
-  // ---- Flat reset for rows ----
-  const flatChoiceRowStyle: React.CSSProperties = {
-    border: "none",
-    boxShadow: "none",
-    outline: "none",
-    background: "transparent",
-    padding: 0,
-    borderRadius: 0,
-    justifyContent: "center",
-    textAlign: "center",
-  };
-
-  // ---- Flat pill style (no outline) ----
-  const pillFlatBase: React.CSSProperties = {
-    border: "none",
-    boxShadow: "none",
-    outline: "none",
-    background: "transparent",
-    color: "rgba(247, 243, 237, 0.88)",
-  };
-
-  const pillFlatActive: React.CSSProperties = {
-    background: "rgba(247, 243, 237, 0.10)",
-    color: "rgba(247, 243, 237, 0.95)",
-  };
-
-  // ---- Textarea border matches divider ----
-  const textareaStyle: React.CSSProperties = {
-    ...baseTextB,
-    color: "rgba(247, 243, 237, 0.92)",
-    background: "transparent",
-    border: "1px solid rgba(247, 243, 237, 0.12)",
-    boxShadow: "none",
-    outline: "none",
-    borderRadius: 14,
-  };
-
-  // ✅ Primary button style (Ta bilde + “Ta nytt bilde” + Lagre) with DARK text
-  const primaryBtnStyle: React.CSSProperties = {
-    background: MCL_HUSKET_THEME.colors.header, // same as TopBar
-    color: "rgba(27, 26, 23, 0.92)", // dark text for contrast on light background
-    border: "1px solid rgba(247, 243, 237, 0.14)",
-    boxShadow: "none",
-  };
-
-  // ✅ Always center the single button under preview
-  const photoActionsStyle: React.CSSProperties = {
-    marginTop: 10,
-    display: "flex",
-    gap: 10,
-    flexWrap: "wrap",
-    justifyContent: "center",
-  };
+  const sectionLabel: React.CSSProperties = { ...textB, color: MCL_HUSKET_THEME.colors.muted, margin: "10px 0 6px" };
 
   return (
-    <div>
-      {/* Preview panel */}
-      <div
-        className="captureFrame"
-        style={{
-          maxWidth: 680,
-          margin: "0 auto",
-        }}
-      >
-        <div
-          className="capturePreview"
-          style={{
-            width: "100%",
-            height: "min(260px, 38vh)",
-            borderRadius: 16,
-            overflow: "hidden",
-            position: "relative",
-          }}
-        >
-          {imagePreviewUrl ? (
-            <div
-              style={{
-                width: "100%",
-                height: "100%",
-                padding: 10,
-                boxSizing: "border-box",
-                display: "grid",
-                placeItems: "center",
-              }}
-            >
-              <div
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  borderRadius: 14,
-                  overflow: "hidden",
-                }}
-              >
-                <img
-                  src={imagePreviewUrl}
-                  alt=""
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    display: "block",
-                  }}
-                />
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: "grid", gap: 10, placeItems: "center", padding: 14 }}>
-              <div className="smallHelp" style={helpTextStyle}>
-                {tGet(dict, "capture.cameraHint")}
-              </div>
+    <div style={{ display: "grid", gap: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
+        <div style={{ ...textA }}>{tGet(dict, "capture.title")}</div>
+        {!settings.premium ? (
+          <div className="smallHelp" style={{ ...textB, color: MCL_HUSKET_THEME.colors.muted }}>
+            {tGet(dict, "capture.remaining")}: {remaining}
+          </div>
+        ) : null}
+      </div>
 
-              <button className="flatBtn primary" style={primaryBtnStyle} onClick={openCamera} type="button">
-                {tGet(dict, "capture.pickPhoto")}
-              </button>
-            </div>
-          )}
+      <div className="captureFrame">
+        <div className="capturePreview" onClick={openCamera} role="button" tabIndex={0}>
+          {imagePreviewUrl ? <img src={imagePreviewUrl} alt="" /> : <div className="smallHelp">{tGet(dict, "capture.tapToTake")}</div>}
         </div>
       </div>
 
-      {/* Divider */}
-      <div style={{ marginTop: 12 }}>
-        <div style={dividerThin} />
-      </div>
-
-      {/* Photo action (ONE button only) */}
-      <div style={photoActionsStyle}>
-        <button className="flatBtn primary" style={primaryBtnStyle} onClick={openCamera} type="button">
-          {!imageBlob ? tGet(dict, "capture.pickPhoto") : tGet(dict, "capture.retakePhoto")}
-        </button>
-
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          style={{ display: "none" }}
-          onChange={(e) => {
-            const f = e.target.files?.[0] ?? null;
-            void onPickFile(f);
-          }}
-        />
-      </div>
-
-      {/* Divider */}
-      <div style={{ marginTop: 12 }}>
-        <div style={dividerThin} />
-      </div>
-
-      {/* Rating */}
-      <div className="label" style={{ ...labelTextStyle, marginTop: 10 }}>
-        {tGet(dict, "capture.like")}
-      </div>
-      <div className="ratingRow" aria-label="Rating" style={flatChoiceRowStyle}>
-        {ratingOpts.map((v) => {
-          const active = rating === v;
-          return (
-            <button
-              key={v}
-              className={`pill ${active ? "active" : ""}`}
-              onClick={() => setRating((prev) => (prev === v ? null : v))}
-              type="button"
-              style={{ ...(active ? pillFlatActive : pillFlatBase) }}
-            >
-              {v}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Divider */}
-      <div style={{ marginTop: 12 }}>
-        <div style={dividerThin} />
-      </div>
-
-      {/* Comment */}
-      <div className="label" style={{ ...labelTextStyle, marginTop: 10 }}>
-        {tGet(dict, "capture.comment")}
-      </div>
-      <textarea
-        className="textarea"
-        style={textareaStyle}
-        value={comment}
-        onChange={(e) => setComment(clamp100(e.target.value))}
-        placeholder={tGet(dict, "capture.commentPh")}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const f = e.target.files?.[0] ?? null;
+          void onPickFile(f);
+          // allow re-picking same file
+          e.currentTarget.value = "";
+        }}
       />
-      <div className="smallHelp" style={helpTextStyle}>
-        {comment.length}/100
+
+      <div style={sectionLabel}>{tGet(dict, "capture.rating")}</div>
+      <div className="ratingRow">
+        {ratingOpts.map((r) => (
+          <button key={r} type="button" className={`pill ${rating === r ? "active" : ""}`} onClick={() => setRating(r)}>
+            {r}
+          </button>
+        ))}
       </div>
 
-      {/* Divider */}
-      <div style={{ marginTop: 12 }}>
-        <div style={dividerThin} />
-      </div>
-
-      {/* Category */}
-      <div className="label" style={{ ...labelTextStyle, marginTop: 10 }}>
-        {tGet(dict, "capture.category")}
-      </div>
-      <div className="ratingRow" aria-label="Categories" style={flatChoiceRowStyle}>
+      <div style={sectionLabel}>{tGet(dict, "capture.category")}</div>
+      <div className="ratingRow">
         {cats.length === 0 ? (
-          <div className="smallHelp" style={helpTextStyle}>
+          <div className="smallHelp" style={{ ...textB, color: MCL_HUSKET_THEME.colors.muted }}>
             {tGet(dict, "capture.noCategories")}
           </div>
         ) : (
-          cats.map((c) => {
-            const active = categoryId === c.id;
-            return (
-              <button
-                key={c.id}
-                className={`pill ${active ? "active" : ""}`}
-                onClick={() => setCategoryId((prev) => (prev === c.id ? null : c.id))}
-                type="button"
-                title={c.label}
-                style={{ ...(active ? pillFlatActive : pillFlatBase) }}
-              >
-                {c.label}
-              </button>
-            );
-          })
+          cats.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className={`pill ${categoryId === c.id ? "active" : ""}`}
+              onClick={() => setCategoryId(c.id)}
+            >
+              {c.label}
+            </button>
+          ))
         )}
       </div>
 
-      {/* Divider */}
-      <div style={{ marginTop: 12 }}>
-        <div style={dividerThin} />
-      </div>
+      <div style={sectionLabel}>{tGet(dict, "capture.comment")}</div>
+      <textarea className="textarea" value={comment} onChange={(e) => setComment(e.target.value)} placeholder={tGet(dict, "capture.commentPlaceholder")} />
 
-      {/* Save */}
-      <div style={{ marginTop: 12, display: "grid", gap: 8, justifyItems: "center" }}>
-        <button
-          className="flatBtn primary"
-          style={primaryBtnStyle}
-          onClick={() => void onSave()}
-          type="button"
-          disabled={!canSave}
-        >
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center" }}>
+        <button className="flatBtn" type="button" onClick={openCamera} style={textA}>
+          {tGet(dict, "capture.takeNew")}
+        </button>
+
+        <button className="flatBtn primary" type="button" onClick={() => void onSave()} disabled={!canSave} style={textA}>
           {tGet(dict, "capture.save")}
         </button>
       </div>
