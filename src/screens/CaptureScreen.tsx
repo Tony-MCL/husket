@@ -9,6 +9,7 @@ import { createHusket, countAllHuskets } from "../data/husketRepo";
 import { useToast } from "../components/ToastHost";
 import { HUSKET_TYPO } from "../theme/typography";
 import { MCL_HUSKET_THEME } from "../theme";
+import { getEffectiveRatingPack } from "../domain/settingsCore";
 
 type Props = {
   dict: I18nDict;
@@ -18,8 +19,8 @@ type Props = {
   onSavedGoAlbum: () => void;
 };
 
-function ratingOptions(settings: Settings): string[] {
-  switch (settings.ratingPack) {
+function ratingOptionsFromPack(pack: Settings["ratingPack"]): string[] {
+  switch (pack) {
     case "emoji":
       return ["😍", "😊", "😐", "😕", "😖"];
     case "thumbs":
@@ -85,7 +86,10 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
   const catsAll = useMemo(() => settings.categories[life] ?? [], [life, settings.categories]);
 
   // NEW: per-life disabled categories => hide from Capture choices
-  const disabledMap = useMemo(() => settings.disabledCategoryIdsByLife?.[life] ?? {}, [settings.disabledCategoryIdsByLife, life]);
+  const disabledMap = useMemo(
+    () => settings.disabledCategoryIdsByLife?.[life] ?? {},
+    [settings.disabledCategoryIdsByLife, life]
+  );
 
   const cats = useMemo(() => {
     return catsAll.filter((c) => !disabledMap[c.id]);
@@ -103,7 +107,8 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     return catsAll.find((c) => c.id === categoryId)?.gpsEligible ?? false;
   }, [categoryId, catsAll]);
 
-  const ratingOpts = useMemo(() => ratingOptions(settings), [settings]);
+  const effectivePack = useMemo(() => getEffectiveRatingPack(settings, life), [settings, life]);
+  const ratingOpts = useMemo(() => ratingOptionsFromPack(effectivePack), [effectivePack]);
 
   const openCamera = () => {
     fileRef.current?.click();
