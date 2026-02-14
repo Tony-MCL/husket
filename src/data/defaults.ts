@@ -58,7 +58,7 @@ const WORK_CATS: CategoryDef[] = [
 ];
 
 // -------------------------------
-// Public exports used elsewhere
+// Custom category IDs (editable slots)
 // -------------------------------
 export const PRIVATE_CUSTOM_CATEGORY_ID = "p.custom.1" as const;
 export const WORK_CUSTOM_CATEGORY_ID = "w.custom.1" as const;
@@ -92,34 +92,55 @@ export const PREMIUM_CATEGORY_IDS_BY_LIFE: Partial<Record<LifeKey, string[]>> = 
 };
 
 // -------------------------------
-// Defaults helpers (repo expects this)
+// Helpers
 // -------------------------------
 function cloneCats(list: CategoryDef[]): CategoryDef[] {
   return list.map((c) => ({ ...c }));
 }
 
+const CUSTOM1_DEFAULT: CategoryDef[] = [
+  { id: "c1.a", label: "Kategori 1", gpsEligible: true },
+  { id: "c1.b", label: "Kategori 2", gpsEligible: false },
+];
+
+const CUSTOM2_DEFAULT: CategoryDef[] = [
+  { id: "c2.a", label: "Kategori 1", gpsEligible: true },
+  { id: "c2.b", label: "Kategori 2", gpsEligible: false },
+];
+
 /**
- * Repo-friendly helper: returns default categories per life (fresh copies).
- * Some parts of the app expect this export to exist.
+ * Repo expects this export.
+ * Overloads:
+ * - getDefaultCategoriesByLife(life) -> CategoryDef[]
+ * - getDefaultCategoriesByLife() -> Record<LifeKey, CategoryDef[]>
  */
-export function getDefaultCategoriesByLife(): Record<LifeKey, CategoryDef[]> {
+export function getDefaultCategoriesByLife(life: LifeKey): CategoryDef[];
+export function getDefaultCategoriesByLife(): Record<LifeKey, CategoryDef[]>;
+export function getDefaultCategoriesByLife(life?: LifeKey) {
+  if (life) {
+    switch (life) {
+      case "private":
+        return cloneCats(PRIVATE_CATS);
+      case "work":
+        return cloneCats(WORK_CATS);
+      case "custom1":
+        return cloneCats(CUSTOM1_DEFAULT);
+      case "custom2":
+        return cloneCats(CUSTOM2_DEFAULT);
+      default:
+        return cloneCats(PRIVATE_CATS);
+    }
+  }
+
   return {
     private: cloneCats(PRIVATE_CATS),
     work: cloneCats(WORK_CATS),
-    custom1: [
-      { id: "c1.a", label: "Kategori 1", gpsEligible: true },
-      { id: "c1.b", label: "Kategori 2", gpsEligible: false },
-    ],
-    custom2: [
-      { id: "c2.a", label: "Kategori 1", gpsEligible: true },
-      { id: "c2.b", label: "Kategori 2", gpsEligible: false },
-    ],
+    custom1: cloneCats(CUSTOM1_DEFAULT),
+    custom2: cloneCats(CUSTOM2_DEFAULT),
   };
 }
 
 export function defaultSettings(): Settings {
-  const categories = getDefaultCategoriesByLife();
-
   return {
     version: 2,
     language: "auto",
@@ -139,7 +160,7 @@ export function defaultSettings(): Settings {
       enabledCustom2: false,
     },
 
-    categories,
+    categories: getDefaultCategoriesByLife(),
 
     // Default ON/OFF:
     // - Privat: 4 aktive som default (Mat&drikke, Reiser, Folk, Ting)
