@@ -1,8 +1,8 @@
 // ===============================
 // src/data/settingsRepo.ts
 // ===============================
-import type { Settings } from "../domain/types";
-import { defaultSettings } from "./defaults";
+import type { CategoryDef, Settings } from "../domain/types";
+import { defaultSettings, getDefaultCategoriesByLife, PRIVATE_CUSTOM_CATEGORY_ID } from "./defaults";
 import { readJson, writeJson } from "../storage/local";
 
 const KEY_V1 = "husket.settings.v1";
@@ -23,6 +23,84 @@ function migrateV1ToV2(v1: SettingsV1): Settings {
   };
 }
 
+function isUserEditableCategoryId(id: string): boolean {
+  // Custom lives
+  if (id.includes(".custom.")) return true;
+  // Private single-slot custom
+  if (id === PRIVATE_CUSTOM_CATEGORY_ID) return true;
+  return false;
+}
+
+function mergeCategories(current: CategoryDef[] | undefined, defaults: CategoryDef[]): CategoryDef[] {
+  const cur = current ?? [];
+  const curById = new Map<string, CategoryDef>();
+  for (const c of cur) curById.set(c.id, c);
+
+  const merged: CategoryDef[] = [];
+
+  // 1) Defaults in default order, updating label/gpsEligible
+  for (const d of defaults) {
+    const existing = curById.get(d.id);
+
+    if (!existing) {
+      merged.push(d);
+      continue;
+    }
+
+    // Keep user label for editable categories
+    if (isUserEditableCategoryId(d.id)) {
+      merged.push(existing);
+    } else {
+      merged.push({
+        ...existing,
+        label: d.label,
+        gpsEligible: d.gpsEligible,
+      });
+    }
+
+    curById.delete(d.id);
+  }
+
+  // 2) Append any extra categories that exist in stored settings but not in defaults
+  // (keeps backwards compatibility if older builds created something unexpected)
+  for (const [, extra] of curById) merged.push(extra);
+
+  return merged;
+}
+
+function ensureCategoriesUpToDate(s: Settings): { next: Settings; changed: boolean } {
+  let changed = false;
+
+  const nextCats: Settings["categories"] = { ...s.categories };
+
+  (["private", "work", "custom1", "custom2"] as const).forEach((life) => {
+    const defaults = getDefaultCategoriesByLife(life);
+    const current = s.categories?.[life];
+    const merged = mergeCategories(current, defaults);
+
+    // Shallow compare by length + ids/labels (good enough)
+    const same =
+      Array.isArray(current) &&
+      current.length === merged.length &&
+      current.every((c, idx) => c.id === merged[idx].id && c.label === merged[idx].label && c.gpsEligible === merged[idx].gpsEligible);
+
+    if (!same) {
+      nextCats[life] = merged;
+      changed = true;
+    }
+  });
+
+  if (!changed) return { next: s, changed: false };
+
+  return {
+    next: {
+      ...s,
+      categories: nextCats,
+    },
+    changed: true,
+  };
+}
+
 export function loadSettings(): Settings {
   const v2 = readJson<Settings>(KEY_V2);
   if (v2 && v2.version === 2) {
@@ -40,6 +118,13 @@ export function loadSettings(): Settings {
       changed = true;
     }
 
+    // NEW: ensure categories reflect latest defaults (without breaking old IDs)
+    const ensured = ensureCategoriesUpToDate(fixed);
+    if (ensured.changed) {
+      fixed = ensured.next;
+      changed = true;
+    }
+
     if (changed) writeJson(KEY_V2, fixed);
     return fixed;
   }
@@ -47,8 +132,11 @@ export function loadSettings(): Settings {
   const v1 = readJson<SettingsV1>(KEY_V1);
   if (v1 && v1.version === 1) {
     const migrated = migrateV1ToV2(v1);
-    writeJson(KEY_V2, migrated);
-    return migrated;
+    const ensured = ensureCategoriesUpToDate(migrated);
+    const final = ensured.changed ? ensured.next : migrated;
+
+    writeJson(KEY_V2, final);
+    return final;
   }
 
   const fresh = defaultSettings();
