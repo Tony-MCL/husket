@@ -8,9 +8,10 @@ import { readJson, writeJson } from "../storage/local";
 const KEY_V1 = "husket.settings.v1";
 const KEY_V2 = "husket.settings.v2";
 
-type SettingsV1 = Omit<Settings, "version" | "ratingPackByLife"> & {
+type SettingsV1 = Omit<Settings, "version" | "ratingPackByLife" | "disabledCategoryIdsByLife"> & {
   version: 1;
   ratingPackByLife?: never;
+  disabledCategoryIdsByLife?: never;
 };
 
 function migrateV1ToV2(v1: SettingsV1): Settings {
@@ -18,19 +19,29 @@ function migrateV1ToV2(v1: SettingsV1): Settings {
     ...v1,
     version: 2,
     ratingPackByLife: {},
+    disabledCategoryIdsByLife: {},
   };
 }
 
 export function loadSettings(): Settings {
   const v2 = readJson<Settings>(KEY_V2);
   if (v2 && v2.version === 2) {
-    // Defensive: ensure field exists
-    if (!v2.ratingPackByLife) {
-      const fixed: Settings = { ...v2, ratingPackByLife: {} };
-      writeJson(KEY_V2, fixed);
-      return fixed;
+    // Defensive: ensure required-ish fields exist
+    let changed = false;
+    let fixed: Settings = v2;
+
+    if (!fixed.ratingPackByLife) {
+      fixed = { ...fixed, ratingPackByLife: {} };
+      changed = true;
     }
-    return v2;
+
+    if (!fixed.disabledCategoryIdsByLife) {
+      fixed = { ...fixed, disabledCategoryIdsByLife: {} };
+      changed = true;
+    }
+
+    if (changed) writeJson(KEY_V2, fixed);
+    return fixed;
   }
 
   const v1 = readJson<SettingsV1>(KEY_V1);
@@ -41,8 +52,14 @@ export function loadSettings(): Settings {
   }
 
   const fresh = defaultSettings();
-  writeJson(KEY_V2, fresh);
-  return fresh;
+  // Defensive: in case defaults are missing new optional fields
+  const fixedFresh: Settings = {
+    ...fresh,
+    ratingPackByLife: fresh.ratingPackByLife ?? {},
+    disabledCategoryIdsByLife: fresh.disabledCategoryIdsByLife ?? {},
+  };
+  writeJson(KEY_V2, fixedFresh);
+  return fixedFresh;
 }
 
 export function saveSettings(next: Settings): void {
