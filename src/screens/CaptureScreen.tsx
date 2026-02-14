@@ -9,8 +9,6 @@ import { createHusket, countAllHuskets } from "../data/husketRepo";
 import { useToast } from "../components/ToastHost";
 import { HUSKET_TYPO } from "../theme/typography";
 import { MCL_HUSKET_THEME } from "../theme";
-import { getEffectiveRatingPack } from "../domain/settingsCore";
-import { getRatingPackOptions, renderRatingValue } from "../domain/ratingPacks";
 
 type Props = {
   dict: I18nDict;
@@ -19,6 +17,23 @@ type Props = {
   onRequirePremium: () => void;
   onSavedGoAlbum: () => void;
 };
+
+// IMPORTANT: rating order is ALWAYS worst -> best (best to the right)
+function ratingOptions(settings: Settings): string[] {
+  switch (settings.ratingPack) {
+    case "emoji":
+      return ["😖", "😐", "😍"];
+    case "thumbs":
+      // You said mid icon is already in place; keeping 🤏 as the middle.
+      return ["👎", "🤏", "👍"];
+    case "check":
+      return ["✗", "−", "✓"];
+    case "tens":
+      return ["1/10", "2/10", "3/10", "4/10", "5/10", "6/10", "7/10", "8/10", "9/10", "10/10"];
+    default:
+      return ["😐"];
+  }
+}
 
 function clamp100(s: string): string {
   return s.length > 100 ? s.slice(0, 100) : s;
@@ -90,9 +105,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     return catsAll.find((c) => c.id === categoryId)?.gpsEligible ?? false;
   }, [categoryId, catsAll]);
 
-  // Rating pack is per-life (fallback to global)
-  const activeRatingPack = useMemo(() => getEffectiveRatingPack(settings, life), [settings, life]);
-  const ratingOpts = useMemo(() => getRatingPackOptions(activeRatingPack), [activeRatingPack]);
+  const ratingOpts = useMemo(() => ratingOptions(settings), [settings]);
 
   const openCamera = () => {
     fileRef.current?.click();
@@ -371,7 +384,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
               type="button"
               style={{ ...(active ? pillFlatActive : pillFlatBase) }}
             >
-              {renderRatingValue(v)}
+              {v}
             </button>
           );
         })}
