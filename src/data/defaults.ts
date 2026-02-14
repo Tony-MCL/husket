@@ -19,13 +19,14 @@ const workCats: CategoryDef[] = [
 
 export function defaultSettings(): Settings {
   return {
-    version: 1,
+    version: 2,
     language: "auto",
     premium: false,
 
     gpsGlobalEnabled: true,
 
     ratingPack: "emoji",
+    ratingPackByLife: {},
 
     lives: {
       privateName: "Privat",
@@ -56,5 +57,3 @@ export function defaultSettings(): Settings {
 export function defaultAccount(): null {
   return null;
 }
-
-
