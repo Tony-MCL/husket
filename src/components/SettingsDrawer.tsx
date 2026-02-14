@@ -8,7 +8,6 @@ import type { CategoryDef, CategoryId, LifeKey, RatingPackKey, Settings } from "
 import { getEffectiveRatingPack, setRatingPackForLife } from "../domain/settingsCore";
 import { MCL_HUSKET_THEME } from "../theme";
 import { HUSKET_TYPO } from "../theme/typography";
-import { isPremiumRatingPack, listSelectableRatingPacks, RATING_PACKS } from "../domain/ratingPacks";
 
 type Props = {
   dict: I18nDict;
@@ -18,6 +17,14 @@ type Props = {
   onClose: () => void;
   onChange: (next: Settings) => void;
   onRequirePremium: () => void;
+};
+
+// IMPORTANT: rating order is ALWAYS worst -> best (best to the right)
+const ratingPackLabels: Record<RatingPackKey, string> = {
+  emoji: "😖 😐 😍",
+  thumbs: "👎 🤏 👍",
+  check: "✗  −  ✓",
+  tens: "1/10 … 10/10",
 };
 
 function clamp100(s: string): string {
@@ -38,7 +45,8 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
   const canUseCustom = settings.premium;
 
   const ratingOptions: RatingPackKey[] = useMemo(() => {
-    return listSelectableRatingPacks({ premium: settings.premium });
+    if (settings.premium) return ["emoji", "thumbs", "check", "tens"];
+    return ["emoji", "thumbs", "check"];
   }, [settings.premium]);
 
   const update = (patch: Partial<Settings>) => onChange({ ...settings, ...patch });
@@ -369,7 +377,7 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
             value={activeRatingPack}
             onChange={(e) => {
               const next = e.target.value as RatingPackKey;
-              if (isPremiumRatingPack(next) && !settings.premium) return onRequirePremium();
+              if (next === "tens" && !settings.premium) return onRequirePremium();
               onChange(setRatingPackForLife(settings, activeLife, next));
             }}
             disabled={activeLifeIsCustom ? !activeLifeEnabled : false}
@@ -377,7 +385,7 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
           >
             {ratingOptions.map((k) => (
               <option key={k} value={k}>
-                {RATING_PACKS[k]?.label ?? k}
+                {ratingPackLabels[k]}
               </option>
             ))}
           </select>
