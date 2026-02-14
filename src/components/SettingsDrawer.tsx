@@ -360,7 +360,6 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
         <div style={lineRow}>
           <div style={lineLeft}>
             <div style={lineTitle}>{tGet(dict, "settings.ratingPack")}</div>
-            <div style={lineSub}>{activeLifeLabel}</div>
           </div>
 
           <select
