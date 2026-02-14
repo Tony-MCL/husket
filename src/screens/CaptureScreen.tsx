@@ -10,6 +10,7 @@ import { useToast } from "../components/ToastHost";
 import { HUSKET_TYPO } from "../theme/typography";
 import { MCL_HUSKET_THEME } from "../theme";
 import { getEffectiveRatingPack } from "../domain/settingsCore";
+import { getRatingPackOptions, renderRatingValue } from "../domain/ratingPacks";
 
 type Props = {
   dict: I18nDict;
@@ -18,21 +19,6 @@ type Props = {
   onRequirePremium: () => void;
   onSavedGoAlbum: () => void;
 };
-
-function ratingOptionsFromPack(pack: Settings["ratingPack"]): string[] {
-  switch (pack) {
-    case "emoji":
-      return ["😍", "😊", "😐", "😕", "😖"];
-    case "thumbs":
-      return ["👍", "👎"];
-    case "check":
-      return ["✓", "−", "✗"];
-    case "tens":
-      return ["10/10", "9/10", "8/10", "7/10", "6/10", "5/10", "4/10", "3/10", "2/10", "1/10"];
-    default:
-      return ["😊", "😐", "😖"];
-  }
-}
 
 function clamp100(s: string): string {
   return s.length > 100 ? s.slice(0, 100) : s;
@@ -86,10 +72,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
   const catsAll = useMemo(() => settings.categories[life] ?? [], [life, settings.categories]);
 
   // NEW: per-life disabled categories => hide from Capture choices
-  const disabledMap = useMemo(
-    () => settings.disabledCategoryIdsByLife?.[life] ?? {},
-    [settings.disabledCategoryIdsByLife, life]
-  );
+  const disabledMap = useMemo(() => settings.disabledCategoryIdsByLife?.[life] ?? {}, [settings.disabledCategoryIdsByLife, life]);
 
   const cats = useMemo(() => {
     return catsAll.filter((c) => !disabledMap[c.id]);
@@ -107,8 +90,9 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     return catsAll.find((c) => c.id === categoryId)?.gpsEligible ?? false;
   }, [categoryId, catsAll]);
 
-  const effectivePack = useMemo(() => getEffectiveRatingPack(settings, life), [settings, life]);
-  const ratingOpts = useMemo(() => ratingOptionsFromPack(effectivePack), [effectivePack]);
+  // Rating pack is per-life (fallback to global)
+  const activeRatingPack = useMemo(() => getEffectiveRatingPack(settings, life), [settings, life]);
+  const ratingOpts = useMemo(() => getRatingPackOptions(activeRatingPack), [activeRatingPack]);
 
   const openCamera = () => {
     fileRef.current?.click();
@@ -387,7 +371,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
               type="button"
               style={{ ...(active ? pillFlatActive : pillFlatBase) }}
             >
-              {v}
+              {renderRatingValue(v)}
             </button>
           );
         })}
