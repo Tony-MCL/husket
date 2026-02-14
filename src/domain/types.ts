@@ -16,13 +16,17 @@ export type CategoryDef = {
 };
 
 export type Settings = {
-  version: 1;
+  version: 2;
   language: LanguageCode;
   premium: boolean;
 
   gpsGlobalEnabled: boolean;
 
+  // Global fallback/default
   ratingPack: RatingPackKey;
+
+  // Optional per-life overrides (falls back to ratingPack)
+  ratingPackByLife: Partial<Record<LifeKey, RatingPackKey>>;
 
   lives: {
     privateName: string;
@@ -60,5 +64,3 @@ export type Account = {
   email: string;
   createdAt: number;
 };
-
-
