@@ -2,7 +2,8 @@
 // src/screens/CaptureScreen.tsx
 // ===============================
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { Husket, LifeKey, Settings } from "../domain/types";
+import type { Husket, LifeKey, RatingPackKey, Settings } from "../domain/types";
+import { getEffectiveRatingPack } from "../domain/settingsCore";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
 import { createHusket, countAllHuskets } from "../data/husketRepo";
@@ -18,8 +19,8 @@ type Props = {
   onSavedGoAlbum: () => void;
 };
 
-function ratingOptions(settings: Settings): string[] {
-  switch (settings.ratingPack) {
+function ratingOptions(ratingPack: RatingPackKey): string[] {
+  switch (ratingPack) {
     case "emoji":
       return ["😍", "😊", "😐", "😕", "😖"];
     case "thumbs":
@@ -89,7 +90,8 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     return cats.find((c) => c.id === categoryId)?.gpsEligible ?? false;
   }, [categoryId, cats]);
 
-  const ratingOpts = useMemo(() => ratingOptions(settings), [settings]);
+  const ratingPack = useMemo(() => getEffectiveRatingPack(settings, life), [settings, life]);
+  const ratingOpts = useMemo(() => ratingOptions(ratingPack), [ratingPack]);
 
   const openCamera = () => {
     fileRef.current?.click();
