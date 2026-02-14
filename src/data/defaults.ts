@@ -3,33 +3,9 @@
 // ===============================
 import type { CategoryDef, Settings } from "../domain/types";
 
-/**
- * NOTE ABOUT IDS:
- * We keep existing category IDs stable to avoid breaking old saved Huskets.
- * (e.g. keep "p.food" instead of renaming to "p.foodDrink".)
- */
-
-export const PRIVATE_CUSTOM_CATEGORY_ID = "p.custom.1" as const;
-
-/** Categories that should only be available when Premium is enabled. */
-export const PREMIUM_CATEGORY_IDS_BY_LIFE: Partial<Record<keyof Settings["categories"], string[]>> = {
-  private: [
-    "p.restaurants",
-    "p.bars",
-    "p.hotels",
-    "p.health",
-    "p.training",
-    "p.media",
-    "p.ideas",
-    "p.experiences",
-    "p.places",
-    PRIVATE_CUSTOM_CATEGORY_ID,
-  ],
-};
-
 const privateCats: CategoryDef[] = [
   // Standard (Privat)
-  { id: "p.food", label: "Mat & drikke", gpsEligible: true },
+  { id: "p.foodDrink", label: "Mat & drikke", gpsEligible: true },
   { id: "p.travel", label: "Reiser", gpsEligible: true },
   { id: "p.people", label: "Folk", gpsEligible: false },
   { id: "p.things", label: "Ting", gpsEligible: true },
@@ -48,30 +24,63 @@ const privateCats: CategoryDef[] = [
   { id: "p.places", label: "Steder", gpsEligible: true },
 
   // Premium: one editable custom category (single slot)
-  { id: PRIVATE_CUSTOM_CATEGORY_ID, label: "Egendefinert", gpsEligible: true },
+  { id: "p.custom.1", label: "Egendefinert", gpsEligible: true },
 ];
 
 const workCats: CategoryDef[] = [
-  { id: "w.site", label: "Anlegg", gpsEligible: true },
+  // Standard (Jobb)
+  { id: "w.place", label: "Sted", gpsEligible: true },
   { id: "w.task", label: "Oppgave", gpsEligible: false },
   { id: "w.issue", label: "Avvik", gpsEligible: true },
+  { id: "w.note", label: "Notat", gpsEligible: false },
+  { id: "w.meeting", label: "Møte", gpsEligible: false },
   { id: "w.other", label: "Annet", gpsEligible: false },
+
+  // Premium (Jobb)
+  { id: "w.siteVisit", label: "Befaring", gpsEligible: true },
+  { id: "w.safety", label: "Sikkerhet", gpsEligible: false },
+  { id: "w.quality", label: "Kvalitet", gpsEligible: false },
+  { id: "w.progress", label: "Fremdrift", gpsEligible: false },
+  { id: "w.docs", label: "Dokumentasjon", gpsEligible: false },
+  { id: "w.delivery", label: "Leveranse", gpsEligible: false },
+  { id: "w.client", label: "Kunde", gpsEligible: false },
+  { id: "w.plan", label: "Plan", gpsEligible: false },
+  { id: "w.risk", label: "Risiko", gpsEligible: false },
+
+  // Premium: one editable custom category (single slot)
+  { id: "w.custom.1", label: "Egendefinert", gpsEligible: false },
 ];
 
-export function getDefaultCategoriesByLife(life: keyof Settings["categories"]): CategoryDef[] {
-  if (life === "private") return privateCats;
-  if (life === "work") return workCats;
-  if (life === "custom1") {
-    return [
-      { id: "c1.a", label: "Kategori 1", gpsEligible: true },
-      { id: "c1.b", label: "Kategori 2", gpsEligible: false },
-    ];
-  }
-  return [
-    { id: "c2.a", label: "Kategori 1", gpsEligible: true },
-    { id: "c2.b", label: "Kategori 2", gpsEligible: false },
-  ];
-}
+export const PRIVATE_CUSTOM_CATEGORY_ID = "p.custom.1" as const;
+export const WORK_CUSTOM_CATEGORY_ID = "w.custom.1" as const;
+
+/** Categories that should only be available when Premium is enabled. */
+export const PREMIUM_CATEGORY_IDS_BY_LIFE: Partial<Record<keyof Settings["categories"], string[]>> = {
+  private: [
+    "p.restaurants",
+    "p.bars",
+    "p.hotels",
+    "p.health",
+    "p.training",
+    "p.media",
+    "p.ideas",
+    "p.experiences",
+    "p.places",
+    PRIVATE_CUSTOM_CATEGORY_ID,
+  ],
+  work: [
+    "w.siteVisit",
+    "w.safety",
+    "w.quality",
+    "w.progress",
+    "w.docs",
+    "w.delivery",
+    "w.client",
+    "w.plan",
+    "w.risk",
+    WORK_CUSTOM_CATEGORY_ID,
+  ],
+};
 
 export function defaultSettings(): Settings {
   return {
@@ -94,19 +103,27 @@ export function defaultSettings(): Settings {
     },
 
     categories: {
-      private: getDefaultCategoriesByLife("private"),
-      work: getDefaultCategoriesByLife("work"),
-      custom1: getDefaultCategoriesByLife("custom1"),
-      custom2: getDefaultCategoriesByLife("custom2"),
+      private: privateCats,
+      work: workCats,
+      custom1: [
+        { id: "c1.a", label: "Kategori 1", gpsEligible: true },
+        { id: "c1.b", label: "Kategori 2", gpsEligible: false },
+      ],
+      custom2: [
+        { id: "c2.a", label: "Kategori 1", gpsEligible: true },
+        { id: "c2.b", label: "Kategori 2", gpsEligible: false },
+      ],
     },
 
-    // Default: max 4 active for Privat (Mat & drikke + Reiser + Folk + Ting)
+    // Default ON/OFF:
+    // - Privat: 4 aktive som default (Mat&drikke, Reiser, Folk, Ting)
+    // - Jobb: 4 aktive som default (Sted, Oppgave, Avvik, Notat)
     disabledCategoryIdsByLife: {
       private: {
         "p.hobby": true,
         "p.other": true,
 
-        // Premium categories start OFF as well
+        // Premium categories start OFF as well.
         "p.restaurants": true,
         "p.bars": true,
         "p.hotels": true,
@@ -116,7 +133,24 @@ export function defaultSettings(): Settings {
         "p.ideas": true,
         "p.experiences": true,
         "p.places": true,
-        [PRIVATE_CUSTOM_CATEGORY_ID]: true,
+        "p.custom.1": true,
+      },
+      work: {
+        // Standard categories beyond the first 4 start OFF
+        "w.meeting": true,
+        "w.other": true,
+
+        // Premium categories start OFF
+        "w.siteVisit": true,
+        "w.safety": true,
+        "w.quality": true,
+        "w.progress": true,
+        "w.docs": true,
+        "w.delivery": true,
+        "w.client": true,
+        "w.plan": true,
+        "w.risk": true,
+        "w.custom.1": true,
       },
     },
 
