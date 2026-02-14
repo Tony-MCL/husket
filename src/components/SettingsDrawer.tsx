@@ -35,6 +35,7 @@ function isCustomLife(life: LifeKey): life is "custom1" | "custom2" {
 }
 
 export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onChange, onRequirePremium }: Props) {
+  // IMPORTANT: DO NOT early-return before hooks (prevents React #310 on open/close)
   const [customCatText, setCustomCatText] = useState<string>("");
 
   // Collapsible sections (one-line when closed)
@@ -100,11 +101,13 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
       },
     };
 
-    // Ensure new category is enabled by default (remove disabled flag if any)
-    const nextDisabledByLife = { ...(settings.disabledCategoryIdsByLife ?? {}) };
-    const map = { ...(nextDisabledByLife[life] ?? {}) };
+    // Ensure new category is enabled by default for this life
+    const nextDisabledByLife: NonNullable<Settings["disabledCategoryIdsByLife"]> = {
+      ...(settings.disabledCategoryIdsByLife ?? {}),
+    };
+    const map: Record<string, true> = { ...(nextDisabledByLife[life] ?? {}) } as Record<string, true>;
     if (newId in map) delete map[newId];
-    nextDisabledByLife[life] = map;
+    nextDisabledByLife[life] = map as Record<CategoryId, true>;
 
     setCustomCatText("");
     onChange({ ...next, disabledCategoryIdsByLife: nextDisabledByLife });
@@ -126,13 +129,13 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
     onChange(next);
   };
 
-  // NEW: per-life enable/disable categories
+  // Per-life enable/disable categories
   const setCategoryEnabledForLife = (life: LifeKey, categoryId: CategoryId, enabled: boolean) => {
     const nextDisabledByLife: NonNullable<Settings["disabledCategoryIdsByLife"]> = {
       ...(settings.disabledCategoryIdsByLife ?? {}),
     };
 
-    const nextMap = { ...(nextDisabledByLife[life] ?? {}) };
+    const nextMap: Record<string, true> = { ...(nextDisabledByLife[life] ?? {}) } as Record<string, true>;
 
     if (enabled) {
       if (categoryId in nextMap) delete nextMap[categoryId];
@@ -140,7 +143,7 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
       nextMap[categoryId] = true;
     }
 
-    nextDisabledByLife[life] = nextMap;
+    nextDisabledByLife[life] = nextMap as Record<CategoryId, true>;
 
     onChange({
       ...settings,
@@ -149,10 +152,11 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
   };
 
   const activeCats = useMemo(() => settings.categories[activeLife] ?? [], [settings.categories, activeLife]);
-  const activeDisabledMap = useMemo(
-    () => settings.disabledCategoryIdsByLife?.[activeLife] ?? {},
-    [settings.disabledCategoryIdsByLife, activeLife]
-  );
+
+  const activeDisabledMap = useMemo<Record<string, true>>(() => {
+    const m = settings.disabledCategoryIdsByLife?.[activeLife] ?? {};
+    return m as Record<string, true>;
+  }, [settings.disabledCategoryIdsByLife, activeLife]);
 
   const activeRatingPack = useMemo(() => getEffectiveRatingPack(settings, activeLife), [settings, activeLife]);
 
@@ -163,8 +167,6 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
   }, [activeLife, activeLifeIsCustom, settings.lives.enabledCustom1, settings.lives.enabledCustom2]);
 
   const customLivesDisabled = !settings.premium;
-
-  if (!open) return null;
 
   // ---- Typography helpers (A/B) ----
   const textA: React.CSSProperties = {
@@ -325,6 +327,9 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
     return `1: ${c1}  ·  2: ${c2}`;
   }, [settings.lives.enabledCustom1, settings.lives.enabledCustom2]);
 
+  // NOW we can safely return null if not open (hooks already executed)
+  if (!open) return null;
+
   return (
     <>
       <div className="drawerOverlay" onClick={onClose} style={overlayStyle} />
@@ -448,7 +453,7 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
                       <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
                         <div style={panelTitle}>{c.label}</div>
                         <div style={panelHelp}>
-                          {disabled ? "OFF (disabled)" : "ON"}
+                          {enabled ? "ON" : "OFF"}
                           {" · "}
                           {override === undefined
                             ? c.gpsEligible
