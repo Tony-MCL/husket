@@ -2,7 +2,8 @@
 // src/screens/AlbumScreen.tsx
 // ===============================
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { Husket, LifeKey, Settings } from "../domain/types";
+import type { Husket, LifeKey, RatingPackKey, Settings } from "../domain/types";
+import { getEffectiveRatingPack } from "../domain/settingsCore";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
 import { listHuskets, getImageUrl, deleteHusketById } from "../data/husketRepo";
@@ -29,7 +30,7 @@ function formatThumbDate(ts: number, lang: "no" | "en") {
 
 type TimeFilterKey = "all" | "7d" | "30d" | "365d";
 
-function ratingOptionsFromPack(pack: Settings["ratingPack"]): string[] {
+function ratingOptionsFromPack(pack: RatingPackKey): string[] {
   switch (pack) {
     case "emoji":
       return ["😍", "😊", "😐", "😕", "😖"];
@@ -119,7 +120,8 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     return cats.find((c) => c.id === id)?.label ?? null;
   };
 
-  const ratingOptions = useMemo(() => ratingOptionsFromPack(settings.ratingPack), [settings.ratingPack]);
+  const ratingPack = useMemo(() => getEffectiveRatingPack(settings, life), [settings, life]);
+  const ratingOptions = useMemo(() => ratingOptionsFromPack(ratingPack), [ratingPack]);
 
   const applied = useMemo<LifeFilters>(() => {
     return filtersByLife[life] ?? emptyLifeFilters();
