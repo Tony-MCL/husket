@@ -1,9 +1,12 @@
 // ===============================
 // src/data/defaults.ts
 // ===============================
-import type { CategoryDef, Settings } from "../domain/types";
+import type { CategoryDef, LifeKey, Settings } from "../domain/types";
 
-const privateCats: CategoryDef[] = [
+// -------------------------------
+// Categories: PRIVATE
+// -------------------------------
+const PRIVATE_CATS: CategoryDef[] = [
   // Standard (Privat)
   { id: "p.foodDrink", label: "Mat & drikke", gpsEligible: true },
   { id: "p.travel", label: "Reiser", gpsEligible: true },
@@ -27,7 +30,10 @@ const privateCats: CategoryDef[] = [
   { id: "p.custom.1", label: "Egendefinert", gpsEligible: true },
 ];
 
-const workCats: CategoryDef[] = [
+// -------------------------------
+// Categories: WORK
+// -------------------------------
+const WORK_CATS: CategoryDef[] = [
   // Standard (Jobb)
   { id: "w.place", label: "Sted", gpsEligible: true },
   { id: "w.task", label: "Oppgave", gpsEligible: false },
@@ -51,11 +57,14 @@ const workCats: CategoryDef[] = [
   { id: "w.custom.1", label: "Egendefinert", gpsEligible: false },
 ];
 
+// -------------------------------
+// Public exports used elsewhere
+// -------------------------------
 export const PRIVATE_CUSTOM_CATEGORY_ID = "p.custom.1" as const;
 export const WORK_CUSTOM_CATEGORY_ID = "w.custom.1" as const;
 
 /** Categories that should only be available when Premium is enabled. */
-export const PREMIUM_CATEGORY_IDS_BY_LIFE: Partial<Record<keyof Settings["categories"], string[]>> = {
+export const PREMIUM_CATEGORY_IDS_BY_LIFE: Partial<Record<LifeKey, string[]>> = {
   private: [
     "p.restaurants",
     "p.bars",
@@ -82,7 +91,35 @@ export const PREMIUM_CATEGORY_IDS_BY_LIFE: Partial<Record<keyof Settings["catego
   ],
 };
 
+// -------------------------------
+// Defaults helpers (repo expects this)
+// -------------------------------
+function cloneCats(list: CategoryDef[]): CategoryDef[] {
+  return list.map((c) => ({ ...c }));
+}
+
+/**
+ * Repo-friendly helper: returns default categories per life (fresh copies).
+ * Some parts of the app expect this export to exist.
+ */
+export function getDefaultCategoriesByLife(): Record<LifeKey, CategoryDef[]> {
+  return {
+    private: cloneCats(PRIVATE_CATS),
+    work: cloneCats(WORK_CATS),
+    custom1: [
+      { id: "c1.a", label: "Kategori 1", gpsEligible: true },
+      { id: "c1.b", label: "Kategori 2", gpsEligible: false },
+    ],
+    custom2: [
+      { id: "c2.a", label: "Kategori 1", gpsEligible: true },
+      { id: "c2.b", label: "Kategori 2", gpsEligible: false },
+    ],
+  };
+}
+
 export function defaultSettings(): Settings {
+  const categories = getDefaultCategoriesByLife();
+
   return {
     version: 2,
     language: "auto",
@@ -102,18 +139,7 @@ export function defaultSettings(): Settings {
       enabledCustom2: false,
     },
 
-    categories: {
-      private: privateCats,
-      work: workCats,
-      custom1: [
-        { id: "c1.a", label: "Kategori 1", gpsEligible: true },
-        { id: "c1.b", label: "Kategori 2", gpsEligible: false },
-      ],
-      custom2: [
-        { id: "c2.a", label: "Kategori 1", gpsEligible: true },
-        { id: "c2.b", label: "Kategori 2", gpsEligible: false },
-      ],
-    },
+    categories,
 
     // Default ON/OFF:
     // - Privat: 4 aktive som default (Mat&drikke, Reiser, Folk, Ting)
@@ -133,7 +159,7 @@ export function defaultSettings(): Settings {
         "p.ideas": true,
         "p.experiences": true,
         "p.places": true,
-        "p.custom.1": true,
+        [PRIVATE_CUSTOM_CATEGORY_ID]: true,
       },
       work: {
         // Standard categories beyond the first 4 start OFF
@@ -150,7 +176,7 @@ export function defaultSettings(): Settings {
         "w.client": true,
         "w.plan": true,
         "w.risk": true,
-        "w.custom.1": true,
+        [WORK_CUSTOM_CATEGORY_ID]: true,
       },
     },
 
