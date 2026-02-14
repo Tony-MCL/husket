@@ -86,6 +86,7 @@ export function App() {
         <SettingsDrawer
           dict={dict}
           open={drawerOpen}
+          activeLife={life}
           settings={settings}
           onClose={() => setDrawerOpen(false)}
           onChange={updateSettings}
