@@ -106,22 +106,6 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
     onChange({ ...next, disabledCategoryIdsByLife: nextDisabledByLife });
   };
 
-  const setCategoryGpsOverride = (categoryId: string, mode: "default" | "on" | "off") => {
-    const nextOverrides = { ...settings.categoryGpsOverrides };
-
-    if (mode === "default") {
-      if (categoryId in nextOverrides) delete nextOverrides[categoryId];
-    } else {
-      nextOverrides[categoryId] = mode === "on";
-    }
-
-    const next: Settings = {
-      ...settings,
-      categoryGpsOverrides: nextOverrides,
-    };
-    onChange(next);
-  };
-
   // Per-life enable/disable categories
   const setCategoryEnabledForLife = (life: LifeKey, categoryId: CategoryId, enabled: boolean) => {
     const nextDisabledByLife: NonNullable<Settings["disabledCategoryIdsByLife"]> = {
@@ -386,7 +370,6 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
         <button type="button" onClick={() => toggleSection("categories")} style={disclosureBtnStyle} aria-expanded={openCategories}>
           <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
             <span style={{ ...lineTitle }}>{tGet(dict, "settings.categories")}</span>
-            <span style={{ ...lineSub, maxWidth: 220 }}>{activeLifeLabel}</span>
           </span>
 
           <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -399,13 +382,9 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
 
         {openCategories ? (
           <div style={panelStyle}>
-            <div className="smallHelp" style={panelHelp}>
-              {tGet(dict, "settings.gpsPerCat")}
-            </div>
-
             {/* Add category only for custom lives (and only if premium + life enabled) */}
             {activeLifeIsCustom ? (
-              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
                 <input
                   className="input"
                   value={customCatText}
@@ -433,8 +412,6 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
                 </div>
               ) : (
                 activeCats.map((c, idx) => {
-                  const override = settings.categoryGpsOverrides[c.id];
-                  const mode: "default" | "on" | "off" = override === undefined ? "default" : override ? "on" : "off";
                   const row = idx === activeCats.length - 1 ? panelRowLast : panelRow;
 
                   const disabled = !!activeDisabledMap[c.id];
@@ -444,17 +421,7 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
                     <div key={c.id} style={row}>
                       <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
                         <div style={panelTitle}>{c.label}</div>
-                        <div style={panelHelp}>
-                          {enabled ? "ON" : "OFF"}
-                          {" · "}
-                          {override === undefined
-                            ? c.gpsEligible
-                              ? "GPS ON (default)"
-                              : "GPS OFF (default)"
-                            : override
-                              ? "GPS ON (override)"
-                              : "GPS OFF (override)"}
-                        </div>
+                        <div style={panelHelp}>{enabled ? "ON" : "OFF"}</div>
                       </div>
 
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -469,20 +436,6 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
                           />
                           <span style={{ ...panelHelp, opacity: 0.9 }}>ON</span>
                         </label>
-
-                        {/* GPS override */}
-                        <select
-                          className="select"
-                          style={topbarSelectStyle}
-                          value={mode}
-                          onChange={(e) => setCategoryGpsOverride(c.id, e.target.value as "default" | "on" | "off")}
-                          disabled={activeLifeIsCustom ? !activeLifeEnabled : false}
-                          title={activeLifeIsCustom && !activeLifeEnabled ? "OFF" : ""}
-                        >
-                          <option value="default">Default</option>
-                          <option value="on">Force ON</option>
-                          <option value="off">Force OFF</option>
-                        </select>
                       </div>
                     </div>
                   );
