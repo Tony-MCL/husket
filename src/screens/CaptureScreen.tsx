@@ -2,15 +2,13 @@
 // src/screens/CaptureScreen.tsx
 // ===============================
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { Husket, LifeKey, Settings } from "../domain/types";
+import type { Husket, LifeKey, Settings, RatingPackKey } from "../domain/types";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
 import { createHusket, countAllHuskets } from "../data/husketRepo";
 import { useToast } from "../components/ToastHost";
 import { HUSKET_TYPO } from "../theme/typography";
-import { MCL_HUSKET_THEME } from "../theme";
 import { getEffectiveRatingPack } from "../domain/settingsCore";
-import type { RatingPackKey } from "../domain/types";
 
 type Props = {
   dict: I18nDict;
@@ -22,9 +20,9 @@ type Props = {
 
 function ratingOptionsFromPack(pack: RatingPackKey, premium: boolean): string[] {
   // Defensive: tens is premium-only
-  if (pack === "tens" && !premium) pack = "emoji";
+  const effective = pack === "tens" && !premium ? "emoji" : pack;
 
-  switch (pack) {
+  switch (effective) {
     case "emoji":
       return ["😍", "😊", "😐", "😕", "😖"];
     case "thumbs":
@@ -67,13 +65,6 @@ async function getGpsIfAllowed(args: {
   });
 }
 
-/**
- * Note about "auto-open camera":
- * On mobile, browsers often allow programmatic click on a file input on first load,
- * but some environments require an explicit user gesture. We do:
- * - try once automatically
- * - always provide a big tappable button
- */
 export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedGoAlbum }: Props) {
   const toast = useToast();
 
@@ -89,14 +80,13 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
 
   const catsAll = useMemo(() => settings.categories[life] ?? [], [life, settings.categories]);
 
-  // NEW: per-life disabled categories => hide from Capture choices
+  // per-life disabled categories => hide from Capture choices
   const disabledMap = useMemo(() => settings.disabledCategoryIdsByLife?.[life] ?? {}, [settings.disabledCategoryIdsByLife, life]);
 
   const cats = useMemo(() => {
     return catsAll.filter((c) => !disabledMap[c.id]);
   }, [catsAll, disabledMap]);
 
-  // NEW: if current selection becomes disabled (or removed), clear it
   useEffect(() => {
     if (!categoryId) return;
     const existsAndEnabled = cats.some((c) => c.id === categoryId);
@@ -108,7 +98,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     return catsAll.find((c) => c.id === categoryId)?.gpsEligible ?? false;
   }, [categoryId, catsAll]);
 
-  // Rating pack is PER LIFE (falls back to global in Settings)
+  // Rating pack is PER LIFE (falls back to global)
   const activePack = useMemo(() => getEffectiveRatingPack(settings, life), [settings, life]);
   const ratingOpts = useMemo(() => ratingOptionsFromPack(activePack, settings.premium), [activePack, settings.premium]);
 
@@ -125,34 +115,54 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     setRating(null);
 
     if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
-
-    const url = URL.createObjectURL(blob);
-    setImagePreviewUrl(url);
+    setImagePreviewUrl(URL.createObjectURL(blob));
   };
-
-  useEffect(() => {
-    // Attempt auto-open once
-    if (autoOpenAttemptedRef.current) return;
-    autoOpenAttemptedRef.current = true;
-
-    // Only if there is no image yet (prevents annoying loops)
-    if (imagePreviewUrl) return;
-
-    // Some browsers will ignore this without a user gesture; that's fine.
-    setTimeout(() => openCamera(), 50);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const canSave = !!imageBlob;
 
-  const onSave = async () => {
-    if (!imageBlob) return;
+  const resetAll = () => {
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    setImagePreviewUrl(null);
+    setImageBlob(null);
+    setRating(null);
+    setComment("");
+    setCategoryId(null);
+    if (fileRef.current) fileRef.current.value = "";
+  };
 
-    // If tens is somehow active without premium (defensive), treat as emoji pack
-    if (activePack === "tens" && !settings.premium) {
+  // Try auto-open camera once when entering Capture
+  useEffect(() => {
+    if (autoOpenAttemptedRef.current) return;
+    autoOpenAttemptedRef.current = true;
+
+    if (imageBlob) return;
+
+    const t = window.setTimeout(() => {
+      try {
+        fileRef.current?.click();
+      } catch {
+        // ignore
+      }
+    }, 250);
+
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const onSave = async () => {
+    if (!imageBlob) {
+      toast.show(tGet(dict, "capture.photoRequired"));
+      return;
+    }
+
+    // Non-premium limit (same as before)
+    const total = countAllHuskets();
+    if (!settings.premium && total >= 100) {
       onRequirePremium();
       return;
     }
+
+    const imageKey = `img:${crypto.randomUUID()}`;
 
     const gps = await getGpsIfAllowed({
       settings,
@@ -160,68 +170,86 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
       categoryDefaultGpsEligible: catDefaultGpsEligible,
     });
 
-    const next: Omit<Husket, "id"> = {
+    const trimmed = clamp100(comment.trim());
+    const commentOrNull = trimmed.length > 0 ? trimmed : null;
+
+    const husketBase: Omit<Husket, "id"> = {
       life,
       createdAt: Date.now(),
-      imageKey: "", // set in repo
+      imageKey,
       ratingValue: rating,
-      comment: comment.trim() ? clamp100(comment.trim()) : null,
-      categoryId: categoryId,
+      comment: commentOrNull,
+      categoryId,
       gps,
     };
 
-    await createHusket(next, imageBlob);
-
-    // Clear form
-    setImageBlob(null);
-    setRating(null);
-    setComment("");
-    setCategoryId(null);
-
-    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
-    setImagePreviewUrl(null);
+    await createHusket({ husket: husketBase, imageBlob });
 
     toast.show(tGet(dict, "capture.saved"));
+
+    resetAll();
     onSavedGoAlbum();
   };
 
-  const remaining = useMemo(() => {
-    const max = settings.premium ? 999999 : 25;
-    const used = countAllHuskets();
-    return Math.max(0, max - used);
-  }, [settings.premium]);
-
-  // ---- Typography helpers ----
-  const textA: React.CSSProperties = {
-    fontSize: HUSKET_TYPO.A.fontSize,
-    fontWeight: HUSKET_TYPO.A.fontWeight,
-    lineHeight: HUSKET_TYPO.A.lineHeight,
-    letterSpacing: HUSKET_TYPO.A.letterSpacing,
-  };
-
-  const textB: React.CSSProperties = {
+  // ---- Typography (B) ----
+  const baseTextB: React.CSSProperties = {
     fontSize: HUSKET_TYPO.B.fontSize,
     fontWeight: HUSKET_TYPO.B.fontWeight,
     lineHeight: HUSKET_TYPO.B.lineHeight,
     letterSpacing: HUSKET_TYPO.B.letterSpacing,
   };
 
-  const sectionLabel: React.CSSProperties = { ...textB, color: MCL_HUSKET_THEME.colors.muted, margin: "10px 0 6px" };
+  const labelTextStyle: React.CSSProperties = {
+    ...baseTextB,
+    color: "rgba(247, 243, 237, 0.78)",
+  };
+
+  const helpTextStyle: React.CSSProperties = {
+    ...baseTextB,
+    color: "rgba(247, 243, 237, 0.60)",
+  };
+
+  const flatChoiceRowStyle: React.CSSProperties = {
+    border: "none",
+    boxShadow: "none",
+    outline: "none",
+    background: "transparent",
+    padding: 0,
+    borderRadius: 0,
+    justifyContent: "center",
+    textAlign: "center",
+  };
+
+  const pillFlatBase: React.CSSProperties = {
+    border: "none",
+    boxShadow: "none",
+    outline: "none",
+    background: "transparent",
+    color: "rgba(247, 243, 237, 0.88)",
+  };
+
+  const pillFlatActive: React.CSSProperties = {
+    background: "rgba(247, 243, 237, 0.10)",
+    color: "rgba(247, 243, 237, 0.95)",
+  };
+
+  const textareaStyle: React.CSSProperties = {
+    ...baseTextB,
+    color: "rgba(247, 243, 237, 0.92)",
+    background: "transparent",
+    border: "1px solid rgba(247, 243, 237, 0.12)",
+    boxShadow: "none",
+    outline: "none",
+    borderRadius: 14,
+  };
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-        <div style={{ ...textA }}>{tGet(dict, "capture.title")}</div>
-        {!settings.premium ? (
-          <div className="smallHelp" style={{ ...textB, color: MCL_HUSKET_THEME.colors.muted }}>
-            {tGet(dict, "capture.remaining")}: {remaining}
-          </div>
-        ) : null}
-      </div>
+      <div style={labelTextStyle}>{tGet(dict, "capture.title")}</div>
 
       <div className="captureFrame">
         <div className="capturePreview" onClick={openCamera} role="button" tabIndex={0}>
-          {imagePreviewUrl ? <img src={imagePreviewUrl} alt="" /> : <div className="smallHelp">{tGet(dict, "capture.tapToTake")}</div>}
+          {imagePreviewUrl ? <img src={imagePreviewUrl} alt="" /> : <div className="smallHelp" style={helpTextStyle}>{tGet(dict, "capture.tapToTake")}</div>}
         </div>
       </div>
 
@@ -234,24 +262,29 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
         onChange={(e) => {
           const f = e.target.files?.[0] ?? null;
           void onPickFile(f);
-          // allow re-picking same file
           e.currentTarget.value = "";
         }}
       />
 
-      <div style={sectionLabel}>{tGet(dict, "capture.rating")}</div>
-      <div className="ratingRow">
+      <div style={labelTextStyle}>{tGet(dict, "capture.rating")}</div>
+      <div className="ratingRow" style={flatChoiceRowStyle}>
         {ratingOpts.map((r) => (
-          <button key={r} type="button" className={`pill ${rating === r ? "active" : ""}`} onClick={() => setRating(r)}>
+          <button
+            key={r}
+            type="button"
+            className="pill"
+            onClick={() => setRating(r)}
+            style={{ ...pillFlatBase, ...(rating === r ? pillFlatActive : null) }}
+          >
             {r}
           </button>
         ))}
       </div>
 
-      <div style={sectionLabel}>{tGet(dict, "capture.category")}</div>
-      <div className="ratingRow">
+      <div style={labelTextStyle}>{tGet(dict, "capture.category")}</div>
+      <div className="ratingRow" style={flatChoiceRowStyle}>
         {cats.length === 0 ? (
-          <div className="smallHelp" style={{ ...textB, color: MCL_HUSKET_THEME.colors.muted }}>
+          <div className="smallHelp" style={helpTextStyle}>
             {tGet(dict, "capture.noCategories")}
           </div>
         ) : (
@@ -259,8 +292,9 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
             <button
               key={c.id}
               type="button"
-              className={`pill ${categoryId === c.id ? "active" : ""}`}
+              className="pill"
               onClick={() => setCategoryId(c.id)}
+              style={{ ...pillFlatBase, ...(categoryId === c.id ? pillFlatActive : null) }}
             >
               {c.label}
             </button>
@@ -268,15 +302,21 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
         )}
       </div>
 
-      <div style={sectionLabel}>{tGet(dict, "capture.comment")}</div>
-      <textarea className="textarea" value={comment} onChange={(e) => setComment(e.target.value)} placeholder={tGet(dict, "capture.commentPlaceholder")} />
+      <div style={labelTextStyle}>{tGet(dict, "capture.comment")}</div>
+      <textarea
+        className="textarea"
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        placeholder={tGet(dict, "capture.commentPlaceholder")}
+        style={textareaStyle}
+      />
 
-      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center" }}>
-        <button className="flatBtn" type="button" onClick={openCamera} style={textA}>
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+        <button className="flatBtn" type="button" onClick={openCamera}>
           {tGet(dict, "capture.takeNew")}
         </button>
 
-        <button className="flatBtn primary" type="button" onClick={() => void onSave()} disabled={!canSave} style={textA}>
+        <button className="flatBtn primary" type="button" onClick={() => void onSave()} disabled={!canSave}>
           {tGet(dict, "capture.save")}
         </button>
       </div>
