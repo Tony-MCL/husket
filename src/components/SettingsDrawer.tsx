@@ -29,9 +29,15 @@ function isCustomLife(life: LifeKey): life is "custom1" | "custom2" {
   return life === "custom1" || life === "custom2";
 }
 
-function isEditableCustomCategory(life: LifeKey, id: string): boolean {
+function isEditableCategoryLabel(life: LifeKey, id: string): boolean {
+  // Private/work: only the single fixed custom slot is editable (premium only)
   if (life === "private") return id === PRIVATE_CUSTOM_CATEGORY_ID;
   if (life === "work") return id === WORK_CUSTOM_CATEGORY_ID;
+
+  // Custom lives: all user-created categories are editable
+  if (life === "custom1") return id.startsWith("custom1.custom.");
+  if (life === "custom2") return id.startsWith("custom2.custom.");
+
   return false;
 }
 
@@ -80,8 +86,13 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
     if (idx < 0) return;
 
     const clean = clamp100(nextLabel.trim());
-    const isCustom = categoryId === PRIVATE_CUSTOM_CATEGORY_ID || categoryId === WORK_CUSTOM_CATEGORY_ID;
-    const fallback = isCustom ? "Egendefinert" : list[idx].label;
+
+    // Fallback label rules:
+    // - Private/work fixed custom slot: "Egendefinert" if emptied
+    // - Custom lives: keep previous label if emptied (so you can’t blank it by accident)
+    const isPrivateWorkCustom = categoryId === PRIVATE_CUSTOM_CATEGORY_ID || categoryId === WORK_CUSTOM_CATEGORY_ID;
+    const fallback = isPrivateWorkCustom ? "Egendefinert" : list[idx].label;
+
     const label = clean.length > 0 ? clean : fallback;
 
     const nextList = list.slice();
@@ -477,18 +488,18 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
                   const locked = premiumOnly && !settings.premium;
                   const lifeLocked = activeLifeIsCustom ? !activeLifeEnabled : false;
 
+                  const canEditLabel = isEditableCategoryLabel(activeLife, c.id) && settings.premium && !lifeLocked;
+
                   return (
                     <div key={c.id} style={row}>
                       <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                        {isEditableCustomCategory(activeLife, c.id) && settings.premium ? (
+                        {canEditLabel ? (
                           <input
                             className="input"
                             value={c.label}
                             onChange={(e) => updateCategoryLabel(activeLife, c.id, e.target.value)}
                             onBlur={(e) => updateCategoryLabel(activeLife, c.id, e.target.value)}
-                            disabled={lifeLocked}
                             style={{ padding: "8px 10px" }}
-                            title={lifeLocked ? "OFF" : ""}
                           />
                         ) : (
                           <div style={panelTitle}>
