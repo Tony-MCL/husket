@@ -3,7 +3,15 @@
 // ===============================
 export type LanguageCode = "auto" | "en" | "no";
 
-export type RatingPackKey = "emoji" | "thumbs" | "check" | "tens";
+export type RatingPackKey =
+  | "emoji"
+  | "thumbs"
+  | "check"
+  | "tens"
+  | "progress"
+  | "weather"
+  | "heartpoop"
+  | "dice";
 
 export type LifeKey = "private" | "work" | "custom1" | "custom2";
 
