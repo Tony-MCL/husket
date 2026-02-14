@@ -141,6 +141,7 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
     return all.filter((c) => !isPremiumOnlyCategory(life, c.id));
   };
 
+  // Standard: 4, Premium: 5
   const maxActiveCats = settings.premium ? 5 : 4;
 
   // Per-life enable/disable categories (max 4 standard / 5 premium)
@@ -490,9 +491,17 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
                             {premiumOnly ? " ★" : ""}
                           </div>
                         )}
+                      </div>
 
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: locked || lifeLocked ? "not-allowed" : "pointer" }}>
+                        <label
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            cursor: locked || lifeLocked ? "not-allowed" : "pointer",
+                          }}
+                        >
                           <input
                             type="checkbox"
                             checked={enabled}
