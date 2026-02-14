@@ -32,10 +32,10 @@ function getLifeLabel(dict: I18nDict, settings: Settings, key: LifeKey): string 
 export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: Props) {
   const lives: LifeTab[] = useMemo(() => {
     const tabs: LifeTab[] = [
-      { key: "private", label: getLifeLabel(dict, settings, "private"), enabled: true },
+      { key: "private", label: getLifeLabel(dict, settings, "private"), enabled: !!settings.lives.enabledPrivate },
       { key: "custom1", label: getLifeLabel(dict, settings, "custom1"), enabled: !!settings.lives.enabledCustom1 },
       { key: "custom2", label: getLifeLabel(dict, settings, "custom2"), enabled: !!settings.lives.enabledCustom2 },
-      { key: "work", label: getLifeLabel(dict, settings, "work"), enabled: true },
+      { key: "work", label: getLifeLabel(dict, settings, "work"), enabled: !!settings.lives.enabledWork },
     ];
     return tabs.filter((t) => t.enabled);
   }, [dict, settings]);
@@ -62,8 +62,6 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: P
     overflowX: "auto",
     WebkitOverflowScrolling: "touch",
     paddingBottom: 2,
-
-    // ✅ Fjern eventuell "gruppe-chip" / ekstra ramme fra CSS
     border: "none",
     outline: "none",
     boxShadow: "none",
@@ -78,14 +76,10 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: P
     background: "transparent",
     color: MCL_HUSKET_THEME.colors.darkSurface,
     whiteSpace: "nowrap",
-
-    // Typography (A) – låses likt i begge states
     fontSize: HUSKET_TYPO.A.fontSize,
     fontWeight: HUSKET_TYPO.A.fontWeight,
     lineHeight: HUSKET_TYPO.A.lineHeight,
     letterSpacing: HUSKET_TYPO.A.letterSpacing,
-
-    // Kill "pop" fra CSS (hvis .active gjør transform/scale/font-size)
     transform: "none",
     transition: "background-color 120ms ease, border-color 120ms ease, color 120ms ease",
   };
@@ -94,12 +88,10 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: P
     background: MCL_HUSKET_THEME.colors.altSurface,
     border: `1px solid ${MCL_HUSKET_THEME.colors.altSurface}`,
     color: MCL_HUSKET_THEME.colors.textOnDark,
-
     fontSize: HUSKET_TYPO.A.fontSize,
     fontWeight: HUSKET_TYPO.A.fontWeight,
     lineHeight: HUSKET_TYPO.A.lineHeight,
     letterSpacing: HUSKET_TYPO.A.letterSpacing,
-
     transform: "none",
   };
 
@@ -138,13 +130,7 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: P
         ))}
       </div>
 
-      <button
-        className="hamburger"
-        onClick={onOpenSettings}
-        type="button"
-        aria-label={tGet(dict, "top.menu")}
-        style={burgerStyle}
-      >
+      <button className="hamburger" onClick={onOpenSettings} type="button" aria-label={tGet(dict, "top.menu")} style={burgerStyle}>
         <div className="hamburgerLines" aria-hidden="true" style={burgerLinesStyle}>
           <span />
           <span />
