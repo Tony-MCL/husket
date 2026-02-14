@@ -98,16 +98,6 @@ function cloneCats(list: CategoryDef[]): CategoryDef[] {
   return list.map((c) => ({ ...c }));
 }
 
-const CUSTOM1_DEFAULT: CategoryDef[] = [
-  { id: "c1.a", label: "Kategori 1", gpsEligible: true },
-  { id: "c1.b", label: "Kategori 2", gpsEligible: false },
-];
-
-const CUSTOM2_DEFAULT: CategoryDef[] = [
-  { id: "c2.a", label: "Kategori 1", gpsEligible: true },
-  { id: "c2.b", label: "Kategori 2", gpsEligible: false },
-];
-
 /**
  * Repo expects this export.
  * Overloads:
@@ -117,6 +107,8 @@ const CUSTOM2_DEFAULT: CategoryDef[] = [
 export function getDefaultCategoriesByLife(life: LifeKey): CategoryDef[];
 export function getDefaultCategoriesByLife(): Record<LifeKey, CategoryDef[]>;
 export function getDefaultCategoriesByLife(life?: LifeKey) {
+  const empty: CategoryDef[] = [];
+
   if (life) {
     switch (life) {
       case "private":
@@ -124,9 +116,9 @@ export function getDefaultCategoriesByLife(life?: LifeKey) {
       case "work":
         return cloneCats(WORK_CATS);
       case "custom1":
-        return cloneCats(CUSTOM1_DEFAULT);
+        return cloneCats(empty);
       case "custom2":
-        return cloneCats(CUSTOM2_DEFAULT);
+        return cloneCats(empty);
       default:
         return cloneCats(PRIVATE_CATS);
     }
@@ -135,8 +127,8 @@ export function getDefaultCategoriesByLife(life?: LifeKey) {
   return {
     private: cloneCats(PRIVATE_CATS),
     work: cloneCats(WORK_CATS),
-    custom1: cloneCats(CUSTOM1_DEFAULT),
-    custom2: cloneCats(CUSTOM2_DEFAULT),
+    custom1: cloneCats(empty),
+    custom2: cloneCats(empty),
   };
 }
 
@@ -165,6 +157,7 @@ export function defaultSettings(): Settings {
     // Default ON/OFF:
     // - Privat: 4 aktive som default (Mat&drikke, Reiser, Folk, Ting)
     // - Jobb: 4 aktive som default (Sted, Oppgave, Avvik, Notat)
+    // - Custom-liv: starter tomme
     disabledCategoryIdsByLife: {
       private: {
         "p.hobby": true,
