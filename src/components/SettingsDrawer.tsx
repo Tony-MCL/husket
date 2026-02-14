@@ -4,11 +4,12 @@
 import React, { useMemo, useState } from "react";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
-import type { CategoryDef, CategoryId, LifeKey, RatingPackKey, Settings } from "../domain/types";
+import type { CategoryId, LifeKey, RatingPackKey, Settings } from "../domain/types";
 import { getEffectiveRatingPack, setRatingPackForLife } from "../domain/settingsCore";
 import { MCL_HUSKET_THEME } from "../theme";
 import { HUSKET_TYPO } from "../theme/typography";
 import { isPremiumRatingPack, listSelectableRatingPacks, RATING_PACKS } from "../domain/ratingPacks";
+import { PREMIUM_CATEGORY_IDS_BY_LIFE, PRIVATE_CUSTOM_CATEGORY_ID } from "../data/defaults";
 
 type Props = {
   dict: I18nDict;
@@ -28,14 +29,16 @@ function isCustomLife(life: LifeKey): life is "custom1" | "custom2" {
   return life === "custom1" || life === "custom2";
 }
 
+function isPrivateCustomCategoryId(id: string): boolean {
+  return id === PRIVATE_CUSTOM_CATEGORY_ID;
+}
+
 export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onChange, onRequirePremium }: Props) {
   // IMPORTANT: DO NOT early-return before hooks (prevents React #310 on open/close)
   const [customCatText, setCustomCatText] = useState<string>("");
 
   // Collapsible sections (one-line when closed)
   const [openSection, setOpenSection] = useState<null | "categories" | "lives">(null);
-
-  const canUseCustom = settings.premium;
 
   const ratingOptions: RatingPackKey[] = useMemo(() => {
     return listSelectableRatingPacks({ premium: settings.premium });
@@ -69,7 +72,28 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
     onChange(next);
   };
 
-  const addCustomCategory = (life: LifeKey) => {
+  const updateCategoryLabel = (life: LifeKey, categoryId: string, nextLabel: string) => {
+    const list = settings.categories[life] ?? [];
+    const idx = list.findIndex((c) => c.id === categoryId);
+    if (idx < 0) return;
+
+    const clean = clamp100(nextLabel.trim());
+    const fallback = categoryId === PRIVATE_CUSTOM_CATEGORY_ID ? "Egendefinert" : list[idx].label;
+    const label = clean.length > 0 ? clean : fallback;
+
+    const nextList = list.slice();
+    nextList[idx] = { ...nextList[idx], label };
+
+    onChange({
+      ...settings,
+      categories: {
+        ...settings.categories,
+        [life]: nextList,
+      },
+    });
+  };
+
+  const addCustomCategoryForCustomLife = (life: LifeKey) => {
     if (!settings.premium) return onRequirePremium();
     if (!isCustomLife(life)) return;
 
@@ -84,7 +108,7 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
     if (customCount >= 3) return;
 
     const newId = `${life}.custom.${crypto.randomUUID().slice(0, 8)}`;
-    const nextCat: CategoryDef = { id: newId, label: clamp100(label), gpsEligible: true };
+    const nextCat = { id: newId, label: clamp100(label), gpsEligible: true };
 
     const next: Settings = {
       ...settings,
@@ -106,8 +130,25 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
     onChange({ ...next, disabledCategoryIdsByLife: nextDisabledByLife });
   };
 
-  // Per-life enable/disable categories
+  const isPremiumOnlyCategory = (life: LifeKey, categoryId: string): boolean => {
+    const ids = PREMIUM_CATEGORY_IDS_BY_LIFE[life] ?? [];
+    return ids.includes(categoryId);
+  };
+
+  // Per-life enable/disable categories (max 4 active)
   const setCategoryEnabledForLife = (life: LifeKey, categoryId: CategoryId, enabled: boolean) => {
+    if (!settings.premium && isPremiumOnlyCategory(life, categoryId)) {
+      return onRequirePremium();
+    }
+
+    const cats = settings.categories[life] ?? [];
+    const disabledMap = (settings.disabledCategoryIdsByLife?.[life] ?? {}) as Record<string, true>;
+
+    if (enabled) {
+      const enabledCount = cats.reduce((acc, c) => acc + (disabledMap[c.id] ? 0 : 1), 0);
+      if (enabledCount >= 4) return;
+    }
+
     const nextDisabledByLife: NonNullable<Settings["disabledCategoryIdsByLife"]> = {
       ...(settings.disabledCategoryIdsByLife ?? {}),
     };
@@ -128,7 +169,12 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
     });
   };
 
-  const activeCats = useMemo(() => settings.categories[activeLife] ?? [], [settings.categories, activeLife]);
+  const activeCatsAll = useMemo(() => settings.categories[activeLife] ?? [], [settings.categories, activeLife]);
+
+  const activeCats = useMemo(() => {
+    if (settings.premium) return activeCatsAll;
+    return activeCatsAll.filter((c) => !isPremiumOnlyCategory(activeLife, c.id));
+  }, [activeCatsAll, activeLife, settings.premium]);
 
   const activeDisabledMap = useMemo<Record<string, true>>(() => {
     const m = settings.disabledCategoryIdsByLife?.[activeLife] ?? {};
@@ -275,15 +321,6 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
     opacity: 0.75,
   };
 
-  const getLifeLabel = (life: LifeKey) => {
-    if (life === "private") return settings.lives.privateName;
-    if (life === "work") return settings.lives.workName;
-    if (life === "custom1") return settings.lives.custom1Name;
-    return settings.lives.custom2Name;
-  };
-
-  const activeLifeLabel = getLifeLabel(activeLife);
-
   const openCategories = openSection === "categories";
   const openLives = openSection === "lives";
 
@@ -295,7 +332,7 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
     if (!activeCats || activeCats.length === 0) return tGet(dict, "capture.noCategories");
     const disabledCount = activeCats.filter((c) => !!activeDisabledMap[c.id]).length;
     const enabledCount = activeCats.length - disabledCount;
-    return `${enabledCount}/${activeCats.length}`;
+    return `${enabledCount}/4`;
   }, [activeCats, activeDisabledMap, dict]);
 
   const lifeStatusSummary = useMemo(() => {
@@ -382,21 +419,25 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
 
         {openCategories ? (
           <div style={panelStyle}>
+            <div className="smallHelp" style={panelHelp}>
+              Maks 4 aktive kategorier per liv.
+            </div>
+
             {/* Add category only for custom lives (and only if premium + life enabled) */}
             {activeLifeIsCustom ? (
-              <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                 <input
                   className="input"
                   value={customCatText}
                   onChange={(e) => setCustomCatText(e.target.value)}
                   placeholder="Legg til…"
-                  disabled={!canUseCustom || !activeLifeEnabled}
+                  disabled={!settings.premium || !activeLifeEnabled}
                 />
                 <button
                   className="flatBtn"
-                  onClick={() => addCustomCategory(activeLife)}
+                  onClick={() => addCustomCategoryForCustomLife(activeLife)}
                   type="button"
-                  disabled={!canUseCustom || !activeLifeEnabled}
+                  disabled={!settings.premium || !activeLifeEnabled}
                   style={actionTextStyle}
                   title={!settings.premium ? "Premium" : !activeLifeEnabled ? "OFF" : ""}
                 >
@@ -417,22 +458,42 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
                   const disabled = !!activeDisabledMap[c.id];
                   const enabled = !disabled;
 
+                  const premiumOnly = isPremiumOnlyCategory(activeLife, c.id);
+
+                  const locked = premiumOnly && !settings.premium;
+                  const lifeLocked = activeLifeIsCustom ? !activeLifeEnabled : false;
+
                   return (
                     <div key={c.id} style={row}>
                       <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                        <div style={panelTitle}>{c.label}</div>
+                        {isPrivateCustomCategoryId(c.id) && settings.premium ? (
+                          <input
+                            className="input"
+                            value={c.label}
+                            onChange={(e) => updateCategoryLabel(activeLife, c.id, e.target.value)}
+                            onBlur={(e) => updateCategoryLabel(activeLife, c.id, e.target.value)}
+                            disabled={lifeLocked}
+                            style={{ padding: "8px 10px" }}
+                            title={lifeLocked ? "OFF" : ""}
+                          />
+                        ) : (
+                          <div style={panelTitle}>
+                            {c.label}
+                            {premiumOnly ? " ★" : ""}
+                          </div>
+                        )}
+
                         <div style={panelHelp}>{enabled ? "ON" : "OFF"}</div>
                       </div>
 
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        {/* Enable/disable category */}
-                        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: locked || lifeLocked ? "not-allowed" : "pointer" }}>
                           <input
                             type="checkbox"
                             checked={enabled}
-                            onChange={(e) => setCategoryEnabledForLife(activeLife, c.id, e.target.checked)}
-                            disabled={activeLifeIsCustom ? !activeLifeEnabled : false}
-                            title={activeLifeIsCustom && !activeLifeEnabled ? "OFF" : ""}
+                            onChange={(e) => setCategoryEnabledForLife(activeLife, c.id as CategoryId, e.target.checked)}
+                            disabled={locked || lifeLocked}
+                            title={locked ? "Premium" : lifeLocked ? "OFF" : ""}
                           />
                           <span style={{ ...panelHelp, opacity: 0.9 }}>ON</span>
                         </label>
