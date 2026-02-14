@@ -148,6 +148,10 @@ export function defaultSettings(): Settings {
       workName: "Jobb",
       custom1Name: "Liv 3",
       custom2Name: "Liv 4",
+
+      enabledPrivate: true,
+      enabledWork: true,
+
       enabledCustom1: false,
       enabledCustom2: false,
     },
