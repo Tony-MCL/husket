@@ -119,11 +119,8 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     return cats.find((c) => c.id === id)?.label ?? null;
   };
 
-  const ratingOptions = useMemo(() => ratingOptionsFromPack(settings.ratingPack), [settings.ratingPack]);
-
-  const applied = useMemo<LifeFilters>(() => {
-    return filtersByLife[life] ?? emptyLifeFilters();
-  }, [filtersByLife, life]);
+  // Keep pack options (used for ordering), but the filter list should include *anything present in data* too.
+  const packRatingOptions = useMemo(() => ratingOptionsFromPack(settings.ratingPack), [settings.ratingPack]);
 
   useEffect(() => {
     const next = listHuskets(life)
@@ -159,6 +156,10 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const applied = useMemo<LifeFilters>(() => {
+    return filtersByLife[life] ?? emptyLifeFilters();
+  }, [filtersByLife, life]);
 
   // When opening filters: seed draft from applied (for the CURRENT life)
   useEffect(() => {
@@ -208,6 +209,29 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     if (k === "30d") return "Last month";
     return "Last year";
   };
+
+  // NEW: ratings to show in filter dropdown = pack options + any ratings found in existing data (for this life)
+  const ratingOptions = useMemo(() => {
+    const inData = new Set<string>();
+    for (const it of items) {
+      if (it.ratingValue != null && it.ratingValue.trim().length > 0) {
+        inData.add(it.ratingValue);
+      }
+    }
+
+    const ordered: string[] = [];
+    for (const r of packRatingOptions) {
+      ordered.push(r);
+      if (inData.has(r)) inData.delete(r);
+    }
+
+    // Add any “extra” ratings present in old data (e.g. you changed rating-pack later)
+    const extras = Array.from(inData);
+    extras.sort((a, b) => a.localeCompare(b));
+    ordered.push(...extras);
+
+    return ordered;
+  }, [items, packRatingOptions]);
 
   const anyAppliedRatingSelected = useMemo(() => Object.values(applied.appliedRatings).some(Boolean), [applied.appliedRatings]);
   const anyAppliedCategorySelected = useMemo(
