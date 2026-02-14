@@ -2,8 +2,7 @@
 // src/screens/CaptureScreen.tsx
 // ===============================
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { Husket, LifeKey, RatingPackKey, Settings } from "../domain/types";
-import { getEffectiveRatingPack } from "../domain/settingsCore";
+import type { Husket, LifeKey, Settings } from "../domain/types";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
 import { createHusket, countAllHuskets } from "../data/husketRepo";
@@ -19,8 +18,8 @@ type Props = {
   onSavedGoAlbum: () => void;
 };
 
-function ratingOptions(ratingPack: RatingPackKey): string[] {
-  switch (ratingPack) {
+function ratingOptions(settings: Settings): string[] {
+  switch (settings.ratingPack) {
     case "emoji":
       return ["😍", "😊", "😐", "😕", "😖"];
     case "thumbs":
@@ -83,15 +82,28 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
   const fileRef = useRef<HTMLInputElement | null>(null);
   const autoOpenAttemptedRef = useRef(false);
 
-  const cats = useMemo(() => settings.categories[life] ?? [], [life, settings.categories]);
+  const catsAll = useMemo(() => settings.categories[life] ?? [], [life, settings.categories]);
+
+  // NEW: per-life disabled categories => hide from Capture choices
+  const disabledMap = useMemo(() => settings.disabledCategoryIdsByLife?.[life] ?? {}, [settings.disabledCategoryIdsByLife, life]);
+
+  const cats = useMemo(() => {
+    return catsAll.filter((c) => !disabledMap[c.id]);
+  }, [catsAll, disabledMap]);
+
+  // NEW: if current selection becomes disabled (or removed), clear it
+  useEffect(() => {
+    if (!categoryId) return;
+    const existsAndEnabled = cats.some((c) => c.id === categoryId);
+    if (!existsAndEnabled) setCategoryId(null);
+  }, [categoryId, cats]);
 
   const catDefaultGpsEligible = useMemo(() => {
     if (!categoryId) return false;
-    return cats.find((c) => c.id === categoryId)?.gpsEligible ?? false;
-  }, [categoryId, cats]);
+    return catsAll.find((c) => c.id === categoryId)?.gpsEligible ?? false;
+  }, [categoryId, catsAll]);
 
-  const ratingPack = useMemo(() => getEffectiveRatingPack(settings, life), [settings, life]);
-  const ratingOpts = useMemo(() => ratingOptions(ratingPack), [ratingPack]);
+  const ratingOpts = useMemo(() => ratingOptions(settings), [settings]);
 
   const openCamera = () => {
     fileRef.current?.click();
