@@ -4,7 +4,7 @@
 import React, { useMemo, useState } from "react";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
-import type { CategoryDef, LifeKey, RatingPackKey, Settings } from "../domain/types";
+import type { CategoryDef, CategoryId, LifeKey, RatingPackKey, Settings } from "../domain/types";
 import { getEffectiveRatingPack, setRatingPackForLife } from "../domain/settingsCore";
 import { MCL_HUSKET_THEME } from "../theme";
 import { HUSKET_TYPO } from "../theme/typography";
@@ -99,8 +99,15 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
         [life]: [...existing, nextCat],
       },
     };
+
+    // Ensure new category is enabled by default (remove disabled flag if any)
+    const nextDisabledByLife = { ...(settings.disabledCategoryIdsByLife ?? {}) };
+    const map = { ...(nextDisabledByLife[life] ?? {}) };
+    if (newId in map) delete map[newId];
+    nextDisabledByLife[life] = map;
+
     setCustomCatText("");
-    onChange(next);
+    onChange({ ...next, disabledCategoryIdsByLife: nextDisabledByLife });
   };
 
   const setCategoryGpsOverride = (categoryId: string, mode: "default" | "on" | "off") => {
@@ -119,7 +126,34 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
     onChange(next);
   };
 
+  // NEW: per-life enable/disable categories
+  const setCategoryEnabledForLife = (life: LifeKey, categoryId: CategoryId, enabled: boolean) => {
+    const nextDisabledByLife: NonNullable<Settings["disabledCategoryIdsByLife"]> = {
+      ...(settings.disabledCategoryIdsByLife ?? {}),
+    };
+
+    const nextMap = { ...(nextDisabledByLife[life] ?? {}) };
+
+    if (enabled) {
+      if (categoryId in nextMap) delete nextMap[categoryId];
+    } else {
+      nextMap[categoryId] = true;
+    }
+
+    nextDisabledByLife[life] = nextMap;
+
+    onChange({
+      ...settings,
+      disabledCategoryIdsByLife: nextDisabledByLife,
+    });
+  };
+
   const activeCats = useMemo(() => settings.categories[activeLife] ?? [], [settings.categories, activeLife]);
+  const activeDisabledMap = useMemo(
+    () => settings.disabledCategoryIdsByLife?.[activeLife] ?? {},
+    [settings.disabledCategoryIdsByLife, activeLife]
+  );
+
   const activeRatingPack = useMemo(() => getEffectiveRatingPack(settings, activeLife), [settings, activeLife]);
 
   const activeLifeIsCustom = isCustomLife(activeLife);
@@ -280,8 +314,10 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
 
   const categoriesSummary = useMemo(() => {
     if (!activeCats || activeCats.length === 0) return tGet(dict, "capture.noCategories");
-    return `${activeCats.length}`;
-  }, [activeCats, dict]);
+    const disabledCount = activeCats.filter((c) => !!activeDisabledMap[c.id]).length;
+    const enabledCount = activeCats.length - disabledCount;
+    return `${enabledCount}/${activeCats.length}`;
+  }, [activeCats, activeDisabledMap, dict]);
 
   const lifeStatusSummary = useMemo(() => {
     const c1 = settings.lives.enabledCustom1 ? "ON" : "OFF";
@@ -404,33 +440,53 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
                   const mode: "default" | "on" | "off" = override === undefined ? "default" : override ? "on" : "off";
                   const row = idx === activeCats.length - 1 ? panelRowLast : panelRow;
 
+                  const disabled = !!activeDisabledMap[c.id];
+                  const enabled = !disabled;
+
                   return (
                     <div key={c.id} style={row}>
                       <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
                         <div style={panelTitle}>{c.label}</div>
                         <div style={panelHelp}>
+                          {disabled ? "OFF (disabled)" : "ON"}
+                          {" · "}
                           {override === undefined
                             ? c.gpsEligible
-                              ? "ON (default)"
-                              : "OFF (default)"
+                              ? "GPS ON (default)"
+                              : "GPS OFF (default)"
                             : override
-                              ? "ON (override)"
-                              : "OFF (override)"}
+                              ? "GPS ON (override)"
+                              : "GPS OFF (override)"}
                         </div>
                       </div>
 
-                      <select
-                        className="select"
-                        style={topbarSelectStyle}
-                        value={mode}
-                        onChange={(e) => setCategoryGpsOverride(c.id, e.target.value as "default" | "on" | "off")}
-                        disabled={activeLifeIsCustom ? !activeLifeEnabled : false}
-                        title={activeLifeIsCustom && !activeLifeEnabled ? "OFF" : ""}
-                      >
-                        <option value="default">Default</option>
-                        <option value="on">Force ON</option>
-                        <option value="off">Force OFF</option>
-                      </select>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        {/* Enable/disable category */}
+                        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                          <input
+                            type="checkbox"
+                            checked={enabled}
+                            onChange={(e) => setCategoryEnabledForLife(activeLife, c.id, e.target.checked)}
+                            disabled={activeLifeIsCustom ? !activeLifeEnabled : false}
+                            title={activeLifeIsCustom && !activeLifeEnabled ? "OFF" : ""}
+                          />
+                          <span style={{ ...panelHelp, opacity: 0.9 }}>ON</span>
+                        </label>
+
+                        {/* GPS override */}
+                        <select
+                          className="select"
+                          style={topbarSelectStyle}
+                          value={mode}
+                          onChange={(e) => setCategoryGpsOverride(c.id, e.target.value as "default" | "on" | "off")}
+                          disabled={activeLifeIsCustom ? !activeLifeEnabled : false}
+                          title={activeLifeIsCustom && !activeLifeEnabled ? "OFF" : ""}
+                        >
+                          <option value="default">Default</option>
+                          <option value="on">Force ON</option>
+                          <option value="off">Force OFF</option>
+                        </select>
+                      </div>
                     </div>
                   );
                 })
@@ -553,22 +609,14 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
                   <div className="label" style={labelStyle}>
                     Tilpasset liv 1
                   </div>
-                  <input
-                    className="input"
-                    value={settings.lives.custom1Name}
-                    onChange={(e) => setLifeName("custom1", e.target.value)}
-                  />
+                  <input className="input" value={settings.lives.custom1Name} onChange={(e) => setLifeName("custom1", e.target.value)} />
                 </div>
 
                 <div style={{ display: "grid", gap: 6 }}>
                   <div className="label" style={labelStyle}>
                     Tilpasset liv 2
                   </div>
-                  <input
-                    className="input"
-                    value={settings.lives.custom2Name}
-                    onChange={(e) => setLifeName("custom2", e.target.value)}
-                  />
+                  <input className="input" value={settings.lives.custom2Name} onChange={(e) => setLifeName("custom2", e.target.value)} />
                 </div>
               </div>
             ) : null}
