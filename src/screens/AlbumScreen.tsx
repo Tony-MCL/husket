@@ -9,8 +9,6 @@ import { listHuskets, getImageUrl, deleteHusketById } from "../data/husketRepo";
 import { ViewHusketModal } from "../components/ViewHusketModal";
 import { MCL_HUSKET_THEME } from "../theme";
 import { HUSKET_TYPO } from "../theme/typography";
-import { getEffectiveRatingPack } from "../domain/settingsCore";
-import { formatRatingValueForSummary, getRatingPackOptions, renderRatingValue } from "../domain/ratingPacks";
 
 type Props = {
   dict: I18nDict;
@@ -30,6 +28,26 @@ function formatThumbDate(ts: number, lang: "no" | "en") {
 }
 
 type TimeFilterKey = "all" | "7d" | "30d" | "365d";
+
+// IMPORTANT: rating order is ALWAYS worst -> best (best to the right)
+function ratingOptionsFromPack(pack: Settings["ratingPack"]): string[] {
+  switch (pack) {
+    case "emoji":
+      // worst -> best
+      return ["😖", "😐", "😍"];
+    case "thumbs":
+      // worst -> best (middle is already in use in the app)
+      return ["👎", "🤏", "👍"];
+    case "check":
+      // worst -> best
+      return ["✗", "−", "✓"];
+    case "tens":
+      // worst -> best
+      return ["1/10", "2/10", "3/10", "4/10", "5/10", "6/10", "7/10", "8/10", "9/10", "10/10"];
+    default:
+      return ["😐"];
+  }
+}
 
 type LifeFilters = {
   appliedRatings: Record<string, boolean>;
@@ -106,9 +124,8 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     return cats.find((c) => c.id === id)?.label ?? null;
   };
 
-  // Rating pack is per-life (fallback to global)
-  const activeRatingPack = useMemo(() => getEffectiveRatingPack(settings, life), [settings, life]);
-  const packRatingOptions = useMemo(() => getRatingPackOptions(activeRatingPack), [activeRatingPack]);
+  // Keep pack options (used for ordering), but the filter list should include *anything present in data* too.
+  const packRatingOptions = useMemo(() => ratingOptionsFromPack(settings.ratingPack), [settings.ratingPack]);
 
   useEffect(() => {
     const next = listHuskets(life)
@@ -198,7 +215,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     return "Last year";
   };
 
-  // Ratings to show in filter dropdown = pack options + any ratings found in existing data (for this life)
+  // NEW: ratings to show in filter dropdown = pack options + any ratings found in existing data (for this life)
   const ratingOptions = useMemo(() => {
     const inData = new Set<string>();
     for (const it of items) {
@@ -233,7 +250,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     if (anyAppliedRatingSelected) {
       const picked = Object.entries(applied.appliedRatings)
         .filter(([, v]) => v)
-        .map(([k]) => (k === "__none__" ? (lang === "no" ? "Ingen" : "None") : formatRatingValueForSummary(k)));
+        .map(([k]) => (k === "__none__" ? (lang === "no" ? "Ingen" : "None") : k));
       if (picked.length > 0) parts.push(`⭐ ${picked.join(", ")}`);
     }
 
@@ -456,11 +473,11 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     color: MCL_HUSKET_THEME.colors.darkSurface,
   };
 
-  // section divider
+  // NEW: section divider + extra breathing room (matches the subtle outline feel)
   const sectionDivider: React.CSSProperties = {
     height: 1,
     width: "100%",
-    background: "rgba(27, 26, 23, 0.18)",
+    background: "rgba(27, 26, 23, 0.18)", // darkSurface w/ subtle alpha
     borderRadius: 999,
   };
 
@@ -532,6 +549,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
               </div>
             </div>
 
+            {/* NEW: extra gap + divider */}
             <div style={{ marginTop: 6 }} />
             <div style={sectionDivider} />
             <div style={{ marginTop: 6 }} />
@@ -551,9 +569,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
                       onChange={() => toggleDraftRating(r)}
                       style={checkboxStyle}
                     />
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      {renderRatingValue(r)}
-                    </span>
+                    <span>{r}</span>
                   </label>
                 ))}
 
@@ -569,6 +585,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
               </div>
             </div>
 
+            {/* NEW: extra gap + divider */}
             <div style={{ marginTop: 6 }} />
             <div style={sectionDivider} />
             <div style={{ marginTop: 6 }} />
