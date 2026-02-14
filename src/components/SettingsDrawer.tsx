@@ -447,6 +447,9 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
             <div className="smallHelp" style={panelHelp}>
               Maks {maxActiveCats} aktive kategorier per liv.
             </div>
+            <div className="smallHelp" style={{ ...panelHelp, marginTop: 6 }}>
+            Endringer her vil kun påvirke nye huskets, huskets du allerede har lagret vil ikke påvirkes.
+          </div>
 
             {/* Add category only for custom lives (and only if premium + life enabled) */}
             {activeLifeIsCustom ? (
