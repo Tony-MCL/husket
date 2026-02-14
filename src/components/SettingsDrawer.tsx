@@ -8,6 +8,7 @@ import type { CategoryDef, CategoryId, LifeKey, RatingPackKey, Settings } from "
 import { getEffectiveRatingPack, setRatingPackForLife } from "../domain/settingsCore";
 import { MCL_HUSKET_THEME } from "../theme";
 import { HUSKET_TYPO } from "../theme/typography";
+import { isPremiumRatingPack, listSelectableRatingPacks, RATING_PACKS } from "../domain/ratingPacks";
 
 type Props = {
   dict: I18nDict;
@@ -17,13 +18,6 @@ type Props = {
   onClose: () => void;
   onChange: (next: Settings) => void;
   onRequirePremium: () => void;
-};
-
-const ratingPackLabels: Record<RatingPackKey, string> = {
-  emoji: "😊 😐 😖",
-  thumbs: "👍 👎",
-  check: "✓  ✗  −",
-  tens: "1/10 … 10/10",
 };
 
 function clamp100(s: string): string {
@@ -44,8 +38,7 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
   const canUseCustom = settings.premium;
 
   const ratingOptions: RatingPackKey[] = useMemo(() => {
-    if (settings.premium) return ["emoji", "thumbs", "check", "tens"];
-    return ["emoji", "thumbs", "check"];
+    return listSelectableRatingPacks({ premium: settings.premium });
   }, [settings.premium]);
 
   const update = (patch: Partial<Settings>) => onChange({ ...settings, ...patch });
@@ -343,17 +336,6 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
 
         <div className="hr" style={hrStyle} />
 
-        {/* Active life (context for per-life settings) */}
-        <div style={lineRow}>
-          <div style={lineLeft}>
-            <div style={lineTitle}>{tGet(dict, "settings.activeLife")}</div>
-          </div>
-
-          <div style={{ ...lineSub, opacity: 0.95, textAlign: "right" }}>{activeLifeLabel}</div>
-        </div>
-
-        <div className="hr" style={hrStyle} />
-
         {/* Language (global) */}
         <div style={lineRow}>
           <div style={lineLeft}>
@@ -377,8 +359,8 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
         {/* Rating pack (per active life) */}
         <div style={lineRow}>
           <div style={lineLeft}>
-            {/* We keep the existing key for now, but this is the concept we standardize as "Vurdering/Rating" */}
             <div style={lineTitle}>{tGet(dict, "settings.ratingPack")}</div>
+            <div style={lineSub}>{activeLifeLabel}</div>
           </div>
 
           <select
@@ -387,7 +369,7 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
             value={activeRatingPack}
             onChange={(e) => {
               const next = e.target.value as RatingPackKey;
-              if (next === "tens" && !settings.premium) return onRequirePremium();
+              if (isPremiumRatingPack(next) && !settings.premium) return onRequirePremium();
               onChange(setRatingPackForLife(settings, activeLife, next));
             }}
             disabled={activeLifeIsCustom ? !activeLifeEnabled : false}
@@ -395,7 +377,7 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
           >
             {ratingOptions.map((k) => (
               <option key={k} value={k}>
-                {ratingPackLabels[k]}
+                {RATING_PACKS[k]?.label ?? k}
               </option>
             ))}
           </select>
@@ -405,6 +387,7 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
         <button type="button" onClick={() => toggleSection("categories")} style={disclosureBtnStyle} aria-expanded={openCategories}>
           <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
             <span style={{ ...lineTitle }}>{tGet(dict, "settings.categories")}</span>
+            <span style={{ ...lineSub, maxWidth: 220 }}>{activeLifeLabel}</span>
           </span>
 
           <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
