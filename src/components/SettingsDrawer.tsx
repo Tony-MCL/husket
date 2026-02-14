@@ -9,11 +9,7 @@ import { getEffectiveRatingPack, setRatingPackForLife } from "../domain/settings
 import { MCL_HUSKET_THEME } from "../theme";
 import { HUSKET_TYPO } from "../theme/typography";
 import { isPremiumRatingPack, listSelectableRatingPacks, RATING_PACKS } from "../domain/ratingPacks";
-import {
-  PREMIUM_CATEGORY_IDS_BY_LIFE,
-  PRIVATE_CUSTOM_CATEGORY_ID,
-  WORK_CUSTOM_CATEGORY_ID,
-} from "../data/defaults";
+import { PREMIUM_CATEGORY_IDS_BY_LIFE, PRIVATE_CUSTOM_CATEGORY_ID, WORK_CUSTOM_CATEGORY_ID } from "../data/defaults";
 
 type Props = {
   dict: I18nDict;
@@ -112,7 +108,9 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
 
     const existing = settings.categories[life] ?? [];
     const customCount = existing.filter((c) => c.id.startsWith(`${life}.custom.`)).length;
-    if (customCount >= 3) return;
+
+    // Allow up to 5 custom categories per custom life
+    if (customCount >= 5) return;
 
     const newId = `${life}.custom.${crypto.randomUUID().slice(0, 8)}`;
     const nextCat = { id: newId, label: clamp100(label), gpsEligible: true };
