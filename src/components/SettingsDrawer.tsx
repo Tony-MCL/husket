@@ -617,39 +617,6 @@ export function SettingsDrawer({
 
         <div className="hr" style={hrStyle} />
 
-        {/* Premium (global) */}
-        <div style={{ padding: "10px 0" }}>
-          <div className="label" style={labelStyle}>
-            {tGet(dict, "settings.premium")}
-          </div>
-
-          <div className="smallHelp" style={{ ...smallHelpStyle, marginTop: 6 }}>
-            {settings.premium ? tGet(dict, "settings.premiumOn") : tGet(dict, "settings.premiumOff")}
-          </div>
-
-          <div className="smallHelp" style={{ ...smallHelpStyle, marginTop: 6, marginBottom: 10 }}>
-            {tGet(dict, "settings.premiumDesc")}
-          </div>
-
-          <button
-            className="flatBtn primary"
-            onClick={() => {
-              const next: Settings = { ...settings, premium: !settings.premium };
-              if (!next.premium) {
-                next.lives.enabledCustom1 = false;
-                next.lives.enabledCustom2 = false;
-              }
-              onChange(next);
-            }}
-            type="button"
-            style={actionTextStyle}
-          >
-            {tGet(dict, "settings.buyPremium")}
-          </button>
-        </div>
-
-        <div className="hr" style={hrStyle} />
-
         {/* Lives (global) */}
         <button
           type="button"
@@ -808,6 +775,39 @@ export function SettingsDrawer({
             </div>
           </div>
         ) : null}
+
+        <div className="hr" style={hrStyle} />
+
+        {/* Premium (global) */}
+        <div style={{ padding: "10px 0" }}>
+          <div className="label" style={labelStyle}>
+            {tGet(dict, "settings.premium")}
+          </div>
+
+          <div className="smallHelp" style={{ ...smallHelpStyle, marginTop: 6 }}>
+            {settings.premium ? tGet(dict, "settings.premiumOn") : tGet(dict, "settings.premiumOff")}
+          </div>
+
+          <div className="smallHelp" style={{ ...smallHelpStyle, marginTop: 6, marginBottom: 10 }}>
+            {tGet(dict, "settings.premiumDesc")}
+          </div>
+
+          <button
+            className="flatBtn primary"
+            onClick={() => {
+              const next: Settings = { ...settings, premium: !settings.premium };
+              if (!next.premium) {
+                next.lives.enabledCustom1 = false;
+                next.lives.enabledCustom2 = false;
+              }
+              onChange(next);
+            }}
+            type="button"
+            style={actionTextStyle}
+          >
+            {tGet(dict, "settings.buyPremium")}
+          </button>
+        </div>
       </aside>
     </>
   );
