@@ -45,14 +45,6 @@ export type Settings = {
   
   categoryGpsOverrides: Record<CategoryId, boolean>;
 
-  /**
-   * Per-life category enable/disable.
-   * Convention: true => disabled.
-   * If missing/undefined => category is enabled.
-   */
-  disabledCategoryIdsByLife?: Partial<Record<LifeKey, Record<CategoryId, boolean>>>;
-};
-
 export type Husket = {
   id: string;
   life: LifeKey;
