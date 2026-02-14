@@ -41,6 +41,7 @@ export const en = {
   },
   settings: {
     title: "Settings",
+    activeLife: "Active life",
     language: "Language",
     languageAuto: "Auto (device)",
     ratingPack: "Rating pack",
