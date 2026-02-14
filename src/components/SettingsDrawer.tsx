@@ -9,7 +9,11 @@ import { getEffectiveRatingPack, setRatingPackForLife } from "../domain/settings
 import { MCL_HUSKET_THEME } from "../theme";
 import { HUSKET_TYPO } from "../theme/typography";
 import { isPremiumRatingPack, listSelectableRatingPacks, RATING_PACKS } from "../domain/ratingPacks";
-import { PREMIUM_CATEGORY_IDS_BY_LIFE, PRIVATE_CUSTOM_CATEGORY_ID } from "../data/defaults";
+import {
+  PREMIUM_CATEGORY_IDS_BY_LIFE,
+  PRIVATE_CUSTOM_CATEGORY_ID,
+  WORK_CUSTOM_CATEGORY_ID,
+} from "../data/defaults";
 
 type Props = {
   dict: I18nDict;
@@ -29,8 +33,10 @@ function isCustomLife(life: LifeKey): life is "custom1" | "custom2" {
   return life === "custom1" || life === "custom2";
 }
 
-function isPrivateCustomCategoryId(id: string): boolean {
-  return id === PRIVATE_CUSTOM_CATEGORY_ID;
+function isEditableCustomCategory(life: LifeKey, id: string): boolean {
+  if (life === "private") return id === PRIVATE_CUSTOM_CATEGORY_ID;
+  if (life === "work") return id === WORK_CUSTOM_CATEGORY_ID;
+  return false;
 }
 
 export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onChange, onRequirePremium }: Props) {
@@ -78,7 +84,8 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
     if (idx < 0) return;
 
     const clean = clamp100(nextLabel.trim());
-    const fallback = categoryId === PRIVATE_CUSTOM_CATEGORY_ID ? "Egendefinert" : list[idx].label;
+    const isCustom = categoryId === PRIVATE_CUSTOM_CATEGORY_ID || categoryId === WORK_CUSTOM_CATEGORY_ID;
+    const fallback = isCustom ? "Egendefinert" : list[idx].label;
     const label = clean.length > 0 ? clean : fallback;
 
     const nextList = list.slice();
@@ -475,7 +482,7 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
                   return (
                     <div key={c.id} style={row}>
                       <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                        {isPrivateCustomCategoryId(c.id) && settings.premium ? (
+                        {isEditableCustomCategory(activeLife, c.id) && settings.premium ? (
                           <input
                             className="input"
                             value={c.label}
