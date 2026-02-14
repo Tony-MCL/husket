@@ -135,18 +135,26 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
     return ids.includes(categoryId);
   };
 
-  // Per-life enable/disable categories (max 4 active)
+  const getVisibleCatsForLife = (life: LifeKey) => {
+    const all = settings.categories[life] ?? [];
+    if (settings.premium) return all;
+    return all.filter((c) => !isPremiumOnlyCategory(life, c.id));
+  };
+
+  const maxActiveCats = settings.premium ? 5 : 4;
+
+  // Per-life enable/disable categories (max 4 standard / 5 premium)
   const setCategoryEnabledForLife = (life: LifeKey, categoryId: CategoryId, enabled: boolean) => {
     if (!settings.premium && isPremiumOnlyCategory(life, categoryId)) {
       return onRequirePremium();
     }
 
-    const cats = settings.categories[life] ?? [];
+    const visibleCats = getVisibleCatsForLife(life);
     const disabledMap = (settings.disabledCategoryIdsByLife?.[life] ?? {}) as Record<string, true>;
 
     if (enabled) {
-      const enabledCount = cats.reduce((acc, c) => acc + (disabledMap[c.id] ? 0 : 1), 0);
-      if (enabledCount >= 4) return;
+      const enabledCount = visibleCats.reduce((acc, c) => acc + (disabledMap[c.id] ? 0 : 1), 0);
+      if (enabledCount >= maxActiveCats) return;
     }
 
     const nextDisabledByLife: NonNullable<Settings["disabledCategoryIdsByLife"]> = {
@@ -332,8 +340,8 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
     if (!activeCats || activeCats.length === 0) return tGet(dict, "capture.noCategories");
     const disabledCount = activeCats.filter((c) => !!activeDisabledMap[c.id]).length;
     const enabledCount = activeCats.length - disabledCount;
-    return `${enabledCount}/4`;
-  }, [activeCats, activeDisabledMap, dict]);
+    return `${enabledCount}/${maxActiveCats}`;
+  }, [activeCats, activeDisabledMap, dict, maxActiveCats]);
 
   const lifeStatusSummary = useMemo(() => {
     const c1 = settings.lives.enabledCustom1 ? "ON" : "OFF";
@@ -420,7 +428,7 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
         {openCategories ? (
           <div style={panelStyle}>
             <div className="smallHelp" style={panelHelp}>
-              Maks 4 aktive kategorier per liv.
+              Maks {maxActiveCats} aktive kategorier per liv.
             </div>
 
             {/* Add category only for custom lives (and only if premium + life enabled) */}
