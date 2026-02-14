@@ -5,12 +5,14 @@ import React, { useMemo, useState } from "react";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
 import type { CategoryDef, LifeKey, RatingPackKey, Settings } from "../domain/types";
+import { getEffectiveRatingPack, setRatingPackForLife } from "../domain/settingsCore";
 import { MCL_HUSKET_THEME } from "../theme";
 import { HUSKET_TYPO } from "../theme/typography";
 
 type Props = {
   dict: I18nDict;
   open: boolean;
+  activeLife: LifeKey;
   settings: Settings;
   onClose: () => void;
   onChange: (next: Settings) => void;
@@ -28,7 +30,11 @@ function clamp100(s: string): string {
   return s.length > 100 ? s.slice(0, 100) : s;
 }
 
-export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequirePremium }: Props) {
+function isCustomLife(life: LifeKey): life is "custom1" | "custom2" {
+  return life === "custom1" || life === "custom2";
+}
+
+export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onChange, onRequirePremium }: Props) {
   const [customCatText, setCustomCatText] = useState<string>("");
 
   const canUseCustom = settings.premium;
@@ -70,7 +76,10 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
 
   const addCustomCategory = (life: LifeKey) => {
     if (!settings.premium) return onRequirePremium();
-    if (life !== "custom1" && life !== "custom2") return;
+    if (!isCustomLife(life)) return;
+
+    const enabled = life === "custom1" ? settings.lives.enabledCustom1 : settings.lives.enabledCustom2;
+    if (!enabled) return;
 
     const label = customCatText.trim();
     if (!label) return;
@@ -109,6 +118,15 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
     onChange(next);
   };
 
+  const activeCats = useMemo(() => settings.categories[activeLife] ?? [], [settings.categories, activeLife]);
+  const activeRatingPack = useMemo(() => getEffectiveRatingPack(settings, activeLife), [settings, activeLife]);
+
+  const activeLifeIsCustom = isCustomLife(activeLife);
+  const activeLifeEnabled = useMemo(() => {
+    if (!activeLifeIsCustom) return true;
+    return activeLife === "custom1" ? settings.lives.enabledCustom1 : settings.lives.enabledCustom2;
+  }, [activeLife, activeLifeIsCustom, settings.lives.enabledCustom1, settings.lives.enabledCustom2]);
+
   if (!open) return null;
 
   // ---- Typography helpers (A/B) ----
@@ -127,10 +145,9 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
   };
 
   const overlayStyle: React.CSSProperties = {
-    background: "rgba(27, 26, 23, 0.35)", // warm dim
+    background: "rgba(27, 26, 23, 0.35)",
   };
 
-  // Drawer matches TopBar/BottomNav
   const drawerStyle: React.CSSProperties = {
     background: MCL_HUSKET_THEME.colors.header,
     color: MCL_HUSKET_THEME.colors.darkSurface,
@@ -142,7 +159,6 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
     background: MCL_HUSKET_THEME.colors.outline,
   };
 
-  // Section box: “mørk mokka” (same family as active pills)
   const sectionStyle: React.CSSProperties = {
     border: `1px solid ${MCL_HUSKET_THEME.colors.altSurface}`,
     borderRadius: 14,
@@ -151,7 +167,6 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
     color: MCL_HUSKET_THEME.colors.textOnDark,
   };
 
-  // Rows inside section: slightly lighter for structure, still “dark family”
   const rowStyle: React.CSSProperties = {
     display: "flex",
     alignItems: "center",
@@ -164,7 +179,6 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
     color: MCL_HUSKET_THEME.colors.textOnDark,
   };
 
-  // Optional: make “title row” always readable on header background
   const headerRowStyle: React.CSSProperties = {
     display: "flex",
     alignItems: "center",
@@ -173,60 +187,31 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
     color: MCL_HUSKET_THEME.colors.darkSurface,
   };
 
-  const drawerTitleStyle: React.CSSProperties = {
-    ...textA,
-  };
+  const drawerTitleStyle: React.CSSProperties = { ...textA };
+  const actionTextStyle: React.CSSProperties = { ...textA };
+  const labelStyle: React.CSSProperties = { ...textB };
+  const smallHelpStyle: React.CSSProperties = { ...textB };
 
-  const actionTextStyle: React.CSSProperties = {
-    ...textA,
-  };
+  const sectionTitleStyle: React.CSSProperties = { ...textA, color: MCL_HUSKET_THEME.colors.textOnDark };
+  const rowTitleStyle: React.CSSProperties = { ...textB, color: MCL_HUSKET_THEME.colors.textOnDark };
+  const rowHelpStyle: React.CSSProperties = { ...textB, color: MCL_HUSKET_THEME.colors.textOnDark, opacity: 0.9 };
 
-  const labelStyle: React.CSSProperties = {
-    ...textB,
-  };
-
-  const smallHelpStyle: React.CSSProperties = {
-    ...textB,
-  };
-
-  const sectionTitleStyle: React.CSSProperties = {
-    ...textA,
-    color: MCL_HUSKET_THEME.colors.textOnDark,
-  };
-
-  const rowTitleStyle: React.CSSProperties = {
-    ...textB,
-    color: MCL_HUSKET_THEME.colors.textOnDark,
-  };
-
-  const rowHelpStyle: React.CSSProperties = {
-    ...textB,
-    color: MCL_HUSKET_THEME.colors.textOnDark,
-    opacity: 0.9,
-  };
-
-  // All selects should match TopBar background
   const topbarSelectStyle: React.CSSProperties = {
     background: MCL_HUSKET_THEME.colors.header,
     color: MCL_HUSKET_THEME.colors.darkSurface,
   };
 
-  const getLifeLabel = (life: "custom1" | "custom2") => {
-    const n = life === "custom1" ? "1" : "2";
-    const isNo = settings.language === "no";
-    return isNo ? `Tilpasset liv ${n}` : `Custom life ${n}`;
+  const getLifeLabel = (life: LifeKey) => {
+    if (life === "private") return settings.lives.privateName;
+    if (life === "work") return settings.lives.workName;
+    if (life === "custom1") return settings.lives.custom1Name;
+    return settings.lives.custom2Name;
   };
 
   return (
     <>
       <div className="drawerOverlay" onClick={onClose} style={overlayStyle} />
-      <aside
-        className="drawer"
-        role="dialog"
-        aria-modal="true"
-        aria-label={tGet(dict, "settings.title")}
-        style={drawerStyle}
-      >
+      <aside className="drawer" role="dialog" aria-modal="true" aria-label={tGet(dict, "settings.title")} style={drawerStyle}>
         <div style={headerRowStyle}>
           <div style={drawerTitleStyle}>{tGet(dict, "settings.title")}</div>
           <button className="flatBtn" onClick={onClose} type="button" style={actionTextStyle}>
@@ -251,17 +236,19 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
         </select>
 
         <div className="label" style={labelStyle}>
-          {tGet(dict, "settings.ratingPack")}
+          {tGet(dict, "settings.ratingPack")} ({getLifeLabel(activeLife)})
         </div>
         <select
           className="select"
           style={topbarSelectStyle}
-          value={settings.ratingPack}
+          value={activeRatingPack}
           onChange={(e) => {
             const next = e.target.value as RatingPackKey;
             if (next === "tens" && !settings.premium) return onRequirePremium();
-            update({ ratingPack: next });
+            onChange(setRatingPackForLife(settings, activeLife, next));
           }}
+          disabled={activeLifeIsCustom ? !activeLifeEnabled : false}
+          title={activeLifeIsCustom && !activeLifeEnabled ? "OFF" : ""}
         >
           {ratingOptions.map((k) => (
             <option key={k} value={k}>
@@ -270,7 +257,69 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
           ))}
         </select>
 
-        <div className="label" style={labelStyle}>
+        {/* Categories (per active life) — right under rating */}
+        <div style={{ ...sectionStyle, marginTop: 10 }}>
+          <div style={sectionTitleStyle}>
+            {tGet(dict, "settings.categories")} ({getLifeLabel(activeLife)})
+          </div>
+
+          <div className="smallHelp" style={{ ...smallHelpStyle, marginTop: 6 }}>
+            {tGet(dict, "settings.gpsPerCat")}
+          </div>
+
+          {activeLifeIsCustom ? (
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <input
+                className="input"
+                value={customCatText}
+                onChange={(e) => setCustomCatText(e.target.value)}
+                placeholder="Legg til…"
+                disabled={!canUseCustom || !activeLifeEnabled}
+              />
+              <button
+                className="flatBtn"
+                onClick={() => addCustomCategory(activeLife)}
+                type="button"
+                disabled={!canUseCustom || !activeLifeEnabled}
+                style={actionTextStyle}
+              >
+                +
+              </button>
+            </div>
+          ) : null}
+
+          <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+            {activeCats.map((c) => {
+              const override = settings.categoryGpsOverrides[c.id];
+              const mode: "default" | "on" | "off" = override === undefined ? "default" : override ? "on" : "off";
+
+              return (
+                <div key={c.id} style={rowStyle}>
+                  <div style={{ display: "grid" }}>
+                    <div style={rowTitleStyle}>{c.label}</div>
+                    <div className="smallHelp" style={rowHelpStyle}>
+                      {override === undefined ? (c.gpsEligible ? "ON (default)" : "OFF (default)") : override ? "ON (override)" : "OFF (override)"}
+                    </div>
+                  </div>
+
+                  <select
+                    className="select"
+                    style={topbarSelectStyle}
+                    value={mode}
+                    onChange={(e) => setCategoryGpsOverride(c.id, e.target.value as "default" | "on" | "off")}
+                    disabled={activeLifeIsCustom ? !activeLifeEnabled : false}
+                  >
+                    <option value="default">Default</option>
+                    <option value="on">Force ON</option>
+                    <option value="off">Force OFF</option>
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="label" style={{ ...labelStyle, marginTop: 12 }}>
           {tGet(dict, "settings.gpsGlobal")}
         </div>
         <select
@@ -325,110 +374,45 @@ export function SettingsDrawer({ dict, open, settings, onClose, onChange, onRequ
             const name = life === "custom1" ? settings.lives.custom1Name : settings.lives.custom2Name;
 
             return (
-              <div key={life} style={{ display: "grid", gap: 8 }}>
-                {/* One-line row always visible */}
-                <div style={rowStyle}>
-                  <div style={rowTitleStyle}>{getLifeLabel(life)}</div>
-
-                  <select
-                    className="select"
-                    style={topbarSelectStyle}
-                    value={enabled ? "on" : "off"}
-                    onChange={(e) => setLifeEnabled(life, e.target.value === "on")}
-                    disabled={customLivesDisabled}
-                    title={customLivesDisabled ? "Premium" : ""}
-                  >
-                    <option value="off">OFF</option>
-                    <option value="on">ON</option>
-                  </select>
+              <div key={life} style={rowStyle}>
+                <div style={{ display: "grid" }}>
+                  <div style={rowTitleStyle}>{life === "custom1" ? "Tilpasset liv 1" : "Tilpasset liv 2"}</div>
+                  <div className="smallHelp" style={rowHelpStyle}>
+                    {tGet(dict, "settings.name")}: {name}
+                  </div>
                 </div>
 
-                {/* Expanded content only when ON (Premium) */}
-                {enabled && settings.premium ? (
-                  <div style={sectionStyle}>
-                    <div style={sectionTitleStyle}>{getLifeLabel(life)}</div>
-
-                    <div className="label" style={labelStyle}>
-                      {tGet(dict, "settings.name")}
-                    </div>
-                    <input
-                      className="input"
-                      value={name}
-                      onChange={(e) => setLifeName(life, e.target.value)}
-                      disabled={!settings.premium}
-                    />
-
-                    <div className="label" style={labelStyle}>
-                      {tGet(dict, "settings.categories")}
-                    </div>
-                    <div className="smallHelp" style={smallHelpStyle}>
-                      {tGet(dict, "settings.customCats")}
-                    </div>
-
-                    <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                      <input
-                        className="input"
-                        value={customCatText}
-                        onChange={(e) => setCustomCatText(e.target.value)}
-                        placeholder="Legg til…"
-                        disabled={!canUseCustom || !enabled}
-                      />
-                      <button
-                        className="flatBtn"
-                        onClick={() => addCustomCategory(life)}
-                        type="button"
-                        disabled={!canUseCustom || !enabled}
-                        style={actionTextStyle}
-                      >
-                        +
-                      </button>
-                    </div>
-
-                    <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                      {(settings.categories[life] ?? []).map((c) => {
-                        const override = settings.categoryGpsOverrides[c.id];
-                        const mode: "default" | "on" | "off" =
-                          override === undefined ? "default" : override ? "on" : "off";
-
-                        return (
-                          <div key={c.id} style={rowStyle}>
-                            <div style={{ display: "grid" }}>
-                              <div style={rowTitleStyle}>{c.label}</div>
-                              <div className="smallHelp" style={rowHelpStyle}>
-                                {tGet(dict, "settings.gpsPerCat")}:{" "}
-                                {override === undefined
-                                  ? c.gpsEligible
-                                    ? "ON (default)"
-                                    : "OFF (default)"
-                                  : override
-                                    ? "ON (override)"
-                                    : "OFF (override)"}
-                              </div>
-                            </div>
-
-                            <select
-                              className="select"
-                              style={topbarSelectStyle}
-                              value={mode}
-                              onChange={(e) =>
-                                setCategoryGpsOverride(c.id, e.target.value as "default" | "on" | "off")
-                              }
-                              disabled={!enabled}
-                            >
-                              <option value="default">Default</option>
-                              <option value="on">Force ON</option>
-                              <option value="off">Force OFF</option>
-                            </select>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : null}
+                <select
+                  className="select"
+                  style={topbarSelectStyle}
+                  value={enabled ? "on" : "off"}
+                  onChange={(e) => setLifeEnabled(life, e.target.value === "on")}
+                  disabled={customLivesDisabled}
+                  title={customLivesDisabled ? "Premium" : ""}
+                >
+                  <option value="off">OFF</option>
+                  <option value="on">ON</option>
+                </select>
               </div>
             );
           })}
         </div>
+
+        {settings.premium ? (
+          <div style={{ ...sectionStyle, marginTop: 10 }}>
+            <div style={sectionTitleStyle}>{tGet(dict, "settings.name")}</div>
+
+            <div className="label" style={labelStyle}>
+              Tilpasset liv 1
+            </div>
+            <input className="input" value={settings.lives.custom1Name} onChange={(e) => setLifeName("custom1", e.target.value)} />
+
+            <div className="label" style={{ ...labelStyle, marginTop: 10 }}>
+              Tilpasset liv 2
+            </div>
+            <input className="input" value={settings.lives.custom2Name} onChange={(e) => setLifeName("custom2", e.target.value)} />
+          </div>
+        ) : null}
       </aside>
     </>
   );
