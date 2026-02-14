@@ -16,11 +16,11 @@ type SettingsV1 = Omit<Settings, "version" | "ratingPackByLife" | "disabledCateg
 
 function migrateV1ToV2(v1: SettingsV1): Settings {
   return {
-    ...v1,
+    ...(v1 as any),
     version: 2,
     ratingPackByLife: {},
     disabledCategoryIdsByLife: {},
-  };
+  } as Settings;
 }
 
 function isUserEditableCategoryId(id: string): boolean {
@@ -62,7 +62,6 @@ function mergeCategories(current: CategoryDef[] | undefined, defaults: CategoryD
   }
 
   // 2) Append any extra categories that exist in stored settings but not in defaults
-  // (keeps backwards compatibility if older builds created something unexpected)
   for (const [, extra] of curById) merged.push(extra);
 
   return merged;
@@ -78,7 +77,6 @@ function ensureCategoriesUpToDate(s: Settings): { next: Settings; changed: boole
     const current = s.categories?.[life];
     const merged = mergeCategories(current, defaults);
 
-    // Shallow compare by length + ids/labels (good enough)
     const same =
       Array.isArray(current) &&
       current.length === merged.length &&
@@ -101,10 +99,34 @@ function ensureCategoriesUpToDate(s: Settings): { next: Settings; changed: boole
   };
 }
 
+function ensureLivesFlags(s: Settings): { next: Settings; changed: boolean } {
+  const lives: any = (s as any).lives ?? {};
+  let changed = false;
+
+  const enabledPrivate = typeof lives.enabledPrivate === "boolean" ? lives.enabledPrivate : true;
+  const enabledWork = typeof lives.enabledWork === "boolean" ? lives.enabledWork : true;
+
+  if (enabledPrivate !== lives.enabledPrivate) changed = true;
+  if (enabledWork !== lives.enabledWork) changed = true;
+
+  if (!changed) return { next: s, changed: false };
+
+  return {
+    next: {
+      ...s,
+      lives: {
+        ...s.lives,
+        enabledPrivate,
+        enabledWork,
+      },
+    },
+    changed: true,
+  };
+}
+
 export function loadSettings(): Settings {
   const v2 = readJson<Settings>(KEY_V2);
   if (v2 && v2.version === 2) {
-    // Defensive: ensure required-ish fields exist
     let changed = false;
     let fixed: Settings = v2;
 
@@ -118,10 +140,15 @@ export function loadSettings(): Settings {
       changed = true;
     }
 
-    // NEW: ensure categories reflect latest defaults (without breaking old IDs)
-    const ensured = ensureCategoriesUpToDate(fixed);
-    if (ensured.changed) {
-      fixed = ensured.next;
+    const ensuredCats = ensureCategoriesUpToDate(fixed);
+    if (ensuredCats.changed) {
+      fixed = ensuredCats.next;
+      changed = true;
+    }
+
+    const ensuredLives = ensureLivesFlags(fixed);
+    if (ensuredLives.changed) {
+      fixed = ensuredLives.next;
       changed = true;
     }
 
@@ -130,17 +157,17 @@ export function loadSettings(): Settings {
   }
 
   const v1 = readJson<SettingsV1>(KEY_V1);
-  if (v1 && v1.version === 1) {
+  if (v1 && (v1 as any).version === 1) {
     const migrated = migrateV1ToV2(v1);
-    const ensured = ensureCategoriesUpToDate(migrated);
-    const final = ensured.changed ? ensured.next : migrated;
+    const ensuredCats = ensureCategoriesUpToDate(migrated);
+    const ensuredLives = ensureLivesFlags(ensuredCats.changed ? ensuredCats.next : migrated);
+    const final = ensuredLives.changed ? ensuredLives.next : ensuredLives.next;
 
     writeJson(KEY_V2, final);
     return final;
   }
 
   const fresh = defaultSettings();
-  // Defensive: in case defaults are missing new optional fields
   const fixedFresh: Settings = {
     ...fresh,
     ratingPackByLife: fresh.ratingPackByLife ?? {},
