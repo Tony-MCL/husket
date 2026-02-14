@@ -42,6 +42,9 @@ export type Settings = {
     custom1Name: string;
     custom2Name: string;
 
+    enabledPrivate: boolean;
+    enabledWork: boolean;
+
     enabledCustom1: boolean;
     enabledCustom2: boolean;
   };
