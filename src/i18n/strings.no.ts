@@ -41,6 +41,7 @@ export const no = {
   },
   settings: {
     title: "Innstillinger",
+    activeLife: "Aktivt liv",
     language: "Språk",
     languageAuto: "Auto (telefon)",
     ratingPack: "Rating-sett",
