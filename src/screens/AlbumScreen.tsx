@@ -120,7 +120,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     return cats.find((c) => c.id === id)?.label ?? null;
   };
 
-  // Keep pack options (used for ordering), but the filter list should include *anything present in data* too.
+  // Per-life effective rating pack (used only for ordering)
   const effectivePack = useMemo(() => getEffectiveRatingPack(settings, life), [settings, life]);
   const packRatingOptions = useMemo(() => ratingOptionsFromPack(effectivePack), [effectivePack]);
 
@@ -212,27 +212,37 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     return "Last year";
   };
 
-  // NEW: ratings to show in filter dropdown = pack options + any ratings found in existing data (for this life)
-  const ratingOptions = useMemo(() => {
+  // ✅ Ratings in filter dropdown are now 100% data-driven:
+  // Only show ratings that actually exist in `items`, ordered by current pack where possible.
+  const { ratingOptions, hasNoRatingInData } = useMemo(() => {
     const inData = new Set<string>();
+    let hasNo = false;
+
     for (const it of items) {
-      if (it.ratingValue != null && it.ratingValue.trim().length > 0) {
-        inData.add(it.ratingValue);
+      const v = it.ratingValue;
+      if (v == null || v.trim().length === 0) {
+        hasNo = true;
+        continue;
       }
+      inData.add(v);
     }
 
     const ordered: string[] = [];
+
+    // First: any ratings from the current pack that are actually present in data (keeps a nice stable ordering)
     for (const r of packRatingOptions) {
-      ordered.push(r);
-      if (inData.has(r)) inData.delete(r);
+      if (inData.has(r)) {
+        ordered.push(r);
+        inData.delete(r);
+      }
     }
 
-    // Add any “extra” ratings present in old data (e.g. you changed rating-pack later)
+    // Then: any other ratings present in data (historical / odd values)
     const extras = Array.from(inData);
     extras.sort((a, b) => a.localeCompare(b));
     ordered.push(...extras);
 
-    return ordered;
+    return { ratingOptions: ordered, hasNoRatingInData: hasNo };
   }, [items, packRatingOptions]);
 
   const anyAppliedRatingSelected = useMemo(() => Object.values(applied.appliedRatings).some(Boolean), [applied.appliedRatings]);
@@ -470,11 +480,11 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     color: MCL_HUSKET_THEME.colors.darkSurface,
   };
 
-  // NEW: section divider + extra breathing room (matches the subtle outline feel)
+  // NEW: section divider + extra breathing room
   const sectionDivider: React.CSSProperties = {
     height: 1,
     width: "100%",
-    background: "rgba(27, 26, 23, 0.18)", // darkSurface w/ subtle alpha
+    background: "rgba(27, 26, 23, 0.18)",
     borderRadius: 999,
   };
 
@@ -546,7 +556,6 @@ export function AlbumScreen({ dict, life, settings }: Props) {
               </div>
             </div>
 
-            {/* NEW: extra gap + divider */}
             <div style={{ marginTop: 6 }} />
             <div style={sectionDivider} />
             <div style={{ marginTop: 6 }} />
@@ -557,32 +566,39 @@ export function AlbumScreen({ dict, life, settings }: Props) {
                 {lang === "no" ? "Vurdering" : "Rating"}
               </div>
 
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 18 }}>
-                {ratingOptions.map((r) => (
-                  <label key={r} style={flatChoiceRow}>
-                    <input
-                      type="checkbox"
-                      checked={!!draftRatings[r]}
-                      onChange={() => toggleDraftRating(r)}
-                      style={checkboxStyle}
-                    />
-                    <span>{r}</span>
-                  </label>
-                ))}
+              {ratingOptions.length === 0 && !hasNoRatingInData ? (
+                <div className="smallHelp" style={textB}>
+                  {lang === "no" ? "Ingen vurderinger enda." : "No ratings yet."}
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 18 }}>
+                  {ratingOptions.map((r) => (
+                    <label key={r} style={flatChoiceRow}>
+                      <input
+                        type="checkbox"
+                        checked={!!draftRatings[r]}
+                        onChange={() => toggleDraftRating(r)}
+                        style={checkboxStyle}
+                      />
+                      <span>{r}</span>
+                    </label>
+                  ))}
 
-                <label style={flatChoiceRow} title={lang === "no" ? "Huskets uten vurdering" : "Huskets without rating"}>
-                  <input
-                    type="checkbox"
-                    checked={!!draftRatings["__none__"]}
-                    onChange={() => setDraftRatings((p) => ({ ...p, __none__: !p.__none__ }))}
-                    style={checkboxStyle}
-                  />
-                  <span>{lang === "no" ? "Ingen" : "None"}</span>
-                </label>
-              </div>
+                  {hasNoRatingInData ? (
+                    <label style={flatChoiceRow} title={lang === "no" ? "Huskets uten vurdering" : "Huskets without rating"}>
+                      <input
+                        type="checkbox"
+                        checked={!!draftRatings["__none__"]}
+                        onChange={() => setDraftRatings((p) => ({ ...p, __none__: !p.__none__ }))}
+                        style={checkboxStyle}
+                      />
+                      <span>{lang === "no" ? "Ingen" : "None"}</span>
+                    </label>
+                  ) : null}
+                </div>
+              )}
             </div>
 
-            {/* NEW: extra gap + divider */}
             <div style={{ marginTop: 6 }} />
             <div style={sectionDivider} />
             <div style={{ marginTop: 6 }} />
