@@ -2,7 +2,7 @@
 // src/screens/AlbumScreen.tsx
 // ===============================
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { Husket, LifeKey, Settings } from "../domain/types";
+import type { Husket, LifeKey, Settings, RatingPackKey } from "../domain/types";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
 import { listHuskets, getImageUrl, deleteHusketById } from "../data/husketRepo";
@@ -10,7 +10,6 @@ import { ViewHusketModal } from "../components/ViewHusketModal";
 import { MCL_HUSKET_THEME } from "../theme";
 import { HUSKET_TYPO } from "../theme/typography";
 import { getEffectiveRatingPack } from "../domain/settingsCore";
-import type { RatingPackKey } from "../domain/types";
 
 type Props = {
   dict: I18nDict;
@@ -32,10 +31,8 @@ function formatThumbDate(ts: number, lang: "no" | "en") {
 type TimeFilterKey = "all" | "7d" | "30d" | "365d";
 
 function ratingOptionsFromPack(pack: RatingPackKey, premium: boolean): string[] {
-  // Defensive: tens is premium-only
-  if (pack === "tens" && !premium) pack = "emoji";
-
-  switch (pack) {
+  const effective = pack === "tens" && !premium ? "emoji" : pack;
+  switch (effective) {
     case "emoji":
       return ["😍", "😊", "😐", "😕", "😖"];
     case "thumbs":
@@ -99,10 +96,8 @@ export function AlbumScreen({ dict, life, settings }: Props) {
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
   const [viewer, setViewer] = useState<{ open: boolean; index: number }>({ open: false, index: 0 });
 
-  // Filters are per-life
   const [filtersByLife, setFiltersByLife] = useState<Record<string, LifeFilters>>(() => ({}));
 
-  // Dropdown open + draft state
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [draftRatings, setDraftRatings] = useState<Record<string, boolean>>({});
   const [draftCategoryIds, setDraftCategoryIds] = useState<Record<string, boolean>>({});
@@ -118,20 +113,17 @@ export function AlbumScreen({ dict, life, settings }: Props) {
   }, [settings.language]);
 
   const cats = settings.categories[life] ?? [];
-
   const categoryLabel = (id: string | null) => {
     if (!id) return null;
     return cats.find((c) => c.id === id)?.label ?? null;
   };
 
-  // Rating options should match PER-LIFE pack (for ordering in the filter UI)
+  // Per-life pack affects ordering in filter UI (not what is stored)
   const packForLife = useMemo(() => getEffectiveRatingPack(settings, life), [settings, life]);
   const packRatingOptions = useMemo(() => ratingOptionsFromPack(packForLife, settings.premium), [packForLife, settings.premium]);
 
   useEffect(() => {
-    const next = listHuskets(life)
-      .slice()
-      .sort((a, b) => b.createdAt - a.createdAt);
+    const next = listHuskets(life).slice().sort((a, b) => b.createdAt - a.createdAt);
     setItems(next);
 
     let cancelled = false;
@@ -167,7 +159,6 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     return filtersByLife[life] ?? emptyLifeFilters();
   }, [filtersByLife, life]);
 
-  // When opening filters: seed draft from applied (for the CURRENT life)
   useEffect(() => {
     if (!filtersOpen) return;
     setDraftRatings(applied.appliedRatings);
@@ -175,32 +166,30 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     setDraftTimeFilter(applied.appliedTimeFilter);
   }, [filtersOpen, applied.appliedRatings, applied.appliedCategoryIds, applied.appliedTimeFilter]);
 
-  // When switching life: close dropdown & close viewer
   useEffect(() => {
     setFiltersOpen(false);
     setViewer({ open: false, index: 0 });
   }, [life]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     if (!filtersOpen) return;
 
     const onDown = (e: MouseEvent) => {
       const el = filterWrapRef.current;
       if (!el) return;
-      if (!el.contains(e.target as Node)) setFiltersOpen(false);
+      if (el.contains(e.target as Node)) return;
+      setFiltersOpen(false);
     };
 
-    window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
+    window.addEventListener("mousedown", onDown, { capture: true });
+    return () => window.removeEventListener("mousedown", onDown, { capture: true } as any);
   }, [filtersOpen]);
 
   const nowMs = Date.now();
+  const filteredItems = useMemo(() => applyFiltersToItems({ items, applied, nowMs }), [items, applied, nowMs]);
 
-  const filtered = useMemo(() => applyFiltersToItems({ items, applied, nowMs }), [items, applied, nowMs]);
-
-  // For filter UI: include ratings present in data, but keep pack ordering first.
-  const ratingChoices = useMemo(() => {
+  // Ratings in filter dropdown: pack order first, but include ANY ratings that exist in data
+  const ratingOptions = useMemo(() => {
     const present = new Set<string>();
     for (const it of items) present.add(it.ratingValue ?? "__none__");
 
@@ -208,13 +197,10 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     for (const r of packRatingOptions) {
       if (present.has(r)) ordered.push(r);
     }
-
-    // add any extra (older pack, etc.)
     for (const r of Array.from(present)) {
       if (!ordered.includes(r)) ordered.push(r);
     }
 
-    // Put "__none__" last if present
     const noneIdx = ordered.indexOf("__none__");
     if (noneIdx >= 0) {
       ordered.splice(noneIdx, 1);
@@ -245,7 +231,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     return ordered;
   }, [items, cats]);
 
-  const applyDraft = () => {
+  const applyFiltersAndClose = () => {
     setFiltersByLife((prev) => ({
       ...prev,
       [life]: {
@@ -255,15 +241,57 @@ export function AlbumScreen({ dict, life, settings }: Props) {
       },
     }));
     setFiltersOpen(false);
+    setViewer({ open: false, index: 0 });
   };
 
-  const clearDraft = () => {
+  const resetFiltersAndClose = () => {
+    setFiltersByLife((prev) => {
+      const next = { ...prev };
+      next[life] = emptyLifeFilters();
+      return next;
+    });
     setDraftRatings({});
     setDraftCategoryIds({});
     setDraftTimeFilter("all");
+    setFiltersOpen(false);
+    setViewer({ open: false, index: 0 });
   };
 
-  // ---- Typography helpers ----
+  const onDeleteFromViewer = async (id: string) => {
+    const removed = await deleteHusketById(id);
+
+    setItems((prev) => prev.filter((x) => x.id !== id));
+    setThumbUrls((prev) => {
+      const next = { ...prev };
+      const u = next[id];
+      if (u) {
+        try {
+          URL.revokeObjectURL(u);
+        } catch {
+          // ignore
+        }
+        delete next[id];
+      }
+      return next;
+    });
+
+    if (!removed) {
+      setViewer({ open: false, index: 0 });
+      return;
+    }
+
+    const nextItems = items.filter((x) => x.id !== id);
+    const nextFiltered = applyFiltersToItems({ items: nextItems, applied, nowMs: Date.now() });
+
+    if (nextFiltered.length === 0) {
+      setViewer({ open: false, index: 0 });
+      return;
+    }
+
+    setViewer((v) => ({ open: true, index: Math.min(v.index, nextFiltered.length - 1) }));
+  };
+
+  // ---- Typography helpers (A/B) ----
   const textA: React.CSSProperties = {
     fontSize: HUSKET_TYPO.A.fontSize,
     fontWeight: HUSKET_TYPO.A.fontWeight,
@@ -278,71 +306,213 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     letterSpacing: HUSKET_TYPO.B.letterSpacing,
   };
 
+  const filterBtnStyle: React.CSSProperties = {
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    padding: "10px 12px",
+    cursor: "pointer",
+    background: "transparent",
+    color: MCL_HUSKET_THEME.colors.textOnDark,
+    border: `1px solid rgba(247, 243, 237, 0.18)`,
+    borderRadius: 16,
+  };
+
+  const summaryTextStyle: React.CSSProperties = {
+    ...textB,
+    color: MCL_HUSKET_THEME.colors.textOnDark,
+    opacity: 0.95,
+    whiteSpace: "nowrap",
+  };
+
+  const dropStyle: React.CSSProperties = {
+    position: "absolute",
+    top: "calc(100% + 8px)",
+    left: 0,
+    right: 0,
+    zIndex: 30,
+    borderRadius: 16,
+    padding: 12,
+    boxShadow: MCL_HUSKET_THEME.elevation.elev2,
+    background: MCL_HUSKET_THEME.colors.header,
+    color: MCL_HUSKET_THEME.colors.darkSurface,
+    border: "none",
+    display: "grid",
+    gap: 12,
+  };
+
+  const dropLabelStyle: React.CSSProperties = {
+    ...textA,
+    margin: 0,
+    color: MCL_HUSKET_THEME.colors.darkSurface,
+  };
+
+  const flatChoiceRow: React.CSSProperties = {
+    ...textB,
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "4px 0",
+    border: "none",
+    background: "transparent",
+    color: MCL_HUSKET_THEME.colors.darkSurface,
+    cursor: "pointer",
+    userSelect: "none",
+  };
+
+  const checkboxStyle: React.CSSProperties = {
+    transform: "scale(1.1)",
+  };
+
+  const actionsRow: React.CSSProperties = {
+    display: "flex",
+    gap: 12,
+    justifyContent: "space-between",
+    marginTop: 6,
+  };
+
+  const actionBtnBase: React.CSSProperties = {
+    ...textA,
+    border: "none",
+    background: "transparent",
+    padding: "6px 0",
+    cursor: "pointer",
+    color: MCL_HUSKET_THEME.colors.darkSurface,
+  };
+
+  const actionBtnDanger: React.CSSProperties = {
+    ...actionBtnBase,
+    color: MCL_HUSKET_THEME.colors.danger,
+  };
+
+  const actionBtnConfirm: React.CSSProperties = {
+    ...actionBtnBase,
+    color: MCL_HUSKET_THEME.colors.darkSurface,
+  };
+
+  if (items.length === 0) {
+    return (
+      <div className="smallHelp" style={textB}>
+        {tGet(dict, "album.empty")}
+      </div>
+    );
+  }
+
+  const activeSummary = (() => {
+    const parts: string[] = [];
+
+    const anyRating = Object.values(applied.appliedRatings).some(Boolean);
+    const anyCat = Object.values(applied.appliedCategoryIds).some(Boolean);
+
+    if (anyRating) {
+      const picked = Object.entries(applied.appliedRatings)
+        .filter(([, v]) => v)
+        .map(([k]) => (k === "__none__" ? (lang === "no" ? "Ingen" : "None") : k));
+      if (picked.length > 0) parts.push(`⭐ ${picked.join(", ")}`);
+    }
+
+    if (anyCat) {
+      const pickedIds = Object.entries(applied.appliedCategoryIds)
+        .filter(([, v]) => v)
+        .map(([k]) => k);
+
+      const labels = pickedIds.map((id) => {
+        if (id === "__none__") return lang === "no" ? "Ingen" : "None";
+        return categoryLabel(id) ?? id;
+      });
+
+      if (labels.length > 0) parts.push(`🏷 ${labels.join(", ")}`);
+    }
+
+    if (applied.appliedTimeFilter !== "all") {
+      const label =
+        lang === "no"
+          ? applied.appliedTimeFilter === "7d"
+            ? "Siste uke"
+            : applied.appliedTimeFilter === "30d"
+              ? "Siste måned"
+              : "Siste år"
+          : applied.appliedTimeFilter === "7d"
+            ? "Last week"
+            : applied.appliedTimeFilter === "30d"
+              ? "Last month"
+              : "Last year";
+
+      parts.push(`⏱ ${label}`);
+    }
+
+    return parts.length > 0 ? parts : [lang === "no" ? "Ingen filtre" : "No filters"];
+  })();
+
   return (
-    <div style={{ display: "grid", gap: 12 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-        <div style={textA}>{tGet(dict, "album.title")}</div>
+    <div>
+      {/* Filter bar + dropdown */}
+      <div ref={filterWrapRef} style={{ position: "relative", marginBottom: 10 }}>
+        <button type="button" className="flatBtn" onClick={() => setFiltersOpen((v) => !v)} style={filterBtnStyle} aria-expanded={filtersOpen}>
+          <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <span aria-hidden>🔎</span>
+            <span style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", minWidth: 0 }}>
+              {activeSummary.map((p, idx) => (
+                <span key={`${p}-${idx}`} style={summaryTextStyle}>
+                  {p}
+                </span>
+              ))}
+            </span>
+          </span>
 
-        <div ref={filterWrapRef} style={{ position: "relative" }}>
-          <button className="flatBtn" type="button" onClick={() => setFiltersOpen((v) => !v)} style={textA}>
-            {tGet(dict, "album.filters")}
-          </button>
+          <span aria-hidden style={{ opacity: 0.85, color: MCL_HUSKET_THEME.colors.textOnDark }}>
+            {filtersOpen ? "▴" : "▾"}
+          </span>
+        </button>
 
-          {filtersOpen ? (
-            <div
-              style={{
-                position: "absolute",
-                right: 0,
-                top: "calc(100% + 8px)",
-                width: 320,
-                maxWidth: "86vw",
-                background: MCL_HUSKET_THEME.colors.header,
-                border: "1px solid rgba(27, 26, 23, 0.14)",
-                borderRadius: 14,
-                padding: 10,
-                boxShadow: MCL_HUSKET_THEME.elevation.elev2,
-                zIndex: 10,
-              }}
-            >
-              <div style={{ ...textB, opacity: 0.85, marginBottom: 8 }}>{tGet(dict, "album.filterRating")}</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-                {ratingChoices.map((r) => {
+        {filtersOpen ? (
+          <div style={dropStyle}>
+            <div>
+              <h3 style={dropLabelStyle}>{tGet(dict, "album.filterRating")}</h3>
+              <div style={{ display: "grid", gap: 4, marginTop: 6 }}>
+                {ratingOptions.map((r) => {
                   const key = r;
                   const label = r === "__none__" ? "—" : r;
-                  const active = !!draftRatings[key];
                   return (
-                    <button
-                      key={key}
-                      type="button"
-                      className={`pill ${active ? "active" : ""}`}
-                      onClick={() => setDraftRatings((p) => ({ ...p, [key]: !p[key] }))}
-                    >
-                      {label}
-                    </button>
+                    <label key={key} style={flatChoiceRow}>
+                      <input
+                        type="checkbox"
+                        checked={!!draftRatings[key]}
+                        onChange={() => setDraftRatings((prev) => ({ ...prev, [key]: !prev[key] }))}
+                        style={checkboxStyle}
+                      />
+                      <span>{label}</span>
+                    </label>
                   );
                 })}
               </div>
+            </div>
 
-              <div style={{ ...textB, opacity: 0.85, marginBottom: 8 }}>{tGet(dict, "album.filterCategory")}</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+            <div>
+              <h3 style={dropLabelStyle}>{tGet(dict, "album.filterCategory")}</h3>
+              <div style={{ display: "grid", gap: 4, marginTop: 6 }}>
                 {catChoices.map((id) => {
                   const key = id;
                   const label = id === "__none__" ? "—" : categoryLabel(id) ?? id;
-                  const active = !!draftCategoryIds[key];
                   return (
-                    <button
-                      key={key}
-                      type="button"
-                      className={`pill ${active ? "active" : ""}`}
-                      onClick={() => setDraftCategoryIds((p) => ({ ...p, [key]: !p[key] }))}
-                    >
-                      {label}
-                    </button>
+                    <label key={key} style={flatChoiceRow}>
+                      <input
+                        type="checkbox"
+                        checked={!!draftCategoryIds[key]}
+                        onChange={() => setDraftCategoryIds((prev) => ({ ...prev, [key]: !prev[key] }))}
+                        style={checkboxStyle}
+                      />
+                      <span>{label}</span>
+                    </label>
                   );
                 })}
               </div>
+            </div>
 
-              <div style={{ ...textB, opacity: 0.85, marginBottom: 8 }}>{tGet(dict, "album.filterTime")}</div>
+            <div>
+              <h3 style={dropLabelStyle}>{tGet(dict, "album.filterTime")}</h3>
               <select
                 className="select"
                 style={{ background: MCL_HUSKET_THEME.colors.header, border: "none", outline: "none", boxShadow: "none", ...textB }}
@@ -354,62 +524,56 @@ export function AlbumScreen({ dict, life, settings }: Props) {
                 <option value="30d">{tGet(dict, "album.time30d")}</option>
                 <option value="365d">{tGet(dict, "album.time365d")}</option>
               </select>
-
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 12 }}>
-                <button className="flatBtn danger" type="button" onClick={clearDraft} style={textA}>
-                  {tGet(dict, "album.clear")}
-                </button>
-                <button className="flatBtn primary" type="button" onClick={applyDraft} style={textA}>
-                  {tGet(dict, "album.apply")}
-                </button>
-              </div>
             </div>
-          ) : null}
-        </div>
+
+            <div style={actionsRow}>
+              <button type="button" className="flatBtn" style={actionBtnDanger} onClick={resetFiltersAndClose}>
+                {tGet(dict, "album.clear")}
+              </button>
+              <button type="button" className="flatBtn" style={actionBtnConfirm} onClick={applyFiltersAndClose}>
+                {tGet(dict, "album.apply")}
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
-      {filtered.length === 0 ? (
-        <div className="smallHelp" style={{ ...textB, color: MCL_HUSKET_THEME.colors.muted }}>
-          {tGet(dict, "album.empty")}
-        </div>
-      ) : (
-        <div className="albumGrid">
-          {filtered.map((it, idx) => {
-            const url = thumbUrls[it.id];
-            const date = formatThumbDate(it.createdAt, lang);
-            return (
-              <button
-                key={it.id}
-                className="thumb"
-                type="button"
-                onClick={() => setViewer({ open: true, index: idx })}
-                style={{ padding: 0, border: "none", background: "transparent", textAlign: "left" }}
-              >
-                {url ? <img className="thumbImg" src={url} alt="" /> : <div className="capturePreview" />}
+      {/* Grid */}
+      <div className="albumGrid">
+        {filteredItems.map((it, idx) => {
+          const url = thumbUrls[it.id];
+          const date = formatThumbDate(it.createdAt, lang);
+          return (
+            <button
+              key={it.id}
+              className="thumb"
+              type="button"
+              onClick={() => setViewer({ open: true, index: idx })}
+              style={{ padding: 0, border: "none", background: "transparent", textAlign: "left" }}
+            >
+              {url ? <img className="thumbImg" src={url} alt="" /> : <div className="capturePreview" />}
 
-                <div className="thumbMeta">
-                  <span>{date}</span>
-                  <span className="badge">{it.ratingValue ?? "—"}</span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      )}
+              <div className="thumbMeta" style={textB}>
+                <span>{date}</span>
+                <span className="badge">{it.ratingValue ?? "—"}</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
 
-      <ViewHusketModal
-        open={viewer.open}
-        index={viewer.index}
-        items={filtered}
-        dict={dict}
-        settings={settings}
-        onClose={() => setViewer({ open: false, index: 0 })}
-        onDelete={async (id) => {
-          await deleteHusketById(id);
-          setItems((prev) => prev.filter((x) => x.id !== id));
-          setViewer((v) => ({ open: v.open, index: Math.max(0, Math.min(v.index, filtered.length - 2)) }));
-        }}
-      />
+      {/* Viewer (only render when open) */}
+      {viewer.open ? (
+        <ViewHusketModal
+          dict={dict}
+          settings={settings}
+          items={filteredItems}
+          index={viewer.index}
+          onSetIndex={(nextIndex) => setViewer((v) => ({ ...v, index: nextIndex }))}
+          onClose={() => setViewer({ open: false, index: 0 })}
+          onDelete={onDeleteFromViewer}
+        />
+      ) : null}
     </div>
   );
 }
