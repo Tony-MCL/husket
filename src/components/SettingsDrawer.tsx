@@ -158,7 +158,12 @@ export function SettingsDrawer({ dict, open, activeLife, settings, onClose, onCh
     return m as Record<string, true>;
   }, [settings.disabledCategoryIdsByLife, activeLife]);
 
-  const activeRatingPack = useMemo(() => getEffectiveRatingPack(settings, activeLife), [settings, activeLife]);
+  const activeRatingPackRaw = useMemo(() => getEffectiveRatingPack(settings, activeLife), [settings, activeLife]);
+  const activeRatingPack: RatingPackKey = useMemo(() => {
+    // Defensive: if tens is stored but premium is off, keep UI stable
+    if (activeRatingPackRaw === "tens" && !settings.premium) return "emoji";
+    return activeRatingPackRaw;
+  }, [activeRatingPackRaw, settings.premium]);
 
   const activeLifeIsCustom = isCustomLife(activeLife);
   const activeLifeEnabled = useMemo(() => {
