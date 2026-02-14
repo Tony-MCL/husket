@@ -21,10 +21,17 @@ type Props = {
 
 // IMPORTANT: rating order is ALWAYS worst -> best (best to the right)
 const ratingPackLabels: Record<RatingPackKey, string> = {
+  // worst -> best (best to the right)
   emoji: "😖 😐 😍",
   thumbs: "👎 🤏 👍",
   check: "✗  −  ✓",
   tens: "1/10 … 10/10",
+
+  // new packs
+  progress: "▁ ▆ █",
+  weather: "🌧️ ⛅ 🌞",
+  heartpoop: "💩 👀 ❤️",
+  dice: "⚀ ⚃ ⚅",
 };
 
 function clamp100(s: string): string {
