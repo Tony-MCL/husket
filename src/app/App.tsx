@@ -5,7 +5,7 @@ import React, { useMemo, useState } from "react";
 import type { LifeKey, Settings } from "../domain/types";
 import { loadSettings, saveSettings } from "../data/settingsRepo";
 import { getDict } from "../i18n";
-import { ToastProvider } from "../components/ToastHost";
+import { ToastProvider, useToast } from "../components/ToastHost";
 import { TopBar } from "../components/TopBar";
 import { BottomNav } from "../components/BottomNav";
 import type { RouteKey } from "./routes";
@@ -17,7 +17,22 @@ import { PaywallModal } from "../components/PaywallModal";
 import { MCL_HUSKET_THEME } from "../theme";
 import { FlyToTargetProvider } from "../animation/FlyToTargetProvider";
 
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../firebase";
+
 export function App() {
+  return (
+    <ToastProvider>
+      <FlyToTargetProvider>
+        <AppInner />
+      </FlyToTargetProvider>
+    </ToastProvider>
+  );
+}
+
+function AppInner() {
+  const toast = useToast();
+
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
   const dict = useMemo(() => getDict(settings.language), [settings.language]);
 
@@ -53,60 +68,107 @@ export function App() {
     setPaywallOpen(false);
   };
 
+  async function copyToClipboard(text: string): Promise<boolean> {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch {
+      // fallthrough
+    }
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "true");
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      ta.style.top = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+
+  const onDevCreateInviteCode = async () => {
+    try {
+      const fn = httpsCallable(functions, "createInviteCode");
+      const res = await fn({});
+      const code =
+        (res.data as any)?.code ??
+        (typeof res.data === "string" ? (res.data as string) : "");
+
+      if (!code) {
+        toast.show("Sky code: (no code returned)");
+        return;
+      }
+
+      const copied = await copyToClipboard(code);
+      toast.show(copied ? `Sky code: ${code} (copied)` : `Sky code: ${code}`);
+    } catch (err: any) {
+      // Vanlig nå: unauthenticated (fordi vi ikke har Auth i appen enda)
+      const msg = typeof err?.message === "string" ? err.message : "Unknown error";
+      toast.show(`Sky code failed: ${msg}`);
+      // eslint-disable-next-line no-console
+      console.error(err);
+    }
+  };
+
   return (
-    <ToastProvider>
-      <FlyToTargetProvider>
-        <div
-          className="appShell"
-          style={{
-            backgroundColor: MCL_HUSKET_THEME.colors.altSurface,
-            color: MCL_HUSKET_THEME.colors.textOnDark,
-            position: "relative",
-          }}
-        >
-          <TopBar
-            dict={dict}
-            settings={settings}
-            life={life}
-            onLifeChange={(nextLife) => setLife(nextLife)}
-            onOpenSettings={() => setDrawerOpen(true)}
-          />
+    <div
+      className="appShell"
+      style={{
+        backgroundColor: MCL_HUSKET_THEME.colors.altSurface,
+        color: MCL_HUSKET_THEME.colors.textOnDark,
+        position: "relative",
+      }}
+    >
+      <TopBar
+        dict={dict}
+        settings={settings}
+        life={life}
+        onLifeChange={(nextLife) => setLife(nextLife)}
+        onOpenSettings={() => setDrawerOpen(true)}
+        onDevCreateInviteCode={onDevCreateInviteCode}
+      />
 
-          {route === "capture" ? (
-            <CaptureScreen dict={dict} life={life} settings={settings} onRequirePremium={requirePremium} />
-          ) : null}
+      {route === "capture" ? (
+        <CaptureScreen dict={dict} life={life} settings={settings} onRequirePremium={requirePremium} onSavedGoAlbum={() => setRoute("album")} />
+      ) : null}
 
-          {route === "album" ? (
-            <AlbumScreen
-              dict={dict}
-              life={life}
-              settings={settings}
-              onAlbumBecameEmpty={() => setRoute("capture")}
-            />
-          ) : null}
+      {route === "album" ? (
+        <AlbumScreen
+          dict={dict}
+          life={life}
+          settings={settings}
+          onAlbumBecameEmpty={() => setRoute("capture")}
+        />
+      ) : null}
 
-          {route === "shared" ? <SharedWithMeScreen dict={dict} /> : null}
+      {route === "shared" ? <SharedWithMeScreen dict={dict} /> : null}
 
-          <SettingsDrawer
-            dict={dict}
-            open={drawerOpen}
-            activeLife={life}
-            settings={settings}
-            onClose={() => setDrawerOpen(false)}
-            onChange={updateSettings}
-            onRequirePremium={requirePremium}
-          />
+      <SettingsDrawer
+        dict={dict}
+        open={drawerOpen}
+        activeLife={life}
+        settings={settings}
+        onClose={() => setDrawerOpen(false)}
+        onChange={updateSettings}
+        onRequirePremium={requirePremium}
+      />
 
-          <PaywallModal
-            dict={dict}
-            open={paywallOpen}
-            onCancel={() => setPaywallOpen(false)}
-            onActivate={activatePremiumMock}
-          />
+      <PaywallModal
+        dict={dict}
+        open={paywallOpen}
+        onCancel={() => setPaywallOpen(false)}
+        onActivate={activatePremiumMock}
+      />
 
-          <BottomNav dict={dict} route={route} onRouteChange={setRoute} />
-        </div>
-      </FlyToTargetProvider>
-    </ToastProvider>
+      <BottomNav dict={dict} route={route} onRouteChange={setRoute} />
+    </div>
   );
 }
