@@ -99,8 +99,7 @@ function AppInner() {
       const fn = httpsCallable(functions, "createInviteCode");
       const res = await fn({});
       const code =
-        (res.data as any)?.code ??
-        (typeof res.data === "string" ? (res.data as string) : "");
+        (res.data as any)?.code ?? (typeof res.data === "string" ? (res.data as string) : "");
 
       if (!code) {
         toast.show("Sky code: (no code returned)");
@@ -110,7 +109,6 @@ function AppInner() {
       const copied = await copyToClipboard(code);
       toast.show(copied ? `Sky code: ${code} (copied)` : `Sky code: ${code}`);
     } catch (err: any) {
-      // Vanlig nå: unauthenticated (fordi vi ikke har Auth i appen enda)
       const msg = typeof err?.message === "string" ? err.message : "Unknown error";
       toast.show(`Sky code failed: ${msg}`);
       // eslint-disable-next-line no-console
@@ -137,16 +135,11 @@ function AppInner() {
       />
 
       {route === "capture" ? (
-        <CaptureScreen dict={dict} life={life} settings={settings} onRequirePremium={requirePremium} onSavedGoAlbum={() => setRoute("album")} />
+        <CaptureScreen dict={dict} life={life} settings={settings} onRequirePremium={requirePremium} />
       ) : null}
 
       {route === "album" ? (
-        <AlbumScreen
-          dict={dict}
-          life={life}
-          settings={settings}
-          onAlbumBecameEmpty={() => setRoute("capture")}
-        />
+        <AlbumScreen dict={dict} life={life} settings={settings} onAlbumBecameEmpty={() => setRoute("capture")} />
       ) : null}
 
       {route === "shared" ? <SharedWithMeScreen dict={dict} /> : null}
