@@ -1,0 +1,69 @@
+// ===============================
+// firestore.rules
+// Husket Sky v1 – LÅST kontrakt
+// ===============================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuthed() && request.auth.uid == uid;
+    }
+
+    // -------------------------------
+    // users root doc
+    // -------------------------------
+    match /users/{uid} {
+
+      // Klient kan lese egen user doc
+      allow read: if isOwner(uid);
+
+      // Klient skal IKKE skrive plan / flags direkte
+      allow write: if false;
+
+      // -------------------------------
+      // huskets (Sky backup)
+      // -------------------------------
+      match /huskets/{husketId} {
+        allow read, create, update: if isOwner(uid);
+
+        // Tombstone tillatt (deletedAt settes)
+        allow delete: if false; // aldri hard-delete
+      }
+
+      // -------------------------------
+      // contacts (kun server oppretter)
+      // -------------------------------
+      match /contacts/{contactUid} {
+        allow read: if isOwner(uid);
+        allow create, update, delete: if false;
+      }
+
+      // -------------------------------
+      // counters (server only writes)
+      // -------------------------------
+      match /counters/{yyyymm} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+    }
+
+    // -------------------------------
+    // relay (midlertidig postkasse)
+    // -------------------------------
+    match /relay/{relayId} {
+
+      // Kun mottaker kan lese
+      allow read: if isAuthed() &&
+                   resource.data.recipientUid == request.auth.uid;
+
+      // Kun server (admin SDK) får skrive
+      allow create, update, delete: if false;
+    }
+  }
+}
