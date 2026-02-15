@@ -133,7 +133,9 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings, onD
     color: MCL_HUSKET_THEME.colors.darkSurface,
   };
 
-  const showDevInviteBtn = Boolean(import.meta.env.DEV && typeof onDevCreateInviteCode === "function");
+  const devViaUrl = new URLSearchParams(window.location.search).get("dev") === "1";
+  const showDevInviteBtn = Boolean((import.meta.env.DEV || devViaUrl) && typeof onDevCreateInviteCode === "function");
+
 
   return (
     <div className="topRow" style={headerStyle}>
