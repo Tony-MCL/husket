@@ -49,10 +49,7 @@ export async function getImageBlobByKey(imageKey: string): Promise<Blob | null> 
   return blob ?? null;
 }
 
-export async function createHusket(input: {
-  husket: Omit<Husket, "id">;
-  imageBlob: Blob;
-}): Promise<Husket> {
+export async function createHusket(input: { husket: Omit<Husket, "id">; imageBlob: Blob }): Promise<Husket> {
   const store = loadStore();
   const id = crypto.randomUUID();
   const full: Husket = { ...input.husket, id };
@@ -83,4 +80,30 @@ export async function deleteHusketById(id: string): Promise<Husket | null> {
   saveStore(store);
 
   return removed ?? null;
+}
+
+/**
+ * ✅ NEW: Import a Husket that was received via Sky (relay->save).
+ * - Uses a deterministic imageKey so it won't collide with local ones.
+ * - Idempotent: if husket already exists, it returns it without duplicating.
+ */
+export async function importHusketFromSky(input: {
+  id: string;
+  husket: Omit<Husket, "id" | "imageKey">;
+  imageBlob: Blob;
+}): Promise<Husket> {
+  const store = loadStore();
+
+  const existing = store.items.find((x) => x.id === input.id);
+  if (existing) return existing;
+
+  const imageKey = `skyimg:${input.id}`;
+  const full: Husket = { ...input.husket, id: input.id, imageKey };
+
+  await idbPutBlob(imageKey, input.imageBlob);
+
+  store.items.push(full);
+  saveStore(store);
+
+  return full;
 }
