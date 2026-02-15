@@ -21,6 +21,8 @@ import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
 import { auth, functions } from "../firebase";
 
+import type { Husket } from "../domain/types";
+
 export function App() {
   return (
     <ToastProvider>
@@ -42,6 +44,9 @@ function AppInner() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
+
+  // ✅ Sky send-flow state
+  const [albumPickMode, setAlbumPickMode] = useState(false);
 
   // ✅ Sørg for at vi alltid har auth (anonym) i web-builden
   useEffect(() => {
@@ -130,6 +135,32 @@ function AppInner() {
     }
   };
 
+  // ============================
+  // Sky: Start send flow
+  // ============================
+  const startSendFlow = () => {
+    setAlbumPickMode(true);
+    setRoute("album");
+  };
+
+  const cancelPickFlow = () => {
+    setAlbumPickMode(false);
+    setRoute("shared");
+  };
+
+  const onPickHusketToSend = (husket: Husket) => {
+    // send husket to Shared screen which will open contact modal
+    try {
+      const fn = (window as any).__husketSkyPick as ((h: Husket) => void) | undefined;
+      if (typeof fn === "function") fn(husket);
+    } catch {
+      // ignore
+    }
+
+    setAlbumPickMode(false);
+    setRoute("shared");
+  };
+
   return (
     <div
       className="appShell"
@@ -153,10 +184,25 @@ function AppInner() {
       ) : null}
 
       {route === "album" ? (
-        <AlbumScreen dict={dict} life={life} settings={settings} onAlbumBecameEmpty={() => setRoute("capture")} />
+        <AlbumScreen
+          dict={dict}
+          life={life}
+          settings={settings}
+          onAlbumBecameEmpty={() => setRoute("capture")}
+          selectMode={
+            albumPickMode
+              ? {
+                  enabled: true,
+                  title: "Velg en husket å sende",
+                  onPick: onPickHusketToSend,
+                  onCancel: cancelPickFlow,
+                }
+              : undefined
+          }
+        />
       ) : null}
 
-      {route === "shared" ? <SharedWithMeScreen dict={dict} /> : null}
+      {route === "shared" ? <SharedWithMeScreen dict={dict} onStartSendFlow={startSendFlow} /> : null}
 
       <SettingsDrawer
         dict={dict}
