@@ -1,7 +1,7 @@
 // ===============================
 // src/app/App.tsx
 // ===============================
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { LifeKey, Settings } from "../domain/types";
 import { loadSettings, saveSettings } from "../data/settingsRepo";
 import { getDict } from "../i18n";
@@ -19,7 +19,7 @@ import { FlyToTargetProvider } from "../animation/FlyToTargetProvider";
 
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
-import { functions } from "../firebase";
+import { auth, functions } from "../firebase";
 
 export function App() {
   return (
@@ -33,6 +33,22 @@ export function App() {
 
 function AppInner() {
   const toast = useToast();
+
+    useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        try {
+          await signInAnonymously(auth);
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.error("Anonymous sign-in failed", e);
+          toast.show("Auth failed: anonymous sign-in");
+        }
+      }
+    });
+
+    return () => unsub();
+  }, [toast]);
 
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
   const dict = useMemo(() => getDict(settings.language), [settings.language]);
