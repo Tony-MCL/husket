@@ -15,18 +15,12 @@ service firebase.storage {
       return isAuthed() && request.auth.uid == uid;
     }
 
-    // -------------------------------
-    // Egen husket storage
-    // storage/users/{uid}/huskets/{husketId}.jpg
-    // -------------------------------
+    // Egen husket (Sky backup)
     match /users/{uid}/huskets/{fileName} {
       allow read, write: if isOwner(uid);
     }
 
-    // -------------------------------
-    // Relay storage
-    // storage/relay/{recipientUid}/{relayId}.jpg
-    // -------------------------------
+    // Relay: ingen klienttilgang
     match /relay/{recipientUid}/{fileName} {
       allow read, write: if false;
     }
