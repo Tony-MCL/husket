@@ -14,6 +14,9 @@ type Props = {
   life: LifeKey;
   onLifeChange: (life: LifeKey) => void;
   onOpenSettings: () => void;
+
+  // DEV-only: brukes for å teste createInviteCode callable senere
+  onDevCreateInviteCode?: () => void;
 };
 
 type LifeTab = {
@@ -29,7 +32,7 @@ function getLifeLabel(dict: I18nDict, settings: Settings, key: LifeKey): string 
   return settings.lives.custom2Name || "Custom 2";
 }
 
-export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: Props) {
+export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings, onDevCreateInviteCode }: Props) {
   const lives: LifeTab[] = useMemo(() => {
     const tabs: LifeTab[] = [
       { key: "private", label: getLifeLabel(dict, settings, "private"), enabled: !!settings.lives.enabledPrivate },
@@ -52,6 +55,7 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: P
     justifyContent: "space-between",
     padding: "8px 12px",
     boxSizing: "border-box",
+    gap: 10,
   };
 
   const tabsWrapStyle: React.CSSProperties = {
@@ -67,6 +71,15 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: P
     boxShadow: "none",
     background: "transparent",
     borderRadius: 0,
+    minWidth: 0,
+    flex: "1 1 auto",
+  };
+
+  const rightWrapStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flex: "0 0 auto",
   };
 
   const tabBaseStyle: React.CSSProperties = {
@@ -95,6 +108,12 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: P
     transform: "none",
   };
 
+  const devBtnStyle: React.CSSProperties = {
+    ...tabBaseStyle,
+    padding: "6px 10px",
+    opacity: 0.9,
+  };
+
   const burgerStyle: React.CSSProperties = {
     border: "none",
     borderRadius: 12,
@@ -114,6 +133,8 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: P
     color: MCL_HUSKET_THEME.colors.darkSurface,
   };
 
+  const showDevInviteBtn = Boolean(import.meta.env.DEV && typeof onDevCreateInviteCode === "function");
+
   return (
     <div className="topRow" style={headerStyle}>
       <div className="lifeTabs" role="tablist" aria-label="Lives" style={tabsWrapStyle}>
@@ -130,13 +151,33 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: P
         ))}
       </div>
 
-      <button className="hamburger" onClick={onOpenSettings} type="button" aria-label={tGet(dict, "top.menu")} style={burgerStyle}>
-        <div className="hamburgerLines" aria-hidden="true" style={burgerLinesStyle}>
-          <span />
-          <span />
-          <span />
-        </div>
-      </button>
+      <div style={rightWrapStyle}>
+        {showDevInviteBtn ? (
+          <button
+            type="button"
+            onClick={onDevCreateInviteCode}
+            aria-label="DEV: Create invite code"
+            title="DEV: Create invite code"
+            style={devBtnStyle}
+          >
+            Sky code
+          </button>
+        ) : null}
+
+        <button
+          className="hamburger"
+          onClick={onOpenSettings}
+          type="button"
+          aria-label={tGet(dict, "top.menu")}
+          style={burgerStyle}
+        >
+          <div className="hamburgerLines" aria-hidden="true" style={burgerLinesStyle}>
+            <span />
+            <span />
+            <span />
+          </div>
+        </button>
+      </div>
     </div>
   );
 }
