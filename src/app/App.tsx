@@ -17,6 +17,7 @@ import { PaywallModal } from "../components/PaywallModal";
 import { MCL_HUSKET_THEME } from "../theme";
 import { FlyToTargetProvider } from "../animation/FlyToTargetProvider";
 
+import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../firebase";
 
