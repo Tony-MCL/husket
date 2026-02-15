@@ -34,22 +34,6 @@ export function App() {
 function AppInner() {
   const toast = useToast();
 
-    useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        try {
-          await signInAnonymously(auth);
-        } catch (e) {
-          // eslint-disable-next-line no-console
-          console.error("Anonymous sign-in failed", e);
-          toast.show("Auth failed: anonymous sign-in");
-        }
-      }
-    });
-
-    return () => unsub();
-  }, [toast]);
-
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
   const dict = useMemo(() => getDict(settings.language), [settings.language]);
 
@@ -58,6 +42,21 @@ function AppInner() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
+
+  // ✅ Sørg for at vi alltid har auth (anonym) i web-builden
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (user) return;
+      try {
+        await signInAnonymously(auth);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error(e);
+        toast.show("Kunne ikke logge inn (anonymous). Sjekk Auth-domains og config.");
+      }
+    });
+    return () => unsub();
+  }, [toast]);
 
   const updateSettings = (next: Settings) => {
     setSettings(next);
@@ -70,7 +69,6 @@ function AppInner() {
       ...(next.lives.enabledWork ? (["work"] as LifeKey[]) : []),
     ];
 
-    // Always keep at least one valid life selected
     const fallback: LifeKey = allowed[0] ?? "private";
     if (!allowed.includes(life)) setLife(fallback);
   };
@@ -115,8 +113,7 @@ function AppInner() {
     try {
       const fn = httpsCallable(functions, "createInviteCode");
       const res = await fn({});
-      const code =
-        (res.data as any)?.code ?? (typeof res.data === "string" ? (res.data as string) : "");
+      const code = (res.data as any)?.code ?? (typeof res.data === "string" ? (res.data as string) : "");
 
       if (!code) {
         toast.show("Sky code: (no code returned)");
@@ -171,12 +168,7 @@ function AppInner() {
         onRequirePremium={requirePremium}
       />
 
-      <PaywallModal
-        dict={dict}
-        open={paywallOpen}
-        onCancel={() => setPaywallOpen(false)}
-        onActivate={activatePremiumMock}
-      />
+      <PaywallModal dict={dict} open={paywallOpen} onCancel={() => setPaywallOpen(false)} onActivate={activatePremiumMock} />
 
       <BottomNav dict={dict} route={route} onRouteChange={setRoute} />
     </div>
