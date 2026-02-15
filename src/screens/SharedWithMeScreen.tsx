@@ -221,7 +221,7 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
         ratingValue: husketToSend.ratingValue ?? "",
         categoryLabel: categoryLabelFor(husketToSend),
         gps: husketToSend.gps
-          ? { lat: husketToSend.gps.lat, lng: husketToSend.gps.lng, acc: husketToSend.gps.acc, ts: husketToSend.gps.ts }
+          ? { lat: husketToSend.gps.lat, lng: husketToSend.gps.lng }
           : null,
         image: { storagePath: "client-placeholder" }, // server overwrites
       };
