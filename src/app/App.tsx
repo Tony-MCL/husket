@@ -2,7 +2,7 @@
 // src/app/App.tsx
 // ===============================
 import React, { useEffect, useMemo, useState } from "react";
-import type { LifeKey, Settings } from "../domain/types";
+import type { Husket, LifeKey, Settings } from "../domain/types";
 import { loadSettings, saveSettings } from "../data/settingsRepo";
 import { getDict } from "../i18n";
 import { ToastProvider, useToast } from "../components/ToastHost";
@@ -20,8 +20,6 @@ import { FlyToTargetProvider } from "../animation/FlyToTargetProvider";
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
 import { auth, functions } from "../firebase";
-
-import type { Husket } from "../domain/types";
 
 export function App() {
   return (
@@ -45,8 +43,9 @@ function AppInner() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
 
-  // ✅ Sky send-flow state
+  // --- Sky flow state ---
   const [albumPickMode, setAlbumPickMode] = useState(false);
+  const [pendingHusketToSend, setPendingHusketToSend] = useState<Husket | null>(null);
 
   // ✅ Sørg for at vi alltid har auth (anonym) i web-builden
   useEffect(() => {
@@ -114,6 +113,7 @@ function AppInner() {
     }
   }
 
+  // DEV: create invite code (callable)
   const onDevCreateInviteCode = async () => {
     try {
       const fn = httpsCallable(functions, "createInviteCode");
@@ -135,28 +135,20 @@ function AppInner() {
     }
   };
 
-  // ============================
-  // Sky: Start send flow
-  // ============================
+  // Start sending flow from SharedWithMe -> go to Album in "pick mode"
   const startSendFlow = () => {
     setAlbumPickMode(true);
     setRoute("album");
   };
 
-  const cancelPickFlow = () => {
+  // When user picks a husket in album pick mode -> go back to SharedWithMe and open recipient modal there
+  const onPickHusketToSend = (h: Husket) => {
+    setPendingHusketToSend(h);
     setAlbumPickMode(false);
     setRoute("shared");
   };
 
-  const onPickHusketToSend = (husket: Husket) => {
-    // send husket to Shared screen which will open contact modal
-    try {
-      const fn = (window as any).__husketSkyPick as ((h: Husket) => void) | undefined;
-      if (typeof fn === "function") fn(husket);
-    } catch {
-      // ignore
-    }
-
+  const onCancelPick = () => {
     setAlbumPickMode(false);
     setRoute("shared");
   };
@@ -189,20 +181,21 @@ function AppInner() {
           life={life}
           settings={settings}
           onAlbumBecameEmpty={() => setRoute("capture")}
-          selectMode={
-            albumPickMode
-              ? {
-                  enabled: true,
-                  title: "Velg en husket å sende",
-                  onPick: onPickHusketToSend,
-                  onCancel: cancelPickFlow,
-                }
-              : undefined
-          }
+          pickMode={albumPickMode}
+          onPickHusket={onPickHusketToSend}
+          onCancelPick={onCancelPick}
         />
       ) : null}
 
-      {route === "shared" ? <SharedWithMeScreen dict={dict} onStartSendFlow={startSendFlow} /> : null}
+      {route === "shared" ? (
+        <SharedWithMeScreen
+          dict={dict}
+          settings={settings}
+          husketToSend={pendingHusketToSend}
+          onClearHusketToSend={() => setPendingHusketToSend(null)}
+          onStartSendFlow={startSendFlow}
+        />
+      ) : null}
 
       <SettingsDrawer
         dict={dict}
@@ -216,7 +209,11 @@ function AppInner() {
 
       <PaywallModal dict={dict} open={paywallOpen} onCancel={() => setPaywallOpen(false)} onActivate={activatePremiumMock} />
 
-      <BottomNav dict={dict} route={route} onRouteChange={setRoute} />
+      <BottomNav dict={dict} route={route} onRouteChange={(r) => {
+        // leaving album => exit pick mode
+        if (r !== "album") setAlbumPickMode(false);
+        setRoute(r);
+      }} />
     </div>
   );
 }
