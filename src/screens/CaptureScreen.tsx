@@ -11,6 +11,8 @@ import { HUSKET_TYPO } from "../theme/typography";
 import { MCL_HUSKET_THEME } from "../theme";
 import { getEffectiveRatingPack } from "../domain/settingsCore";
 import { getRatingPackOptions, renderRatingValue } from "../domain/ratingPacks";
+import { useFlyToTarget } from "../animation/useFlyToTarget";
+import { FLY_TARGET_ALBUM } from "../components/BottomNav";
 
 type Props = {
   dict: I18nDict;
@@ -58,9 +60,11 @@ async function getGpsIfAllowed(args: {
  */
 export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedGoAlbum }: Props) {
   const toast = useToast();
+  const { flyToTarget, isAnimating } = useFlyToTarget();
 
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [imageBlob, setImageBlob] = useState<Blob | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [rating, setRating] = useState<string | null>(null);
   const [comment, setComment] = useState<string>("");
@@ -68,6 +72,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
 
   const fileRef = useRef<HTMLInputElement | null>(null);
   const autoOpenAttemptedRef = useRef(false);
+  const previewFlyRef = useRef<HTMLDivElement | null>(null);
 
   const catsAll = useMemo(() => settings.categories[life] ?? [], [life, settings.categories]);
 
@@ -142,6 +147,8 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
   }, []);
 
   const onSave = async () => {
+    if (isSaving || isAnimating) return;
+
     if (!imageBlob) {
       toast.show(tGet(dict, "capture.photoRequired"));
       return;
@@ -153,6 +160,8 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
       onRequirePremium();
       return;
     }
+
+    setIsSaving(true);
 
     const imageKey = `img:${crypto.randomUUID()}`;
 
@@ -175,12 +184,30 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
       gps,
     };
 
-    await createHusket({ husket: husketBase, imageBlob });
+    try {
+      await createHusket({ husket: husketBase, imageBlob });
 
-    toast.show(tGet(dict, "capture.saved"));
+      toast.show(tGet(dict, "capture.saved"));
 
-    resetAll();
-    onSavedGoAlbum();
+      const sourceEl = previewFlyRef.current;
+      if (sourceEl) {
+        flyToTarget({
+          sourceEl,
+          targetId: FLY_TARGET_ALBUM,
+          onComplete: () => {
+            resetAll();
+            onSavedGoAlbum();
+          },
+        });
+        return;
+      }
+
+      // Fallback (no preview element)
+      resetAll();
+      onSavedGoAlbum();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // ---- Typography (B) ----
@@ -294,6 +321,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
               }}
             >
               <div
+                ref={previewFlyRef}
                 style={{
                   width: "100%",
                   height: "100%",
@@ -442,7 +470,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
           style={primaryBtnStyle}
           onClick={() => void onSave()}
           type="button"
-          disabled={!canSave}
+          disabled={!canSave || isSaving || isAnimating}
         >
           {tGet(dict, "capture.save")}
         </button>
