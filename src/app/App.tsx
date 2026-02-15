@@ -53,8 +53,6 @@ export function App() {
     setPaywallOpen(false);
   };
 
-  const onSavedGoAlbum = () => setRoute("album");
-
   return (
     <ToastProvider>
       <FlyToTargetProvider>
@@ -75,7 +73,7 @@ export function App() {
           />
 
           {route === "capture" ? (
-            <CaptureScreen dict={dict} life={life} settings={settings} onRequirePremium={requirePremium} onSavedGoAlbum={onSavedGoAlbum} />
+            <CaptureScreen dict={dict} life={life} settings={settings} onRequirePremium={requirePremium} />
           ) : null}
 
           {route === "album" ? <AlbumScreen dict={dict} life={life} settings={settings} /> : null}
