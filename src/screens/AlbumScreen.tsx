@@ -16,6 +16,7 @@ type Props = {
   dict: I18nDict;
   life: LifeKey;
   settings: Settings;
+  onAlbumBecameEmpty?: () => void;
 };
 
 function formatThumbDate(ts: number, lang: "no" | "en") {
@@ -23,284 +24,127 @@ function formatThumbDate(ts: number, lang: "no" | "en") {
   if (lang === "no") {
     const dd = String(d.getDate()).padStart(2, "0");
     const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const yy = d.getFullYear();
-    return `${dd}.${mm}.${yy}`;
+    const yyyy = d.getFullYear();
+    return `${dd}.${mm}.${yyyy}`;
   }
   return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "2-digit" });
 }
 
 type TimeFilterKey = "all" | "7d" | "30d" | "365d";
+type RatingFilterKey = "any" | "rated" | "unrated";
+type CategoryFilterKey = "any" | "none" | "some";
 
-type LifeFilters = {
-  appliedRatings: Record<string, boolean>;
-  appliedCategoryIds: Record<string, boolean>;
-  appliedTimeFilter: TimeFilterKey;
+type AppliedFilters = {
+  time: TimeFilterKey;
+  rating: RatingFilterKey;
+  category: CategoryFilterKey;
 };
 
-function emptyLifeFilters(): LifeFilters {
-  return { appliedRatings: {}, appliedCategoryIds: {}, appliedTimeFilter: "all" };
+const DEFAULT_FILTERS: AppliedFilters = {
+  time: "all",
+  rating: "any",
+  category: "any",
+};
+
+function withinTime(ts: number, nowMs: number, key: TimeFilterKey): boolean {
+  if (key === "all") return true;
+  const diff = nowMs - ts;
+  const dayMs = 24 * 60 * 60 * 1000;
+  if (key === "7d") return diff <= 7 * dayMs;
+  if (key === "30d") return diff <= 30 * dayMs;
+  return diff <= 365 * dayMs;
 }
 
-function computeCutoffMs(timeKey: TimeFilterKey, nowMs: number): number | null {
-  if (timeKey === "7d") return nowMs - 7 * 24 * 60 * 60 * 1000;
-  if (timeKey === "30d") return nowMs - 30 * 24 * 60 * 60 * 1000;
-  if (timeKey === "365d") return nowMs - 365 * 24 * 60 * 60 * 1000;
-  return null;
-}
-
-function applyFiltersToItems(args: { items: Husket[]; applied: LifeFilters; nowMs: number }): Husket[] {
+function applyFiltersToItems(args: { items: Husket[]; applied: AppliedFilters; nowMs: number }): Husket[] {
   const { items, applied, nowMs } = args;
 
-  const ratingsActive = Object.values(applied.appliedRatings).some(Boolean);
-  const catsActive = Object.values(applied.appliedCategoryIds).some(Boolean);
-  const timeActive = applied.appliedTimeFilter !== "all";
+  return items.filter((h) => {
+    if (!withinTime(h.createdAt, nowMs, applied.time)) return false;
 
-  const cutoffMs = computeCutoffMs(applied.appliedTimeFilter, nowMs);
+    if (applied.rating === "rated" && !h.ratingValue) return false;
+    if (applied.rating === "unrated" && !!h.ratingValue) return false;
 
-  const res = items.filter((it) => {
-    if (ratingsActive) {
-      const key = it.ratingValue ?? "__none__";
-      if (!applied.appliedRatings[key]) return false;
-    }
-    if (catsActive) {
-      const key = it.categoryId ?? "__none__";
-      if (!applied.appliedCategoryIds[key]) return false;
-    }
-    if (timeActive && cutoffMs != null) {
-      if (it.createdAt < cutoffMs) return false;
-    }
+    if (applied.category === "none" && !!h.categoryId) return false;
+    if (applied.category === "some" && !h.categoryId) return false;
+
     return true;
   });
-
-  res.sort((a, b) => b.createdAt - a.createdAt);
-  return res;
 }
 
-export function AlbumScreen({ dict, life, settings }: Props) {
+function countApplied(applied: AppliedFilters): number {
+  let n = 0;
+  if (applied.time !== "all") n += 1;
+  if (applied.rating !== "any") n += 1;
+  if (applied.category !== "any") n += 1;
+  return n;
+}
+
+export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty }: Props) {
   const [items, setItems] = useState<Husket[]>([]);
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
   const [viewer, setViewer] = useState<{ open: boolean; index: number }>({ open: false, index: 0 });
 
-  // Filters are per-life
-  const [filtersByLife, setFiltersByLife] = useState<Record<string, LifeFilters>>(() => ({}));
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [draft, setDraft] = useState<AppliedFilters>(DEFAULT_FILTERS);
+  const [applied, setApplied] = useState<AppliedFilters>(DEFAULT_FILTERS);
 
-  // Dropdown open + draft state
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [draftRatings, setDraftRatings] = useState<Record<string, boolean>>({});
-  const [draftCategoryIds, setDraftCategoryIds] = useState<Record<string, boolean>>({});
-  const [draftTimeFilter, setDraftTimeFilter] = useState<TimeFilterKey>("all");
-
-  const filterWrapRef = useRef<HTMLDivElement | null>(null);
-
-  const lang: "no" | "en" = useMemo(() => {
-    if (settings.language === "no") return "no";
-    if (settings.language === "en") return "en";
-    const n = (navigator.language || "en").toLowerCase();
-    return n.startsWith("no") || n.startsWith("nb") || n.startsWith("nn") ? "no" : "en";
-  }, [settings.language]);
-
-  const cats = settings.categories[life] ?? [];
-
-  const categoryLabel = (id: string | null) => {
-    if (!id) return null;
-    return cats.find((c) => c.id === id)?.label ?? null;
-  };
-
-  // Rating pack is per-life (fallback to global)
-  const activeRatingPack = useMemo(() => getEffectiveRatingPack(settings, life), [settings, life]);
-  const packRatingOptions = useMemo(() => getRatingPackOptions(activeRatingPack), [activeRatingPack]);
+  const disposedRef = useRef(false);
 
   useEffect(() => {
-    const next = listHuskets(life)
-      .slice()
-      .sort((a, b) => b.createdAt - a.createdAt);
-    setItems(next);
-
-    let cancelled = false;
-    (async () => {
-      const urls: Record<string, string> = {};
-      for (const it of next.slice(0, 60)) {
-        const u = await getImageUrl(it.imageKey);
-        if (cancelled) return;
-        if (u) urls[it.id] = u;
-      }
-      if (cancelled) return;
-      setThumbUrls((prev) => {
-        for (const k of Object.keys(prev)) {
-          if (!urls[k]) URL.revokeObjectURL(prev[k]);
-        }
-        return urls;
-      });
-    })();
-
+    disposedRef.current = false;
     return () => {
-      cancelled = true;
+      disposedRef.current = true;
     };
-  }, [life]);
-
-  useEffect(() => {
-    return () => {
-      for (const u of Object.values(thumbUrls)) URL.revokeObjectURL(u);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const applied = useMemo<LifeFilters>(() => {
-    return filtersByLife[life] ?? emptyLifeFilters();
-  }, [filtersByLife, life]);
-
-  // When opening filters: seed draft from applied (for the CURRENT life)
   useEffect(() => {
-    if (!filtersOpen) return;
-    setDraftRatings(applied.appliedRatings);
-    setDraftCategoryIds(applied.appliedCategoryIds);
-    setDraftTimeFilter(applied.appliedTimeFilter);
-  }, [filtersOpen, applied.appliedRatings, applied.appliedCategoryIds, applied.appliedTimeFilter]);
-
-  // When switching life: close dropdown & close viewer
-  useEffect(() => {
-    setFiltersOpen(false);
-    setViewer({ open: false, index: 0 });
+    // reset filters when switching lives (keeps logic predictable)
+    setDraft(DEFAULT_FILTERS);
+    setApplied(DEFAULT_FILTERS);
   }, [life]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
-    if (!filtersOpen) return;
+    const hs = listHuskets({ life });
 
-    const onDown = (e: MouseEvent) => {
-      const el = filterWrapRef.current;
-      if (!el) return;
-      if (el.contains(e.target as Node)) return;
-      setFiltersOpen(false);
-    };
+    // newest first (hard rule)
+    const sorted = [...hs].sort((a, b) => b.createdAt - a.createdAt);
+    setItems(sorted);
 
-    window.addEventListener("mousedown", onDown, { capture: true });
-    return () => window.removeEventListener("mousedown", onDown, { capture: true } as any);
-  }, [filtersOpen]);
-
-  const nowMs = Date.now();
-
-  const filteredItems = useMemo(() => {
-    return applyFiltersToItems({ items, applied, nowMs });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, applied.appliedRatings, applied.appliedCategoryIds, applied.appliedTimeFilter]);
-
-  const timeLabelShort = (k: TimeFilterKey) => {
-    if (lang === "no") {
-      if (k === "all") return "Alle";
-      if (k === "7d") return "Siste uke";
-      if (k === "30d") return "Siste måned";
-      return "Siste år";
+    // rebuild thumb URLs
+    const next: Record<string, string> = {};
+    for (const h of sorted) {
+      const blob = getImageUrl(h.imageKey);
+      if (blob) next[h.id] = blob;
     }
-    if (k === "all") return "All";
-    if (k === "7d") return "Last week";
-    if (k === "30d") return "Last month";
-    return "Last year";
-  };
 
-  // Ratings to show in filter dropdown = pack options + any ratings found in existing data (for this life)
-  const ratingOptions = useMemo(() => {
-    const inData = new Set<string>();
-    for (const it of items) {
-      if (it.ratingValue != null && it.ratingValue.trim().length > 0) {
-        inData.add(it.ratingValue);
+    // revoke old URLs not present anymore
+    setThumbUrls((prev) => {
+      for (const id of Object.keys(prev)) {
+        if (!next[id]) {
+          try {
+            URL.revokeObjectURL(prev[id]);
+          } catch {
+            // ignore
+          }
+        }
       }
-    }
-
-    const ordered: string[] = [];
-    for (const r of packRatingOptions) {
-      ordered.push(r);
-      if (inData.has(r)) inData.delete(r);
-    }
-
-    // Add any “extra” ratings present in old data (e.g. you changed rating-pack later)
-    const extras = Array.from(inData);
-    extras.sort((a, b) => a.localeCompare(b));
-    ordered.push(...extras);
-
-    return ordered;
-  }, [items, packRatingOptions]);
-
-  const anyAppliedRatingSelected = useMemo(() => Object.values(applied.appliedRatings).some(Boolean), [applied.appliedRatings]);
-  const anyAppliedCategorySelected = useMemo(
-    () => Object.values(applied.appliedCategoryIds).some(Boolean),
-    [applied.appliedCategoryIds]
-  );
-
-  const activeSummary = useMemo(() => {
-    const parts: string[] = [];
-
-    if (anyAppliedRatingSelected) {
-      const picked = Object.entries(applied.appliedRatings)
-        .filter(([, v]) => v)
-        .map(([k]) => (k === "__none__" ? (lang === "no" ? "Ingen" : "None") : formatRatingValueForSummary(k)));
-      if (picked.length > 0) parts.push(`⭐ ${picked.join(", ")}`);
-    }
-
-    if (anyAppliedCategorySelected) {
-      const pickedIds = Object.entries(applied.appliedCategoryIds)
-        .filter(([, v]) => v)
-        .map(([k]) => k);
-
-      const labels = pickedIds.map((id) => {
-        if (id === "__none__") return lang === "no" ? "Ingen" : "None";
-        return categoryLabel(id) ?? id;
-      });
-
-      if (labels.length > 0) parts.push(`🏷 ${labels.join(", ")}`);
-    }
-
-    if (applied.appliedTimeFilter !== "all") {
-      parts.push(`⏱ ${timeLabelShort(applied.appliedTimeFilter)}`);
-    }
-
-    return parts.length > 0 ? parts : [lang === "no" ? "Ingen filtre" : "No filters"];
-  }, [
-    anyAppliedRatingSelected,
-    anyAppliedCategorySelected,
-    applied.appliedRatings,
-    applied.appliedCategoryIds,
-    applied.appliedTimeFilter,
-    lang,
-    cats,
-  ]);
-
-  const toggleDraftRating = (val: string) => {
-    setDraftRatings((prev) => ({ ...prev, [val]: !prev[val] }));
-  };
-
-  const toggleDraftCategory = (id: string) => {
-    setDraftCategoryIds((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const setDraftTimeExclusive = (k: TimeFilterKey) => {
-    setDraftTimeFilter(k);
-  };
-
-  const applyFiltersAndClose = () => {
-    setFiltersByLife((prev) => ({
-      ...prev,
-      [life]: {
-        appliedRatings: draftRatings,
-        appliedCategoryIds: draftCategoryIds,
-        appliedTimeFilter: draftTimeFilter,
-      },
-    }));
-    setFiltersOpen(false);
-    setViewer({ open: false, index: 0 });
-  };
-
-  const resetFiltersAndClose = () => {
-    setFiltersByLife((prev) => {
-      const next = { ...prev };
-      next[life] = emptyLifeFilters();
       return next;
     });
-    setDraftRatings({});
-    setDraftCategoryIds({});
-    setDraftTimeFilter("all");
-    setFiltersOpen(false);
-    setViewer({ open: false, index: 0 });
+  }, [life]);
+
+  const activeRatingPack = useMemo(() => getEffectiveRatingPack(settings, life), [settings, life]);
+  const ratingOpts = useMemo(() => getRatingPackOptions(activeRatingPack), [activeRatingPack]);
+
+  const filtered = useMemo(() => {
+    return applyFiltersToItems({ items, applied, nowMs: Date.now() });
+  }, [items, applied]);
+
+  const appliedCount = useMemo(() => countApplied(applied), [applied]);
+
+  const openViewerAt = (index: number) => {
+    if (filtered.length === 0) return;
+    const clamped = Math.max(0, Math.min(index, filtered.length - 1));
+    setViewer({ open: true, index: clamped });
   };
 
   const onDeleteFromViewer = async (id: string) => {
@@ -331,10 +175,19 @@ export function AlbumScreen({ dict, life, settings }: Props) {
       return;
     }
 
-    // Compute what the filtered list WILL look like after deletion (using current filters)
+    // Compute what the list WILL look like after deletion (unfiltered + filtered)
     const nextItems = items.filter((x) => x.id !== id);
+
+    // ✅ NEW RULE: if album truly became empty, kick user back to Capture
+    if (nextItems.length === 0) {
+      setViewer({ open: false, index: 0 });
+      onAlbumBecameEmpty?.();
+      return;
+    }
+
     const nextFiltered = applyFiltersToItems({ items: nextItems, applied, nowMs: Date.now() });
 
+    // If current filter set becomes empty, just close viewer (do NOT navigate)
     if (nextFiltered.length === 0) {
       setViewer({ open: false, index: 0 });
       return;
@@ -369,303 +222,242 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     letterSpacing: HUSKET_TYPO.B.letterSpacing,
   };
 
-  // ---- MCL styles for filter UI (flat + minimal) ----
-  const filterBtnStyle: React.CSSProperties = {
-    width: "100%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-    padding: "10px 12px",
-    cursor: "pointer",
-    background: "transparent",
-    color: MCL_HUSKET_THEME.colors.textOnDark,
-    border: `1px solid rgba(247, 243, 237, 0.18)`,
-    borderRadius: 16,
-  };
-
-  const summaryTextStyle: React.CSSProperties = {
+  const helpText: React.CSSProperties = {
     ...textB,
-    color: MCL_HUSKET_THEME.colors.textOnDark,
-    opacity: 0.95,
-    whiteSpace: "nowrap",
+    color: "rgba(247, 243, 237, 0.70)",
   };
 
-  const dropStyle: React.CSSProperties = {
-    position: "absolute",
-    top: "calc(100% + 8px)",
-    left: 0,
-    right: 0,
-    zIndex: 30,
-    borderRadius: 16,
-    padding: 12,
-    boxShadow: MCL_HUSKET_THEME.elevation.elev2,
-    background: MCL_HUSKET_THEME.colors.header,
-    color: MCL_HUSKET_THEME.colors.darkSurface,
-    border: "none",
-    display: "grid",
-    gap: 12,
-  };
-
-  const dropLabelStyle: React.CSSProperties = {
-    ...textA,
-    margin: 0,
-    color: MCL_HUSKET_THEME.colors.darkSurface,
-  };
-
-  const flatChoiceRow: React.CSSProperties = {
-    ...textB,
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    padding: "4px 0",
-    border: "none",
-    background: "transparent",
-    color: MCL_HUSKET_THEME.colors.darkSurface,
-    cursor: "pointer",
-    userSelect: "none",
-  };
-
-  const checkboxStyle: React.CSSProperties = {
-    transform: "scale(1.1)",
-  };
-
-  const actionsRow: React.CSSProperties = {
-    display: "flex",
-    gap: 12,
-    justifyContent: "space-between",
-    marginTop: 6,
-  };
-
-  const actionBtnBase: React.CSSProperties = {
-    ...textA,
-    border: "none",
-    background: "transparent",
-    padding: "6px 0",
-    cursor: "pointer",
-    color: MCL_HUSKET_THEME.colors.darkSurface,
-  };
-
-  const actionBtnDanger: React.CSSProperties = {
-    ...actionBtnBase,
-    color: MCL_HUSKET_THEME.colors.danger,
-  };
-
-  const actionBtnConfirm: React.CSSProperties = {
-    ...actionBtnBase,
-    color: MCL_HUSKET_THEME.colors.darkSurface,
-  };
-
-  // section divider
-  const sectionDivider: React.CSSProperties = {
-    height: 1,
+  // ---- visual atoms ----
+  const dividerThin: React.CSSProperties = {
     width: "100%",
-    background: "rgba(27, 26, 23, 0.18)",
+    height: 0,
+    borderTop: "1px solid rgba(247, 243, 237, 0.12)",
+    margin: "10px 0",
+  };
+
+  const pillBase: React.CSSProperties = {
+    border: "none",
+    background: "transparent",
+    color: "rgba(247, 243, 237, 0.86)",
+    padding: "8px 10px",
     borderRadius: 999,
-  };
-
-  const sectionSpacer: React.CSSProperties = {
-    display: "grid",
-    gap: 12,
-  };
-
-  const thumbMetaTypography: React.CSSProperties = {
+    boxShadow: "none",
+    outline: "none",
+    cursor: "pointer",
     ...textB,
+    lineHeight: 1,
   };
 
-  if (items.length === 0) {
-    return (
-      <div className="smallHelp" style={textB}>
-        {tGet(dict, "album.empty")}
-      </div>
-    );
-  }
+  const pillActive: React.CSSProperties = {
+    background: "rgba(247, 243, 237, 0.10)",
+    color: "rgba(247, 243, 237, 0.95)",
+  };
+
+  const primaryBtnStyle: React.CSSProperties = {
+    background: MCL_HUSKET_THEME.colors.header,
+    color: "rgba(27, 26, 23, 0.92)",
+    border: "1px solid rgba(247, 243, 237, 0.14)",
+    boxShadow: "none",
+  };
 
   return (
     <div>
-      {/* Filter bar + dropdown */}
-      <div ref={filterWrapRef} style={{ position: "relative", marginBottom: 10 }}>
-        <button
-          type="button"
-          className="flatBtn"
-          onClick={() => setFiltersOpen((v) => !v)}
-          style={filterBtnStyle}
-          aria-expanded={filtersOpen}
-        >
-          <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <span aria-hidden>🔎</span>
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+        <div style={textA}>{tGet(dict, "album.title")}</div>
 
-            <span style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", minWidth: 0 }}>
-              {activeSummary.map((p, idx) => (
-                <span key={`${p}-${idx}`} style={summaryTextStyle}>
-                  {p}
-                </span>
-              ))}
-            </span>
-          </span>
-
-          <span aria-hidden style={{ opacity: 0.85, color: MCL_HUSKET_THEME.colors.textOnDark }}>
-            {filtersOpen ? "▴" : "▾"}
-          </span>
+        <button className="flatBtn primary" style={primaryBtnStyle} type="button" onClick={() => setFilterOpen(true)}>
+          {tGet(dict, "album.filter")} {appliedCount > 0 ? `(${appliedCount})` : ""}
         </button>
-
-        {filtersOpen ? (
-          <div style={dropStyle}>
-            {/* TIME */}
-            <div style={sectionSpacer}>
-              <div className="label" style={dropLabelStyle}>
-                {lang === "no" ? "Tid" : "Time"}
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                {timeChoices.map(({ key, col }) => (
-                  <label key={key} style={{ ...flatChoiceRow, gridColumn: col }}>
-                    <input
-                      type="checkbox"
-                      checked={draftTimeFilter === key}
-                      onChange={() => setDraftTimeExclusive(key)}
-                      style={checkboxStyle}
-                    />
-                    <span>{timeLabelShort(key)}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ marginTop: 6 }} />
-            <div style={sectionDivider} />
-            <div style={{ marginTop: 6 }} />
-
-            {/* RATING */}
-            <div style={sectionSpacer}>
-              <div className="label" style={dropLabelStyle}>
-                {lang === "no" ? "Vurdering" : "Rating"}
-              </div>
-
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 18 }}>
-                {ratingOptions.map((r) => (
-                  <label key={r} style={flatChoiceRow}>
-                    <input
-                      type="checkbox"
-                      checked={!!draftRatings[r]}
-                      onChange={() => toggleDraftRating(r)}
-                      style={checkboxStyle}
-                    />
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      {renderRatingValue(r)}
-                    </span>
-                  </label>
-                ))}
-
-                <label style={flatChoiceRow} title={lang === "no" ? "Huskets uten vurdering" : "Huskets without rating"}>
-                  <input
-                    type="checkbox"
-                    checked={!!draftRatings["__none__"]}
-                    onChange={() => setDraftRatings((p) => ({ ...p, __none__: !p.__none__ }))}
-                    style={checkboxStyle}
-                  />
-                  <span>{lang === "no" ? "Ingen" : "None"}</span>
-                </label>
-              </div>
-            </div>
-
-            <div style={{ marginTop: 6 }} />
-            <div style={sectionDivider} />
-            <div style={{ marginTop: 6 }} />
-
-            {/* CATEGORIES */}
-            <div style={sectionSpacer}>
-              <div className="label" style={dropLabelStyle}>
-                {lang === "no" ? "Kategori" : "Category"}
-              </div>
-
-              {cats.length === 0 ? (
-                <div className="smallHelp" style={textB}>
-                  {tGet(dict, "capture.noCategories")}
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 18 }}>
-                  {cats.map((c) => (
-                    <label key={c.id} style={flatChoiceRow}>
-                      <input
-                        type="checkbox"
-                        checked={!!draftCategoryIds[c.id]}
-                        onChange={() => toggleDraftCategory(c.id)}
-                        style={checkboxStyle}
-                      />
-                      <span>{c.label}</span>
-                    </label>
-                  ))}
-
-                  <label style={flatChoiceRow} title={lang === "no" ? "Huskets uten kategori" : "Huskets without category"}>
-                    <input
-                      type="checkbox"
-                      checked={!!draftCategoryIds["__none__"]}
-                      onChange={() => setDraftCategoryIds((p) => ({ ...p, __none__: !p.__none__ }))}
-                      style={checkboxStyle}
-                    />
-                    <span>{lang === "no" ? "Ingen" : "None"}</span>
-                  </label>
-                </div>
-              )}
-            </div>
-
-            <div style={actionsRow}>
-              <button type="button" onClick={resetFiltersAndClose} style={actionBtnDanger}>
-                {lang === "no" ? "Nullstill filtre" : "Reset filters"}
-              </button>
-
-              <button type="button" onClick={applyFiltersAndClose} style={actionBtnConfirm}>
-                {lang === "no" ? "Aktiver filtre" : "Apply filters"}
-              </button>
-            </div>
-          </div>
-        ) : null}
       </div>
 
-      {filteredItems.length === 0 ? (
-        <div className="smallHelp" style={textB}>
-          {lang === "no" ? "Ingen treff på valgte filtre." : "No matches for selected filters."}
+      <div style={dividerThin} />
+
+      {/* Empty state */}
+      {filtered.length === 0 ? (
+        <div className="smallHelp" style={helpText}>
+          {tGet(dict, "album.empty")}
         </div>
       ) : (
-        <div className="albumGrid">
-          {filteredItems.map((it, index) => (
-            <button
-              key={it.id}
-              className="thumb"
-              onClick={() => setViewer({ open: true, index })}
-              type="button"
-              style={{ padding: 0, textAlign: "left", cursor: "pointer" }}
-            >
-              {thumbUrls[it.id] ? (
-                <img className="thumbImg" src={thumbUrls[it.id]} alt="" />
-              ) : (
-                <div className="capturePreview" style={textB}>
-                  Loading…
+        <div className="albumGrid" style={{ marginTop: 10 }}>
+          {filtered.map((h, idx) => {
+            const url = thumbUrls[h.id];
+            const ratingSummary = h.ratingValue ? formatRatingValueForSummary(h.ratingValue, activeRatingPack) : null;
+
+            const catLabel = h.categoryId
+              ? (settings.categories[life] ?? []).find((c) => c.id === h.categoryId)?.label ?? null
+              : null;
+
+            return (
+              <button
+                key={h.id}
+                type="button"
+                className="thumb"
+                onClick={() => openViewerAt(idx)}
+                style={{
+                  border: "1px solid rgba(247, 243, 237, 0.12)",
+                  borderRadius: 16,
+                  overflow: "hidden",
+                  background: "rgba(247, 243, 237, 0.04)",
+                  padding: 0,
+                  cursor: "pointer",
+                }}
+              >
+                {url ? (
+                  <img src={url} className="thumbImg" alt="" />
+                ) : (
+                  <div
+                    style={{
+                      width: "100%",
+                      aspectRatio: "1 / 1",
+                      display: "grid",
+                      placeItems: "center",
+                      color: "rgba(247, 243, 237, 0.70)",
+                      ...textB,
+                    }}
+                  >
+                    {tGet(dict, "album.noImage")}
+                  </div>
+                )}
+
+                <div className="thumbMeta" style={{ background: "transparent" }}>
+                  <span>{formatThumbDate(h.createdAt, settings.language)}</span>
+                  <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    {ratingSummary ? <span className="badge">{ratingSummary}</span> : null}
+                    {catLabel ? <span className="badge">{catLabel}</span> : null}
+                  </span>
                 </div>
-              )}
-              <div className="thumbMeta" style={thumbMetaTypography}>
-                <span>{formatThumbDate(it.createdAt, lang)}</span>
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  {it.gps ? <span title={tGet(dict, "album.gps")}>🌍</span> : null}
-                  {categoryLabel(it.categoryId) ? <span className="badge">{categoryLabel(it.categoryId)}</span> : null}
-                </span>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
       )}
 
-      {viewer.open ? (
-        <ViewHusketModal
-          dict={dict}
-          settings={settings}
-          items={filteredItems}
-          index={Math.min(viewer.index, Math.max(filteredItems.length - 1, 0))}
-          onSetIndex={(next) => setViewer((v) => ({ ...v, index: next }))}
-          onDelete={onDeleteFromViewer}
-          onClose={() => setViewer({ open: false, index: 0 })}
-        />
+      {/* Viewer */}
+      <ViewHusketModal
+        dict={dict}
+        open={viewer.open}
+        index={viewer.index}
+        items={filtered}
+        ratingPack={activeRatingPack}
+        onClose={() => setViewer({ open: false, index: 0 })}
+        onIndexChange={(i) => setViewer((v) => ({ ...v, index: i }))}
+        onDelete={onDeleteFromViewer}
+        getImageUrlByKey={(key) => getImageUrl(key)}
+      />
+
+      {/* Filter modal */}
+      {filterOpen ? (
+        <div className="modalOverlay" role="dialog" aria-modal="true" aria-label="Album filters">
+          <div className="modalBox" style={{ background: MCL_HUSKET_THEME.colors.surface }}>
+            <div className="modalTitle" style={textA}>
+              {tGet(dict, "album.filterTitle")}
+            </div>
+
+            <div style={dividerThin} />
+
+            {/* Time */}
+            <div style={{ ...textB, marginBottom: 6, color: "rgba(27, 26, 23, 0.75)" }}>{tGet(dict, "album.filterTime")}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {timeChoices.map((c) => {
+                const active = draft.time === c.key;
+                return (
+                  <button
+                    key={c.key}
+                    type="button"
+                    style={{ ...pillBase, ...(active ? pillActive : null), color: active ? "rgba(27,26,23,0.92)" : "rgba(27,26,23,0.78)" }}
+                    onClick={() => setDraft((d) => ({ ...d, time: c.key }))}
+                  >
+                    {tGet(dict, `album.time.${c.key}`)}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={dividerThin} />
+
+            {/* Rating */}
+            <div style={{ ...textB, marginBottom: 6, color: "rgba(27, 26, 23, 0.75)" }}>{tGet(dict, "album.filterRating")}</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {(["any", "rated", "unrated"] as RatingFilterKey[]).map((k) => {
+                const active = draft.rating === k;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    style={{ ...pillBase, ...(active ? pillActive : null), color: active ? "rgba(27,26,23,0.92)" : "rgba(27,26,23,0.78)" }}
+                    onClick={() => setDraft((d) => ({ ...d, rating: k }))}
+                  >
+                    {tGet(dict, `album.rating.${k}`)}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Quick legend for pack */}
+            <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {ratingOpts.map((v) => (
+                <span key={v} className="badge" style={{ borderColor: "rgba(0,0,0,0.16)", color: "rgba(0,0,0,0.72)" }}>
+                  {renderRatingValue(v)}
+                </span>
+              ))}
+            </div>
+
+            <div style={dividerThin} />
+
+            {/* Category */}
+            <div style={{ ...textB, marginBottom: 6, color: "rgba(27, 26, 23, 0.75)" }}>{tGet(dict, "album.filterCategory")}</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {(["any", "some", "none"] as CategoryFilterKey[]).map((k) => {
+                const active = draft.category === k;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    style={{ ...pillBase, ...(active ? pillActive : null), color: active ? "rgba(27,26,23,0.92)" : "rgba(27,26,23,0.78)" }}
+                    onClick={() => setDraft((d) => ({ ...d, category: k }))}
+                  >
+                    {tGet(dict, `album.category.${k}`)}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="modalActions" style={{ marginTop: 14 }}>
+              <button
+                className="flatBtn danger"
+                type="button"
+                onClick={() => {
+                  setDraft(applied);
+                  setFilterOpen(false);
+                }}
+              >
+                {tGet(dict, "common.cancel")}
+              </button>
+
+              <button
+                className="flatBtn"
+                type="button"
+                onClick={() => {
+                  setDraft(DEFAULT_FILTERS);
+                }}
+              >
+                {tGet(dict, "common.reset")}
+              </button>
+
+              <button
+                className="flatBtn primary"
+                type="button"
+                onClick={() => {
+                  setApplied(draft);
+                  setFilterOpen(false);
+                }}
+              >
+                {tGet(dict, "common.apply")}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );
