@@ -1,12 +1,13 @@
 // ===============================
 // src/components/BottomNav.tsx
 // ===============================
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import type { RouteKey } from "../app/routes";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
 import { MCL_HUSKET_THEME } from "../theme";
 import { HUSKET_TYPO } from "../theme/typography";
+import { useFlyToTarget } from "../animation/useFlyToTarget";
 
 type Props = {
   dict: I18nDict;
@@ -14,7 +15,25 @@ type Props = {
   onRouteChange: (r: RouteKey) => void;
 };
 
+export const FLY_TARGET_ALBUM = "bottomnav:album";
+export const FLY_TARGET_SHARED = "bottomnav:shared";
+
 export function BottomNav({ dict, route, onRouteChange }: Props) {
+  const { registerTarget } = useFlyToTarget();
+
+  const albumBtnRef = useRef<HTMLButtonElement | null>(null);
+  const sharedBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    registerTarget(FLY_TARGET_ALBUM, albumBtnRef.current);
+    registerTarget(FLY_TARGET_SHARED, sharedBtnRef.current);
+
+    return () => {
+      registerTarget(FLY_TARGET_ALBUM, null);
+      registerTarget(FLY_TARGET_SHARED, null);
+    };
+  }, [registerTarget]);
+
   const BAR_HEIGHT = 56;
 
   const navStyle: React.CSSProperties = {
@@ -34,12 +53,10 @@ export function BottomNav({ dict, route, onRouteChange }: Props) {
     alignItems: "center",
     justifyContent: "center",
 
-    // ✅ litt mer luft mellom knapper
     gap: 12,
 
     width: "100%",
 
-    // ✅ fjern evt. "gruppe-ramme" fra global CSS
     border: "none",
     outline: "none",
     boxShadow: "none",
@@ -55,13 +72,11 @@ export function BottomNav({ dict, route, onRouteChange }: Props) {
     color: MCL_HUSKET_THEME.colors.darkSurface,
     whiteSpace: "nowrap",
 
-    // Typography (A)
     fontSize: HUSKET_TYPO.A.fontSize,
     fontWeight: HUSKET_TYPO.A.fontWeight,
     lineHeight: HUSKET_TYPO.A.lineHeight,
     letterSpacing: HUSKET_TYPO.A.letterSpacing,
 
-    // ✅ Kill "pop" fra CSS (.bottomBtn.active transform/scale)
     transform: "none",
     transition: "background-color 120ms ease, border-color 120ms ease, color 120ms ease",
   };
@@ -71,7 +86,6 @@ export function BottomNav({ dict, route, onRouteChange }: Props) {
     border: `1px solid ${MCL_HUSKET_THEME.colors.altSurface}`,
     color: MCL_HUSKET_THEME.colors.textOnDark,
 
-    // ✅ Lås typografi også i active (hvis global CSS prøver å endre)
     fontSize: HUSKET_TYPO.A.fontSize,
     fontWeight: HUSKET_TYPO.A.fontWeight,
     lineHeight: HUSKET_TYPO.A.lineHeight,
@@ -96,6 +110,7 @@ export function BottomNav({ dict, route, onRouteChange }: Props) {
           className={`bottomBtn ${route === "album" ? "active" : ""}`}
           onClick={() => onRouteChange("album")}
           type="button"
+          ref={albumBtnRef}
           style={{ ...btnBase, ...(route === "album" ? btnActive : null) }}
         >
           {tGet(dict, "nav.album")}
@@ -105,6 +120,7 @@ export function BottomNav({ dict, route, onRouteChange }: Props) {
           className={`bottomBtn ${route === "shared" ? "active" : ""}`}
           onClick={() => onRouteChange("shared")}
           type="button"
+          ref={sharedBtnRef}
           style={{ ...btnBase, ...(route === "shared" ? btnActive : null) }}
         >
           {tGet(dict, "nav.shared")}
