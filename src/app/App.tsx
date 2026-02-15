@@ -15,6 +15,7 @@ import { SharedWithMeScreen } from "../screens/SharedWithMeScreen";
 import { SettingsDrawer } from "../components/SettingsDrawer";
 import { PaywallModal } from "../components/PaywallModal";
 import { MCL_HUSKET_THEME } from "../theme";
+import { FlyToTargetProvider } from "../animation/FlyToTargetProvider";
 
 export function App() {
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
@@ -56,43 +57,46 @@ export function App() {
 
   return (
     <ToastProvider>
-      <div
-        className="appShell"
-        style={{
-          backgroundColor: MCL_HUSKET_THEME.colors.altSurface,
-          color: MCL_HUSKET_THEME.colors.textOnDark,
-        }}
-      >
-        <TopBar
-          dict={dict}
-          settings={settings}
-          life={life}
-          onLifeChange={(nextLife) => setLife(nextLife)}
-          onOpenSettings={() => setDrawerOpen(true)}
-        />
+      <FlyToTargetProvider>
+        <div
+          className="appShell"
+          style={{
+            backgroundColor: MCL_HUSKET_THEME.colors.altSurface,
+            color: MCL_HUSKET_THEME.colors.textOnDark,
+            position: "relative",
+          }}
+        >
+          <TopBar
+            dict={dict}
+            settings={settings}
+            life={life}
+            onLifeChange={(nextLife) => setLife(nextLife)}
+            onOpenSettings={() => setDrawerOpen(true)}
+          />
 
-        {route === "capture" ? (
-          <CaptureScreen dict={dict} life={life} settings={settings} onRequirePremium={requirePremium} onSavedGoAlbum={onSavedGoAlbum} />
-        ) : null}
+          {route === "capture" ? (
+            <CaptureScreen dict={dict} life={life} settings={settings} onRequirePremium={requirePremium} onSavedGoAlbum={onSavedGoAlbum} />
+          ) : null}
 
-        {route === "album" ? <AlbumScreen dict={dict} life={life} settings={settings} /> : null}
+          {route === "album" ? <AlbumScreen dict={dict} life={life} settings={settings} /> : null}
 
-        {route === "shared" ? <SharedWithMeScreen dict={dict} /> : null}
+          {route === "shared" ? <SharedWithMeScreen dict={dict} /> : null}
 
-        <SettingsDrawer
-          dict={dict}
-          open={drawerOpen}
-          activeLife={life}
-          settings={settings}
-          onClose={() => setDrawerOpen(false)}
-          onChange={updateSettings}
-          onRequirePremium={requirePremium}
-        />
+          <SettingsDrawer
+            dict={dict}
+            open={drawerOpen}
+            activeLife={life}
+            settings={settings}
+            onClose={() => setDrawerOpen(false)}
+            onChange={updateSettings}
+            onRequirePremium={requirePremium}
+          />
 
-        <PaywallModal dict={dict} open={paywallOpen} onCancel={() => setPaywallOpen(false)} onActivate={activatePremiumMock} />
+          <PaywallModal dict={dict} open={paywallOpen} onCancel={() => setPaywallOpen(false)} onActivate={activatePremiumMock} />
 
-        <BottomNav dict={dict} route={route} onRouteChange={setRoute} />
-      </div>
+          <BottomNav dict={dict} route={route} onRouteChange={setRoute} />
+        </div>
+      </FlyToTargetProvider>
     </ToastProvider>
   );
 }
