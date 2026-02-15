@@ -43,6 +43,12 @@ export async function getImageUrl(imageKey: string): Promise<string | null> {
   return URL.createObjectURL(blob);
 }
 
+// ✅ NEW: used by Sky send flow
+export async function getImageBlobByKey(imageKey: string): Promise<Blob | null> {
+  const blob = await idbGetBlob(imageKey);
+  return blob ?? null;
+}
+
 export async function createHusket(input: {
   husket: Omit<Husket, "id">;
   imageBlob: Blob;
