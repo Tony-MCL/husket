@@ -9,17 +9,38 @@ import { HUSKET_TYPO } from "../theme/typography";
 import { MCL_HUSKET_THEME } from "../theme";
 import { useToast } from "../components/ToastHost";
 
-import { auth, db, functions } from "../firebase";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { auth, db, functions, storage } from "../firebase";
+import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
+import { getDownloadURL, ref as sRef } from "firebase/storage";
 
-import { getImageUrl } from "../data/husketRepo";
+import { getImageBlobByKey, importHusketFromSky } from "../data/husketRepo";
 import { getEffectiveRatingPack } from "../domain/settingsCore";
 
 type ContactRow = {
   contactUid: string;
   label: string | null;
   createdAt?: any;
+};
+
+type RelayRow = {
+  relayId: string;
+  senderUid: string;
+  recipientUid: string;
+  status: "pending" | "opened" | "resolved";
+  createdAtMs: number;
+  openedAtMs: number | null;
+  expiresAtMs: number | null;
+  imagePath: string;
+  payload: {
+    husketId: string;
+    capturedAt: number;
+    comment: string;
+    ratingPackKey: string;
+    ratingValue: string;
+    categoryLabel: string | null;
+    gps: null | { lat: number; lng: number; acc?: number; ts?: number };
+  };
 };
 
 type Props = {
@@ -47,6 +68,13 @@ function toBase64(buf: ArrayBuffer): string {
 async function blobToBase64(blob: Blob): Promise<string> {
   const ab = await blob.arrayBuffer();
   return toBase64(ab);
+}
+
+function tsToMs(x: any): number {
+  if (!x) return 0;
+  if (typeof x === "number") return x;
+  if (typeof x?.toMillis === "function") return x.toMillis();
+  return 0;
 }
 
 export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusketToSend, onStartSendFlow }: Props) {
@@ -115,9 +143,7 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
         setContacts(rows);
         setContactsErr(null);
       },
-      (err) => {
-        setContactsErr(err?.message ?? "Unknown error");
-      }
+      (err) => setContactsErr(err?.message ?? "Unknown error")
     );
 
     return () => unsub();
@@ -129,6 +155,7 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
       toast.show("Skriv inn invitasjonskode.");
       return;
     }
+
     const uid = auth.currentUser?.uid;
     if (!uid) {
       toast.show("Ikke innlogget. Prøv igjen.");
@@ -160,7 +187,6 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
   const [sendOpen, setSendOpen] = useState(false);
   const [sending, setSending] = useState(false);
 
-  // open modal automatically when a husket is selected for sending
   useEffect(() => {
     if (husketToSend) setSendOpen(true);
   }, [husketToSend]);
@@ -179,7 +205,6 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
   };
 
   const ratingPackKeyFor = (h: Husket): string => {
-    // permissive on server, but we still send something consistent
     const pack = getEffectiveRatingPack(settings, h.life);
     return pack;
   };
@@ -195,23 +220,14 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
 
     setSending(true);
     try {
-      // 1) load image blob from local store via object URL
-      const url = await getImageUrl(husketToSend.imageKey);
-      if (!url) {
+      const blob = await getImageBlobByKey(husketToSend.imageKey);
+      if (!blob) {
         toast.show("Fant ikke bilde lokalt for sending.");
         return;
       }
 
-      const blob = await fetch(url).then((r) => r.blob());
-      try {
-        URL.revokeObjectURL(url);
-      } catch {
-        // ignore
-      }
-
       const b64 = await blobToBase64(blob);
 
-      // 2) build payload expected by Cloud Function
       const payload = {
         type: "husket",
         husketId: husketToSend.id,
@@ -221,23 +237,22 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
         ratingValue: husketToSend.ratingValue ?? "",
         categoryLabel: categoryLabelFor(husketToSend),
         gps: husketToSend.gps
-          ? { lat: husketToSend.gps.lat, lng: husketToSend.gps.lng }
+          ? {
+              lat: husketToSend.gps.lat,
+              lng: husketToSend.gps.lng,
+              ...(typeof (husketToSend.gps as any).acc === "number" ? { acc: (husketToSend.gps as any).acc } : {}),
+              ...(typeof (husketToSend.gps as any).ts === "number" ? { ts: (husketToSend.gps as any).ts } : {}),
+            }
           : null,
         image: { storagePath: "client-placeholder" }, // server overwrites
       };
 
-      // 3) call send function
       const fn = httpsCallable(functions, "sendHusketToContact");
-      const res = await fn({
-        recipientUid,
-        husket: payload,
-        imageBase64: b64,
-      });
+      const res = await fn({ recipientUid, husket: payload, imageBase64: b64 });
 
       const relayId = (res.data as any)?.relayId as string | undefined;
       toast.show(relayId ? "Sendt ✅" : "Sendt (men mangler relayId?)");
 
-      // close & clear pending husket
       setSendOpen(false);
       onClearHusketToSend();
     } catch (e: any) {
@@ -254,7 +269,182 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
     onClearHusketToSend();
   };
 
-  // Modal styles
+  // --- Inbox (relay) ---
+  const [relay, setRelay] = useState<RelayRow[]>([]);
+  const [relayErr, setRelayErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+
+    const qRef = query(
+      collection(db, "relay"),
+      where("recipientUid", "==", uid),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsub = onSnapshot(
+      qRef,
+      (snap) => {
+        const rows: RelayRow[] = [];
+        snap.forEach((d) => {
+          const data = d.data() as any;
+          const payload = data?.payload ?? {};
+          rows.push({
+            relayId: d.id,
+            senderUid: String(data?.senderUid ?? ""),
+            recipientUid: String(data?.recipientUid ?? ""),
+            status: (data?.status ?? "pending") as any,
+            createdAtMs: tsToMs(data?.createdAt),
+            openedAtMs: data?.openedAt ? tsToMs(data?.openedAt) : null,
+            expiresAtMs: data?.expiresAt ? tsToMs(data?.expiresAt) : null,
+            imagePath: String(data?.image?.storagePath ?? payload?.image?.storagePath ?? ""),
+            payload: {
+              husketId: String(payload?.husketId ?? ""),
+              capturedAt: typeof payload?.capturedAt === "number" ? payload.capturedAt : 0,
+              comment: typeof payload?.comment === "string" ? payload.comment : "",
+              ratingPackKey: typeof payload?.ratingPackKey === "string" ? payload.ratingPackKey : "",
+              ratingValue: typeof payload?.ratingValue === "string" ? payload.ratingValue : "",
+              categoryLabel: payload?.categoryLabel === null ? null : typeof payload?.categoryLabel === "string" ? payload.categoryLabel : null,
+              gps:
+                payload?.gps == null
+                  ? null
+                  : {
+                      lat: Number(payload?.gps?.lat ?? 0),
+                      lng: Number(payload?.gps?.lng ?? 0),
+                      ...(typeof payload?.gps?.acc === "number" ? { acc: payload.gps.acc } : {}),
+                      ...(typeof payload?.gps?.ts === "number" ? { ts: payload.gps.ts } : {}),
+                    },
+            },
+          });
+        });
+
+        setRelay(rows);
+        setRelayErr(null);
+      },
+      (err) => setRelayErr(err?.message ?? "Unknown error")
+    );
+
+    return () => unsub();
+  }, []);
+
+  const [openRelay, setOpenRelay] = useState<RelayRow | null>(null);
+  const [openImgUrl, setOpenImgUrl] = useState<string | null>(null);
+  const [openBusy, setOpenBusy] = useState(false);
+
+  const formatDate = (ms: number) => {
+    if (!ms) return "";
+    const d = new Date(ms);
+    return d.toLocaleString(settings.language === "no" ? "nb-NO" : "en-US", {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const openRelayItem = async (row: RelayRow) => {
+    setOpenRelay(row);
+    setOpenImgUrl(null);
+
+    // 1) mark opened
+    try {
+      const fn = httpsCallable(functions, "openRelayItem");
+      await fn({ relayId: row.relayId });
+    } catch {
+      // ignore (still allow view)
+    }
+
+    // 2) load image preview
+    if (row.imagePath) {
+      try {
+        const url = await getDownloadURL(sRef(storage, row.imagePath));
+        setOpenImgUrl(url);
+      } catch {
+        setOpenImgUrl(null);
+      }
+    }
+  };
+
+  const closeRelayModal = () => {
+    setOpenRelay(null);
+    setOpenImgUrl(null);
+    setOpenBusy(false);
+  };
+
+  const discardRelay = async () => {
+    if (!openRelay) return;
+    setOpenBusy(true);
+    try {
+      const fn = httpsCallable(functions, "resolveRelayItem");
+      await fn({ relayId: openRelay.relayId, action: "discard" });
+      toast.show("Forkastet ✅");
+      closeRelayModal();
+    } catch (e: any) {
+      toast.show(e?.message ? `Feil: ${e.message}` : "Kunne ikke forkaste");
+      // eslint-disable-next-line no-console
+      console.error(e);
+    } finally {
+      setOpenBusy(false);
+    }
+  };
+
+  const saveRelay = async () => {
+    if (!openRelay) return;
+
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      toast.show("Ikke innlogget. Prøv igjen.");
+      return;
+    }
+
+    setOpenBusy(true);
+    try {
+      // 1) resolve (server creates users/{uid}/huskets/{newId} and copies image)
+      const fn = httpsCallable(functions, "resolveRelayItem");
+      const res = await fn({ relayId: openRelay.relayId, action: "save" });
+      const savedId = (res.data as any)?.savedHusketId as string | undefined;
+
+      if (!savedId) {
+        toast.show("Lagret i sky (men mangler id).");
+        closeRelayModal();
+        return;
+      }
+
+      // 2) download image from the *user husket* path (known convention from functions)
+      const destPath = `users/${uid}/huskets/${savedId}.jpg`;
+      const dlUrl = await getDownloadURL(sRef(storage, destPath));
+      const blob = await fetch(dlUrl).then((r) => r.blob());
+
+      // 3) import locally so it appears in Album
+      const capturedAt = openRelay.payload.capturedAt || Date.now();
+
+      await importHusketFromSky({
+        id: savedId,
+        husket: {
+          life: "private", // ✅ simple + predictable for now
+          createdAt: capturedAt,
+          ratingValue: openRelay.payload.ratingValue || null,
+          comment: openRelay.payload.comment || null,
+          categoryId: null, // we only have label snapshot on server
+          gps: openRelay.payload.gps ?? null,
+        },
+        imageBlob: blob,
+      });
+
+      toast.show("Mottatt ✅ (lagt i album)");
+      closeRelayModal();
+    } catch (e: any) {
+      toast.show(e?.message ? `Feil: ${e.message}` : "Kunne ikke lagre");
+      // eslint-disable-next-line no-console
+      console.error(e);
+    } finally {
+      setOpenBusy(false);
+    }
+  };
+
+  // Modal styles (shared)
   const modalBackdrop: React.CSSProperties = {
     position: "fixed",
     inset: 0,
@@ -266,7 +456,7 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
   };
 
   const modalCard: React.CSSProperties = {
-    width: "min(520px, 100%)",
+    width: "min(560px, 100%)",
     borderRadius: 18,
     background: MCL_HUSKET_THEME.colors.header,
     color: MCL_HUSKET_THEME.colors.darkSurface,
@@ -292,6 +482,7 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
     gap: 10,
     justifyContent: "space-between",
     marginTop: 12,
+    alignItems: "center",
   };
 
   const dangerBtn: React.CSSProperties = {
@@ -300,6 +491,16 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
     color: MCL_HUSKET_THEME.colors.danger,
     cursor: "pointer",
     ...textA,
+  };
+
+  const okBtn: React.CSSProperties = {
+    ...textA,
+    border: "none",
+    borderRadius: 14,
+    padding: "10px 12px",
+    cursor: "pointer",
+    background: "rgba(27,26,23,0.92)",
+    color: "rgba(247,243,237,0.92)",
   };
 
   const listItemBtn: React.CSSProperties = {
@@ -319,9 +520,7 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
 
       {/* Invite code + add */}
       <div style={{ ...card, display: "grid", gap: 10 }}>
-        <div style={{ ...textB, opacity: 0.85 }}>
-          Invitasjonskode (legg til kontakt)
-        </div>
+        <div style={{ ...textB, opacity: 0.85 }}>Invitasjonskode (legg til kontakt)</div>
 
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <input
@@ -397,7 +596,58 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
         </div>
       </div>
 
-      {/* Placeholder inbox (vi bygger “innboksen” etter at sending er 100%) */}
+      {/* Inbox */}
+      <div style={{ ...card, display: "grid", gap: 10 }}>
+        <div style={{ ...textB, opacity: 0.85 }}>Innboks</div>
+
+        {relayErr ? (
+          <div className="smallHelp" style={textB}>
+            Kunne ikke lese sky-innboksen: {relayErr}
+          </div>
+        ) : relay.length === 0 ? (
+          <div className="smallHelp" style={textB}>
+            Ingen mottatte husketer enda.
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: 8 }}>
+            {relay.map((r) => (
+              <button
+                key={r.relayId}
+                type="button"
+                style={{
+                  ...ghostBtn,
+                  ...textB,
+                  padding: "10px 12px",
+                  borderRadius: 14,
+                  textAlign: "left",
+                  cursor: "pointer",
+                  display: "grid",
+                  gap: 4,
+                }}
+                onClick={() => void openRelayItem(r)}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                  <div style={{ fontWeight: 800 }}>
+                    {r.status === "opened" ? "📬 Åpnet" : "📩 Ny"}
+                  </div>
+                  <div style={{ opacity: 0.75 }}>{formatDate(r.createdAtMs)}</div>
+                </div>
+
+                <div style={{ opacity: 0.9 }}>
+                  {r.payload.ratingValue ? `⭐ ${r.payload.ratingValue}` : "Ingen rating"}{" "}
+                  {r.payload.comment ? `· 💬 ${r.payload.comment}` : ""}
+                </div>
+
+                <div style={{ opacity: 0.7, fontSize: 12 }}>
+                  Fra: {r.senderUid}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Placeholder text (existing i18n) */}
       <div className="smallHelp" style={textB}>
         {tGet(dict, "shared.placeholder")}
       </div>
@@ -424,9 +674,7 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
                     disabled={sending}
                     title="Send"
                   >
-                    <div style={{ fontWeight: 800 }}>
-                      {c.label ?? c.contactUid}
-                    </div>
+                    <div style={{ fontWeight: 800 }}>{c.label ?? c.contactUid}</div>
                     {c.label ? <div style={{ opacity: 0.7 }}>{c.contactUid}</div> : null}
                   </button>
                 ))}
@@ -438,8 +686,49 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
                 Avbryt
               </button>
 
-              <div style={{ ...textB, opacity: 0.75 }}>
-                {sending ? "Sender…" : ""}
+              <div style={{ ...textB, opacity: 0.75 }}>{sending ? "Sender…" : ""}</div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Inbox item modal */}
+      {openRelay ? (
+        <div style={modalBackdrop} role="dialog" aria-modal="true">
+          <div style={modalCard}>
+            <div style={modalTitle}>Mottatt husket</div>
+
+            <div style={modalHelp}>
+              {openRelay.payload.ratingValue ? `⭐ ${openRelay.payload.ratingValue}` : "Ingen rating"}
+              {openRelay.payload.comment ? ` · 💬 ${openRelay.payload.comment}` : ""}
+            </div>
+
+            {openImgUrl ? (
+              <div style={{ borderRadius: 14, overflow: "hidden", border: "1px solid rgba(27,26,23,0.12)" }}>
+                <img src={openImgUrl} alt="" style={{ width: "100%", height: "auto", display: "block" }} />
+              </div>
+            ) : (
+              <div style={modalHelp}>Bilde lastes…</div>
+            )}
+
+            <div style={{ ...modalHelp, marginTop: 10, marginBottom: 0 }}>
+              Fra: <strong>{openRelay.senderUid}</strong>
+              <div style={{ opacity: 0.75 }}>Mottatt: {formatDate(openRelay.createdAtMs)}</div>
+            </div>
+
+            <div style={modalRow}>
+              <button type="button" onClick={closeRelayModal} style={dangerBtn} disabled={openBusy}>
+                Lukk
+              </button>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button type="button" onClick={() => void discardRelay()} style={dangerBtn} disabled={openBusy}>
+                  Forkast
+                </button>
+
+                <button type="button" onClick={() => void saveRelay()} style={okBtn} disabled={openBusy}>
+                  {openBusy ? "Jobber…" : "Lagre i album"}
+                </button>
               </div>
             </div>
           </div>
