@@ -18,13 +18,10 @@ type Props = {
   settings: Settings;
   onAlbumBecameEmpty?: () => void;
 
-  // ✅ NEW: used by Sky send flow
-  selectMode?: {
-    enabled: boolean;
-    title?: string;
-    onPick: (husket: Husket) => void;
-    onCancel: () => void;
-  };
+  // ✅ NEW: pick mode for “send”
+  pickMode?: boolean;
+  onPickHusket?: (h: Husket) => void;
+  onCancelPick?: () => void;
 };
 
 function formatThumbDate(ts: number, lang: "no" | "en") {
@@ -85,15 +82,13 @@ function applyFiltersToItems(args: { items: Husket[]; applied: LifeFilters; nowM
   return res;
 }
 
-export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, selectMode }: Props) {
+export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, pickMode, onPickHusket, onCancelPick }: Props) {
   const [items, setItems] = useState<Husket[]>([]);
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
   const [viewer, setViewer] = useState<{ open: boolean; index: number }>({ open: false, index: 0 });
 
-  // Filters are per-life
   const [filtersByLife, setFiltersByLife] = useState<Record<string, LifeFilters>>(() => ({}));
 
-  // Dropdown open + draft state
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [draftRatings, setDraftRatings] = useState<Record<string, boolean>>({});
   const [draftCategoryIds, setDraftCategoryIds] = useState<Record<string, boolean>>({});
@@ -115,7 +110,6 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, selectMo
     return cats.find((c) => c.id === id)?.label ?? null;
   };
 
-  // Rating pack is per-life (fallback to global)
   const activeRatingPack = useMemo(() => getEffectiveRatingPack(settings, life), [settings, life]);
   const packRatingOptions = useMemo(() => getRatingPackOptions(activeRatingPack), [activeRatingPack]);
 
@@ -158,7 +152,6 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, selectMo
     return filtersByLife[life] ?? emptyLifeFilters();
   }, [filtersByLife, life]);
 
-  // When opening filters: seed draft from applied (for the CURRENT life)
   useEffect(() => {
     if (!filtersOpen) return;
     setDraftRatings(applied.appliedRatings);
@@ -166,13 +159,11 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, selectMo
     setDraftTimeFilter(applied.appliedTimeFilter);
   }, [filtersOpen, applied.appliedRatings, applied.appliedCategoryIds, applied.appliedTimeFilter]);
 
-  // When switching life: close dropdown & close viewer
   useEffect(() => {
     setFiltersOpen(false);
     setViewer({ open: false, index: 0 });
   }, [life]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     if (!filtersOpen) return;
 
@@ -207,7 +198,6 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, selectMo
     return "Last year";
   };
 
-  // Ratings to show in filter dropdown = pack options + any ratings found in existing data (for this life)
   const ratingOptions = useMemo(() => {
     const inData = new Set<string>();
     for (const it of items) {
@@ -230,10 +220,7 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, selectMo
   }, [items, packRatingOptions]);
 
   const anyAppliedRatingSelected = useMemo(() => Object.values(applied.appliedRatings).some(Boolean), [applied.appliedRatings]);
-  const anyAppliedCategorySelected = useMemo(
-    () => Object.values(applied.appliedCategoryIds).some(Boolean),
-    [applied.appliedCategoryIds]
-  );
+  const anyAppliedCategorySelected = useMemo(() => Object.values(applied.appliedCategoryIds).some(Boolean), [applied.appliedCategoryIds]);
 
   const activeSummary = useMemo(() => {
     const parts: string[] = [];
@@ -313,7 +300,6 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, selectMo
 
   const onDeleteFromViewer = async (id: string) => {
     const removed = await deleteHusketById(id);
-
     setItems((prev) => prev.filter((x) => x.id !== id));
 
     setThumbUrls((prev) => {
@@ -334,7 +320,6 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, selectMo
     }
 
     const nextItems = items.filter((x) => x.id !== id);
-
     if (nextItems.length === 0) {
       setViewer({ open: false, index: 0 });
       onAlbumBecameEmpty?.();
@@ -342,7 +327,6 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, selectMo
     }
 
     const nextFiltered = applyFiltersToItems({ items: nextItems, applied, nowMs: Date.now() });
-
     if (nextFiltered.length === 0) {
       setViewer({ open: false, index: 0 });
       return;
@@ -361,7 +345,6 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, selectMo
     { key: "365d", col: 2 },
   ];
 
-  // ---- Typography helpers (A/B) ----
   const textA: React.CSSProperties = {
     fontSize: HUSKET_TYPO.A.fontSize,
     fontWeight: HUSKET_TYPO.A.fontWeight,
@@ -376,7 +359,6 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, selectMo
     letterSpacing: HUSKET_TYPO.B.letterSpacing,
   };
 
-  // ---- MCL styles for filter UI (flat + minimal) ----
   const filterBtnStyle: React.CSSProperties = {
     width: "100%",
     display: "flex",
@@ -479,17 +461,24 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, selectMo
     ...textB,
   };
 
-  const selectBannerStyle: React.CSSProperties = {
-    marginBottom: 10,
-    border: `1px solid rgba(247, 243, 237, 0.18)`,
-    borderRadius: 16,
+  // ✅ pick-mode banner
+  const pickBanner: React.CSSProperties = {
     padding: "10px 12px",
+    borderRadius: 16,
+    border: "1px solid rgba(247, 243, 237, 0.18)",
+    marginBottom: 10,
     display: "flex",
+    gap: 12,
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
-    background: "rgba(247, 243, 237, 0.06)",
-    color: MCL_HUSKET_THEME.colors.textOnDark,
+  };
+
+  const pickBtn: React.CSSProperties = {
+    background: "transparent",
+    border: "none",
+    color: "rgba(247, 243, 237, 0.92)",
+    cursor: "pointer",
+    ...textA,
   };
 
   if (items.length === 0) {
@@ -502,17 +491,15 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, selectMo
 
   return (
     <div>
-      {/* ✅ NEW: Select-mode banner */}
-      {selectMode?.enabled ? (
-        <div style={selectBannerStyle}>
-          <div style={textA}>{selectMode.title ?? (lang === "no" ? "Velg en husket å sende" : "Pick a Husket to send")}</div>
-          <button type="button" className="flatBtn" onClick={selectMode.onCancel} style={{ ...filterBtnStyle, width: "auto" }}>
-            {lang === "no" ? "Avbryt" : "Cancel"}
+      {pickMode ? (
+        <div style={pickBanner}>
+          <div style={textB}>Velg en husket å sende</div>
+          <button type="button" style={pickBtn} onClick={onCancelPick}>
+            Avbryt
           </button>
         </div>
       ) : null}
 
-      {/* Filter bar + dropdown */}
       <div ref={filterWrapRef} style={{ position: "relative", marginBottom: 10 }}>
         <button
           type="button"
@@ -520,8 +507,6 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, selectMo
           onClick={() => setFiltersOpen((v) => !v)}
           style={filterBtnStyle}
           aria-expanded={filtersOpen}
-          disabled={!!selectMode?.enabled}
-          title={selectMode?.enabled ? (lang === "no" ? "Filtre er låst i velg-modus" : "Filters are locked in select mode") : undefined}
         >
           <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
             <span aria-hidden>🔎</span>
@@ -542,7 +527,6 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, selectMo
 
         {filtersOpen ? (
           <div style={dropStyle}>
-            {/* TIME */}
             <div style={sectionSpacer}>
               <div className="label" style={dropLabelStyle}>
                 {lang === "no" ? "Tid" : "Time"}
@@ -567,7 +551,6 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, selectMo
             <div style={sectionDivider} />
             <div style={{ marginTop: 6 }} />
 
-            {/* RATING */}
             <div style={sectionSpacer}>
               <div className="label" style={dropLabelStyle}>
                 {lang === "no" ? "Vurdering" : "Rating"}
@@ -576,12 +559,7 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, selectMo
               <div style={{ display: "flex", flexWrap: "wrap", gap: 18 }}>
                 {ratingOptions.map((r) => (
                   <label key={r} style={flatChoiceRow}>
-                    <input
-                      type="checkbox"
-                      checked={!!draftRatings[r]}
-                      onChange={() => toggleDraftRating(r)}
-                      style={checkboxStyle}
-                    />
+                    <input type="checkbox" checked={!!draftRatings[r]} onChange={() => toggleDraftRating(r)} style={checkboxStyle} />
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{renderRatingValue(r)}</span>
                   </label>
                 ))}
@@ -602,7 +580,6 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, selectMo
             <div style={sectionDivider} />
             <div style={{ marginTop: 6 }} />
 
-            {/* CATEGORIES */}
             <div style={sectionSpacer}>
               <div className="label" style={dropLabelStyle}>
                 {lang === "no" ? "Kategori" : "Category"}
@@ -663,15 +640,14 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, selectMo
               key={it.id}
               className="thumb"
               onClick={() => {
-                if (selectMode?.enabled) {
-                  selectMode.onPick(it);
+                if (pickMode && onPickHusket) {
+                  onPickHusket(it);
                   return;
                 }
                 setViewer({ open: true, index });
               }}
               type="button"
               style={{ padding: 0, textAlign: "left", cursor: "pointer" }}
-              title={selectMode?.enabled ? (lang === "no" ? "Trykk for å velge" : "Tap to pick") : undefined}
             >
               {thumbUrls[it.id] ? (
                 <img className="thumbImg" src={thumbUrls[it.id]} alt="" />
@@ -692,8 +668,7 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, selectMo
         </div>
       )}
 
-      {/* Viewer disabled in select mode */}
-      {viewer.open && !selectMode?.enabled ? (
+      {viewer.open ? (
         <ViewHusketModal
           dict={dict}
           settings={settings}
