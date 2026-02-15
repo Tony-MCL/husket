@@ -19,7 +19,6 @@ type Props = {
   life: LifeKey;
   settings: Settings;
   onRequirePremium: () => void;
-  onSavedGoAlbum: () => void;
 };
 
 function clamp100(s: string): string {
@@ -52,13 +51,11 @@ async function getGpsIfAllowed(args: {
 }
 
 /**
- * Note about "auto-open camera":
- * On mobile, browsers often allow programmatic click on a file input on first load,
- * but some environments require an explicit user gesture. We do:
- * - try once automatically
+ * Camera-first UX:
+ * - try auto-open once when entering Capture
  * - always provide a big tappable button
  */
-export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedGoAlbum }: Props) {
+export function CaptureScreen({ dict, life, settings, onRequirePremium }: Props) {
   const toast = useToast();
   const { flyToTarget, isAnimating } = useFlyToTarget();
 
@@ -76,14 +73,17 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
 
   const catsAll = useMemo(() => settings.categories[life] ?? [], [life, settings.categories]);
 
-  // NEW: per-life disabled categories => hide from Capture choices
-  const disabledMap = useMemo(() => settings.disabledCategoryIdsByLife?.[life] ?? {}, [settings.disabledCategoryIdsByLife, life]);
+  // per-life disabled categories => hide from Capture choices
+  const disabledMap = useMemo(
+    () => settings.disabledCategoryIdsByLife?.[life] ?? {},
+    [settings.disabledCategoryIdsByLife, life]
+  );
 
   const cats = useMemo(() => {
     return catsAll.filter((c) => !disabledMap[c.id]);
   }, [catsAll, disabledMap]);
 
-  // NEW: if current selection becomes disabled (or removed), clear it
+  // if current selection becomes disabled (or removed), clear it
   useEffect(() => {
     if (!categoryId) return;
     const existsAndEnabled = cats.some((c) => c.id === categoryId);
@@ -95,7 +95,6 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     return catsAll.find((c) => c.id === categoryId)?.gpsEligible ?? false;
   }, [categoryId, catsAll]);
 
-  // Rating pack is per-life (fallback to global)
   const activeRatingPack = useMemo(() => getEffectiveRatingPack(settings, life), [settings, life]);
   const ratingOpts = useMemo(() => getRatingPackOptions(activeRatingPack), [activeRatingPack]);
 
@@ -195,16 +194,21 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
           sourceEl,
           targetId: FLY_TARGET_ALBUM,
           onComplete: () => {
+            // NEW FLOW: stay on Capture, reset and open camera again
             resetAll();
-            onSavedGoAlbum();
+            window.setTimeout(() => {
+              openCamera();
+            }, 60);
           },
         });
         return;
       }
 
-      // Fallback (no preview element)
+      // Fallback (no preview element): still stay on capture
       resetAll();
-      onSavedGoAlbum();
+      window.setTimeout(() => {
+        openCamera();
+      }, 60);
     } finally {
       setIsSaving(false);
     }
@@ -272,15 +276,15 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     borderRadius: 14,
   };
 
-  // ✅ Primary button style (Ta bilde + “Ta nytt bilde” + Lagre) with DARK text
+  // Primary button style (Ta bilde + “Ta nytt bilde” + Lagre) with DARK text
   const primaryBtnStyle: React.CSSProperties = {
-    background: MCL_HUSKET_THEME.colors.header, // same as TopBar
-    color: "rgba(27, 26, 23, 0.92)", // dark text for contrast on light background
+    background: MCL_HUSKET_THEME.colors.header,
+    color: "rgba(27, 26, 23, 0.92)",
     border: "1px solid rgba(247, 243, 237, 0.14)",
     boxShadow: "none",
   };
 
-  // ✅ Always center the single button under preview
+  // Always center the single button under preview
   const photoActionsStyle: React.CSSProperties = {
     marginTop: 10,
     display: "flex",
