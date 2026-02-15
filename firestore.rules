@@ -19,34 +19,22 @@ service cloud.firestore {
     // users root doc
     // -------------------------------
     match /users/{uid} {
-
-      // Klient kan lese egen user doc
       allow read: if isOwner(uid);
-
-      // Klient skal IKKE skrive plan / flags direkte
       allow write: if false;
 
-      // -------------------------------
-      // huskets (Sky backup)
-      // -------------------------------
+      // Sky backup huskets
       match /huskets/{husketId} {
         allow read, create, update: if isOwner(uid);
-
-        // Tombstone tillatt (deletedAt settes)
-        allow delete: if false; // aldri hard-delete
+        allow delete: if false; // tombstone only
       }
 
-      // -------------------------------
-      // contacts (kun server oppretter)
-      // -------------------------------
+      // contacts: server only writes
       match /contacts/{contactUid} {
         allow read: if isOwner(uid);
         allow create, update, delete: if false;
       }
 
-      // -------------------------------
-      // counters (server only writes)
-      // -------------------------------
+      // counters: server only writes
       match /counters/{yyyymm} {
         allow read: if isOwner(uid);
         allow write: if false;
@@ -54,16 +42,19 @@ service cloud.firestore {
     }
 
     // -------------------------------
-    // relay (midlertidig postkasse)
+    // relay: recipient read only
     // -------------------------------
     match /relay/{relayId} {
-
-      // Kun mottaker kan lese
       allow read: if isAuthed() &&
                    resource.data.recipientUid == request.auth.uid;
 
-      // Kun server (admin SDK) får skrive
-      allow create, update, delete: if false;
+      allow create, update, delete: if false; // server only
+    }
+
+    // (server-only) invite codes (valgfri, men anbefalt)
+    // clients should never access
+    match /inviteCodes/{code} {
+      allow read, write: if false;
     }
   }
 }
