@@ -17,6 +17,14 @@ type Props = {
   life: LifeKey;
   settings: Settings;
   onAlbumBecameEmpty?: () => void;
+
+  // ✅ NEW: used by Sky send flow
+  selectMode?: {
+    enabled: boolean;
+    title?: string;
+    onPick: (husket: Husket) => void;
+    onCancel: () => void;
+  };
 };
 
 function formatThumbDate(ts: number, lang: "no" | "en") {
@@ -77,7 +85,7 @@ function applyFiltersToItems(args: { items: Husket[]; applied: LifeFilters; nowM
   return res;
 }
 
-export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty }: Props) {
+export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty, selectMode }: Props) {
   const [items, setItems] = useState<Husket[]>([]);
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
   const [viewer, setViewer] = useState<{ open: boolean; index: number }>({ open: false, index: 0 });
@@ -214,7 +222,6 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty }: Props)
       if (inData.has(r)) inData.delete(r);
     }
 
-    // Add any “extra” ratings present in old data (e.g. you changed rating-pack later)
     const extras = Array.from(inData);
     extras.sort((a, b) => a.localeCompare(b));
     ordered.push(...extras);
@@ -305,44 +312,35 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty }: Props)
   };
 
   const onDeleteFromViewer = async (id: string) => {
-    // delete from store first
     const removed = await deleteHusketById(id);
 
-    // update local list
     setItems((prev) => prev.filter((x) => x.id !== id));
 
-    // revoke & remove thumb url
     setThumbUrls((prev) => {
       const next = { ...prev };
       const u = next[id];
       if (u) {
         try {
           URL.revokeObjectURL(u);
-        } catch {
-          // ignore
-        }
+        } catch {}
         delete next[id];
       }
       return next;
     });
 
-    // If delete didn't find anything, just close viewer defensively
     if (!removed) {
       setViewer({ open: false, index: 0 });
       return;
     }
 
-    // Compute what the *unfiltered* list will be after deletion
     const nextItems = items.filter((x) => x.id !== id);
 
-    // ✅ NEW RULE: if album truly became empty, kick user back to Capture
     if (nextItems.length === 0) {
       setViewer({ open: false, index: 0 });
       onAlbumBecameEmpty?.();
       return;
     }
 
-    // Compute what the filtered list WILL look like after deletion (using current filters)
     const nextFiltered = applyFiltersToItems({ items: nextItems, applied, nowMs: Date.now() });
 
     if (nextFiltered.length === 0) {
@@ -350,7 +348,6 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty }: Props)
       return;
     }
 
-    // Keep same index if possible, else clamp to last
     setViewer((v) => {
       const curIndex = Math.min(v.index, nextFiltered.length - 1);
       return { open: true, index: curIndex };
@@ -466,7 +463,6 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty }: Props)
     color: MCL_HUSKET_THEME.colors.darkSurface,
   };
 
-  // section divider
   const sectionDivider: React.CSSProperties = {
     height: 1,
     width: "100%",
@@ -483,6 +479,19 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty }: Props)
     ...textB,
   };
 
+  const selectBannerStyle: React.CSSProperties = {
+    marginBottom: 10,
+    border: `1px solid rgba(247, 243, 237, 0.18)`,
+    borderRadius: 16,
+    padding: "10px 12px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    background: "rgba(247, 243, 237, 0.06)",
+    color: MCL_HUSKET_THEME.colors.textOnDark,
+  };
+
   if (items.length === 0) {
     return (
       <div className="smallHelp" style={textB}>
@@ -493,6 +502,16 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty }: Props)
 
   return (
     <div>
+      {/* ✅ NEW: Select-mode banner */}
+      {selectMode?.enabled ? (
+        <div style={selectBannerStyle}>
+          <div style={textA}>{selectMode.title ?? (lang === "no" ? "Velg en husket å sende" : "Pick a Husket to send")}</div>
+          <button type="button" className="flatBtn" onClick={selectMode.onCancel} style={{ ...filterBtnStyle, width: "auto" }}>
+            {lang === "no" ? "Avbryt" : "Cancel"}
+          </button>
+        </div>
+      ) : null}
+
       {/* Filter bar + dropdown */}
       <div ref={filterWrapRef} style={{ position: "relative", marginBottom: 10 }}>
         <button
@@ -501,6 +520,8 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty }: Props)
           onClick={() => setFiltersOpen((v) => !v)}
           style={filterBtnStyle}
           aria-expanded={filtersOpen}
+          disabled={!!selectMode?.enabled}
+          title={selectMode?.enabled ? (lang === "no" ? "Filtre er låst i velg-modus" : "Filters are locked in select mode") : undefined}
         >
           <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
             <span aria-hidden>🔎</span>
@@ -561,9 +582,7 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty }: Props)
                       onChange={() => toggleDraftRating(r)}
                       style={checkboxStyle}
                     />
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      {renderRatingValue(r)}
-                    </span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{renderRatingValue(r)}</span>
                   </label>
                 ))}
 
@@ -643,9 +662,16 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty }: Props)
             <button
               key={it.id}
               className="thumb"
-              onClick={() => setViewer({ open: true, index })}
+              onClick={() => {
+                if (selectMode?.enabled) {
+                  selectMode.onPick(it);
+                  return;
+                }
+                setViewer({ open: true, index });
+              }}
               type="button"
               style={{ padding: 0, textAlign: "left", cursor: "pointer" }}
+              title={selectMode?.enabled ? (lang === "no" ? "Trykk for å velge" : "Tap to pick") : undefined}
             >
               {thumbUrls[it.id] ? (
                 <img className="thumbImg" src={thumbUrls[it.id]} alt="" />
@@ -666,7 +692,8 @@ export function AlbumScreen({ dict, life, settings, onAlbumBecameEmpty }: Props)
         </div>
       )}
 
-      {viewer.open ? (
+      {/* Viewer disabled in select mode */}
+      {viewer.open && !selectMode?.enabled ? (
         <ViewHusketModal
           dict={dict}
           settings={settings}
