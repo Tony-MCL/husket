@@ -1,118 +1,175 @@
-/* ===============================
-   functions/src/index.ts
-   Husket Sky v1 – Callables (LÅST)
-   =============================== */
-
+// ===============================
+// functions/src/index.ts
+// ===============================
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { initializeApp } from "firebase-admin/app";
-import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
-import { getStorage } from "firebase-admin/storage";
+import { setGlobalOptions } from "firebase-functions/v2";
+import * as admin from "firebase-admin";
 
-initializeApp();
+setGlobalOptions({ region: "europe-west1" });
 
-const db = getFirestore();
-const bucket = getStorage().bucket();
+admin.initializeApp();
+
+const db = admin.firestore();
+const bucket = admin.storage().bucket();
 
 type Plan = "standard" | "premium" | "sky";
 
-type RelayStatus = "pending" | "opened" | "resolved";
-
-type HusketPayload = {
+type HusketRelayPayload = {
   type: "husket";
   husketId: string;
-  capturedAt: number; // millis
-  comment: string; // max 100, can be empty
+  capturedAt: admin.firestore.Timestamp;
+  comment: string; // max 100
   ratingPackKey: string;
   ratingValue: string;
   categoryLabel: string | null;
-  gps: null | { lat: number; lng: number; acc?: number; ts?: number };
+  gps:
+    | {
+        lat: number;
+        lng: number;
+        acc: number;
+        ts: admin.firestore.Timestamp;
+      }
+    | null;
   image: {
-    storagePath: string; // required (server will set to relay path)
+    storagePath: string; // required
   };
 };
 
-function requireAuth(ctx: any): string {
-  const uid = ctx.auth?.uid;
-  if (!uid) throw new HttpsError("unauthenticated", "Authentication required.");
+function assertAuthed(ctx: any): string {
+  const uid = ctx?.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Not signed in.");
   return uid;
 }
 
-function nowTs(): Timestamp {
-  return Timestamp.now();
-}
-
-function yyyymmFromDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  return `${y}${m}`;
-}
-
-function clampString(s: unknown, maxLen: number): string {
-  if (typeof s !== "string") return "";
-  const trimmed = s.trim();
-  return trimmed.length > maxLen ? trimmed.slice(0, maxLen) : trimmed;
-}
-
-function requireString(x: unknown, fieldName: string): string {
-  if (typeof x !== "string" || x.trim().length === 0) {
-    throw new HttpsError("invalid-argument", `Missing/invalid ${fieldName}.`);
+function asNonEmptyString(v: unknown, field: string): string {
+  if (typeof v !== "string" || v.trim().length === 0) {
+    throw new HttpsError("invalid-argument", `Missing/invalid ${field}.`);
   }
-  return x.trim();
+  return v.trim();
 }
 
-function requireObject(x: unknown, fieldName: string): Record<string, unknown> {
-  if (!x || typeof x !== "object") {
-    throw new HttpsError("invalid-argument", `Missing/invalid ${fieldName}.`);
+function asOptionalString(v: unknown): string | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v !== "string") return null;
+  const s = v.trim();
+  return s.length ? s : null;
+}
+
+function clampComment(comment: string): string {
+  if (comment.length <= 100) return comment;
+  return comment.slice(0, 100);
+}
+
+function nowTs(): admin.firestore.Timestamp {
+  return admin.firestore.Timestamp.now();
+}
+
+function addDays(ts: admin.firestore.Timestamp, days: number): admin.firestore.Timestamp {
+  const ms = ts.toMillis() + days * 24 * 60 * 60 * 1000;
+  return admin.firestore.Timestamp.fromMillis(ms);
+}
+
+function yyyymmFromNow(ts: admin.firestore.Timestamp): string {
+  const d = new Date(ts.toMillis());
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth() + 1;
+  return `${y}${String(m).padStart(2, "0")}`;
+}
+
+function randomInviteCode(length = 10): string {
+  // Unngå lett-forvekslbare tegn (0,O,1,I,L)
+  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const bytes = admin.firestore().app?.options ? admin.firestore : null; // no-op to silence lint
+  const buf = Buffer.alloc(length);
+  admin.crypto?.randomBytes?.(length); // if present (not required)
+  // Bruk Node crypto direkte (alltid tilgjengelig i runtime)
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const crypto = require("crypto") as typeof import("crypto");
+  const rnd = crypto.randomBytes(length);
+  for (let i = 0; i < length; i++) {
+    buf[i] = rnd[i] % alphabet.length;
   }
-  return x as Record<string, unknown>;
+  return Array.from(buf).map((b) => alphabet[b]).join("");
 }
 
-function assertAllowedPackKey(packKey: string): string {
-  // LÅST: schema says string. We keep it permissive for now.
-  // If you later want to restrict to known keys, do it here.
-  return packKey;
+async function getUserPlan(uid: string): Promise<Plan> {
+  const snap = await db.doc(`users/${uid}`).get();
+  const plan = (snap.exists ? (snap.data()?.plan as unknown) : undefined) as unknown;
+  if (plan === "standard" || plan === "premium" || plan === "sky") return plan;
+  // Default: standard hvis ikke satt ennå
+  return "standard";
 }
 
-function validatePayload(raw: unknown): HusketPayload {
-  const o = requireObject(raw, "husket");
+async function ensureCanSendToContact(senderUid: string, recipientUid: string): Promise<void> {
+  const ref = db.doc(`users/${senderUid}/contacts/${recipientUid}`);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    throw new HttpsError("failed-precondition", "Contact not found.");
+  }
+  const data = snap.data() || {};
+  if (data.blocked === true) {
+    throw new HttpsError("failed-precondition", "Contact is blocked.");
+  }
+  if (data.canSendTo !== true) {
+    throw new HttpsError("failed-precondition", "Sending to this contact is not allowed.");
+  }
+}
 
-  const type = o.type;
-  if (type !== "husket") {
+function validatePayload(input: any): Omit<HusketRelayPayload, "image"> & { image: { storagePath: string } } {
+  if (!input || typeof input !== "object") {
+    throw new HttpsError("invalid-argument", "Missing payload.");
+  }
+  if (input.type !== "husket") {
     throw new HttpsError("invalid-argument", "payload.type must be 'husket'.");
   }
 
-  const husketId = requireString(o.husketId, "husket.husketId");
+  const husketId = asNonEmptyString(input.husketId, "payload.husketId");
+  const ratingPackKey = asNonEmptyString(input.ratingPackKey, "payload.ratingPackKey");
+  const ratingValue = asNonEmptyString(input.ratingValue, "payload.ratingValue");
 
-  const capturedAt = o.capturedAt;
-  if (typeof capturedAt !== "number" || !Number.isFinite(capturedAt) || capturedAt <= 0) {
-    throw new HttpsError("invalid-argument", "husket.capturedAt must be millis timestamp.");
+  const commentRaw = typeof input.comment === "string" ? input.comment : "";
+  const comment = clampComment(commentRaw);
+
+  const categoryLabel = input.categoryLabel === null ? null : asOptionalString(input.categoryLabel);
+
+  // capturedAt: accept number(ms) or ISO or Timestamp-like
+  let capturedAt: admin.firestore.Timestamp;
+  if (input.capturedAt?.toMillis && typeof input.capturedAt.toMillis === "function") {
+    capturedAt = input.capturedAt as admin.firestore.Timestamp;
+  } else if (typeof input.capturedAt === "number") {
+    capturedAt = admin.firestore.Timestamp.fromMillis(input.capturedAt);
+  } else if (typeof input.capturedAt === "string") {
+    const ms = Date.parse(input.capturedAt);
+    if (Number.isNaN(ms)) throw new HttpsError("invalid-argument", "Invalid payload.capturedAt.");
+    capturedAt = admin.firestore.Timestamp.fromMillis(ms);
+  } else {
+    throw new HttpsError("invalid-argument", "Missing/invalid payload.capturedAt.");
   }
 
-  const comment = clampString(o.comment, 100);
-
-  const ratingPackKey = assertAllowedPackKey(requireString(o.ratingPackKey, "husket.ratingPackKey"));
-  const ratingValue = requireString(o.ratingValue, "husket.ratingValue");
-
-  const categoryLabelRaw = o.categoryLabel;
-  const categoryLabel =
-    categoryLabelRaw === null ? null : typeof categoryLabelRaw === "string" ? clampString(categoryLabelRaw, 60) : null;
-
-  const gpsRaw = o.gps;
-  let gps: HusketPayload["gps"] = null;
-  if (gpsRaw !== null && gpsRaw !== undefined) {
-    const g = requireObject(gpsRaw, "husket.gps");
-    const lat = g.lat;
-    const lng = g.lng;
-    if (typeof lat !== "number" || typeof lng !== "number") {
-      throw new HttpsError("invalid-argument", "husket.gps.lat/lng must be numbers.");
+  let gps: HusketRelayPayload["gps"] = null;
+  if (input.gps && typeof input.gps === "object") {
+    const lat = Number(input.gps.lat);
+    const lng = Number(input.gps.lng);
+    const acc = Number(input.gps.acc);
+    const tsIn = input.gps.ts;
+    let ts: admin.firestore.Timestamp;
+    if (tsIn?.toMillis && typeof tsIn.toMillis === "function") {
+      ts = tsIn as admin.firestore.Timestamp;
+    } else if (typeof tsIn === "number") {
+      ts = admin.firestore.Timestamp.fromMillis(tsIn);
+    } else {
+      ts = capturedAt;
     }
-    const acc = typeof g.acc === "number" ? g.acc : undefined;
-    const ts = typeof g.ts === "number" ? g.ts : undefined;
-    gps = { lat, lng, ...(acc !== undefined ? { acc } : {}), ...(ts !== undefined ? { ts } : {}) };
+    if (
+      Number.isFinite(lat) &&
+      Number.isFinite(lng) &&
+      Number.isFinite(acc) &&
+      Math.abs(lat) <= 90 &&
+      Math.abs(lng) <= 180
+    ) {
+      gps = { lat, lng, acc, ts };
+    }
   }
-
-  const imageRaw = requireObject(o.image, "husket.image");
-  const storagePath = requireString(imageRaw.storagePath, "husket.image.storagePath");
 
   return {
     type: "husket",
@@ -123,309 +180,232 @@ function validatePayload(raw: unknown): HusketPayload {
     ratingValue,
     categoryLabel,
     gps,
-    image: { storagePath }
+    image: { storagePath: "" } // settes av server ved lagring
   };
 }
 
-async function getUserPlan(uid: string): Promise<Plan> {
-  const snap = await db.doc(`users/${uid}`).get();
-  if (!snap.exists) return "standard";
-  const data = snap.data() || {};
-  const plan = data.plan;
-  if (plan === "standard" || plan === "premium" || plan === "sky") return plan;
-  return "standard";
-}
+async function uploadRelayImage(recipientUid: string, relayId: string, imageBase64: string): Promise<string> {
+  const storagePath = `relay/${recipientUid}/${relayId}.jpg`; // matches storage/relay/{recipientUid}/{relayId}.jpg
+  const file = bucket.file(storagePath);
+  const bytes = Buffer.from(imageBase64, "base64");
 
-async function assertHasSky(uid: string): Promise<void> {
-  const plan = await getUserPlan(uid);
-  if (plan !== "sky") {
-    throw new HttpsError("permission-denied", "Sky plan required to send.");
-  }
-}
-
-async function assertContactExists(senderUid: string, recipientUid: string): Promise<void> {
-  const ref = db.doc(`users/${senderUid}/contacts/${recipientUid}`);
-  const snap = await ref.get();
-  if (!snap.exists) {
-    throw new HttpsError("failed-precondition", "Recipient is not in your contacts.");
-  }
-  const d = snap.data() || {};
-  if (d.blocked === true) {
-    throw new HttpsError("failed-precondition", "Contact is blocked.");
-  }
-  if (d.canSendTo !== true) {
-    throw new HttpsError("failed-precondition", "You are not allowed to send to this contact.");
-  }
-}
-
-async function countContacts(uid: string): Promise<number> {
-  // admin SDK count aggregation
-  const q = db.collection(`users/${uid}/contacts`).count();
-  const res = await q.get();
-  return res.data().count;
-}
-
-async function assertContactLimitForStandard(uid: string): Promise<void> {
-  const plan = await getUserPlan(uid);
-  if (plan === "sky") return; // unlimited
-  // Standard limit applies in rulebook. Premium without Sky? Keep same limit by default.
-  const currentCount = await countContacts(uid);
-  if (currentCount >= 10) {
-    throw new HttpsError("resource-exhausted", "Contact limit reached (max 10).");
-  }
-}
-
-async function getReceivedCount(uid: string, yyyymm: string): Promise<number> {
-  const ref = db.doc(`users/${uid}/counters/${yyyymm}`);
-  const snap = await ref.get();
-  if (!snap.exists) return 0;
-  const d = snap.data() || {};
-  return typeof d.receivedCount === "number" ? d.receivedCount : 0;
-}
-
-async function assertMonthlyLimitIfStandardRecipient(recipientUid: string): Promise<{ yyyymm: string }> {
-  const plan = await getUserPlan(recipientUid);
-  if (plan === "sky") return { yyyymm: yyyymmFromDate(new Date()) }; // unlimited receive
-  const yyyymm = yyyymmFromDate(new Date());
-  const current = await getReceivedCount(recipientUid, yyyymm);
-  if (current >= 25) {
-    throw new HttpsError("resource-exhausted", "Recipient monthly receive limit reached (25).");
-  }
-  return { yyyymm };
-}
-
-function relayDocPath(relayId: string): string {
-  return `relay/${relayId}`;
-}
-
-function relayStoragePath(recipientUid: string, relayId: string): string {
-  return `relay/${recipientUid}/${relayId}.jpg`;
-}
-
-function userHusketStoragePath(uid: string, husketId: string): string {
-  return `users/${uid}/huskets/${husketId}.jpg`;
-}
-
-function addDays(ts: Timestamp, days: number): Timestamp {
-  const ms = ts.toMillis() + days * 24 * 60 * 60 * 1000;
-  return Timestamp.fromMillis(ms);
-}
-
-function decodeBase64Image(dataUrlOrBase64: string): Buffer {
-  const s = dataUrlOrBase64.trim();
-
-  // Accept either raw base64 or data URL
-  const comma = s.indexOf(",");
-  const b64 = s.startsWith("data:") && comma !== -1 ? s.slice(comma + 1) : s;
-
-  // Basic sanity
-  if (b64.length < 64) {
-    throw new HttpsError("invalid-argument", "imageBase64 is too small/invalid.");
-  }
-
-  try {
-    return Buffer.from(b64, "base64");
-  } catch {
-    throw new HttpsError("invalid-argument", "imageBase64 must be valid base64.");
-  }
-}
-
-function assertMaxBytes(buf: Buffer, maxBytes: number): void {
-  if (buf.byteLength > maxBytes) {
-    throw new HttpsError("invalid-argument", `Image too large. Max ${maxBytes} bytes.`);
-  }
-}
-
-/* =========================================================
-   A) resolveInviteCode
-   Input: { code: string }
-   Output: { contactUid: string }
-   Server:
-   - resolve code -> ownerUid (inviteCodes/{code})
-   - reject self / revoked
-   - enforce contact-limit for Standard (<=10)
-   - write users/{myUid}/contacts/{ownerUid}
-   ========================================================= */
-export const resolveInviteCode = onCall({ region: "europe-west1" }, async (req) => {
-  const myUid = requireAuth(req);
-
-  const data = requireObject(req.data, "data");
-  const code = requireString(data.code, "code");
-
-  // inviteCodes/{code} -> { ownerUid, revokedAt? }
-  const codeRef = db.doc(`inviteCodes/${code}`);
-  const codeSnap = await codeRef.get();
-
-  if (!codeSnap.exists) {
-    throw new HttpsError("not-found", "Invalid invite code.");
-  }
-
-  const codeData = codeSnap.data() || {};
-  const ownerUid = codeData.ownerUid;
-
-  if (typeof ownerUid !== "string" || ownerUid.trim().length === 0) {
-    throw new HttpsError("failed-precondition", "Invite code misconfigured.");
-  }
-
-  if (ownerUid === myUid) {
-    throw new HttpsError("failed-precondition", "You cannot add yourself as a contact.");
-  }
-
-  if (codeData.revokedAt) {
-    throw new HttpsError("failed-precondition", "Invite code revoked.");
-  }
-
-  await assertContactLimitForStandard(myUid);
-
-  const contactRef = db.doc(`users/${myUid}/contacts/${ownerUid}`);
-
-  await db.runTransaction(async (tx) => {
-    const existing = await tx.get(contactRef);
-    if (existing.exists) {
-      // idempotent: already added
-      return;
+  // Minimal content-type; vi låser dette til jpg nå
+  await file.save(bytes, {
+    contentType: "image/jpeg",
+    resumable: false,
+    metadata: {
+      cacheControl: "private, max-age=0, no-transform"
     }
-    tx.set(contactRef, {
+  });
+
+  return storagePath;
+}
+
+async function copyRelayImageToUserHusket(recipientUid: string, relayStoragePath: string, newHusketId: string) {
+  const src = bucket.file(relayStoragePath);
+  const destPath = `users/${recipientUid}/huskets/${newHusketId}.jpg`;
+  const dest = bucket.file(destPath);
+
+  await src.copy(dest);
+  return destPath;
+}
+
+// ------------------------------------------------------------
+// A) createInviteCode (NY) - produksjonsklar
+// ------------------------------------------------------------
+export const createInviteCode = onCall(async (request) => {
+  const uid = assertAuthed(request);
+  const userRef = db.doc(`users/${uid}`);
+
+  // Idempotent: returner eksisterende aktiv kode hvis den finnes og ikke er revoked
+  const userSnap = await userRef.get();
+  const existingCode = userSnap.exists ? (userSnap.data()?.inviteCode as unknown) : undefined;
+
+  if (typeof existingCode === "string" && existingCode.trim().length > 0) {
+    const code = existingCode.trim();
+    const codeSnap = await db.doc(`inviteCodes/${code}`).get();
+    const data = codeSnap.exists ? codeSnap.data() : null;
+    if (data && data.ownerUid === uid && !data.revokedAt) {
+      return { code };
+    }
+  }
+
+  // Lag ny kode, sørg for unik
+  const createdAt = nowTs();
+
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const code = randomInviteCode(10);
+    const codeRef = db.doc(`inviteCodes/${code}`);
+
+    const ok = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(codeRef);
+      if (snap.exists) return false;
+
+      tx.set(codeRef, {
+        ownerUid: uid,
+        createdAt,
+        revokedAt: null
+      });
+
+      tx.set(
+        userRef,
+        {
+          inviteCode: code,
+          inviteCodeUpdatedAt: createdAt
+        },
+        { merge: true }
+      );
+
+      return true;
+    });
+
+    if (ok) return { code };
+  }
+
+  throw new HttpsError("internal", "Could not generate invite code. Try again.");
+});
+
+// ------------------------------------------------------------
+// B) resolveInviteCode
+// Input: { code: string }
+// Output: { contactUid: string }
+// ------------------------------------------------------------
+export const resolveInviteCode = onCall(async (request) => {
+  const myUid = assertAuthed(request);
+  const codeIn = asNonEmptyString(request.data?.code, "code").toUpperCase();
+
+  const codeSnap = await db.doc(`inviteCodes/${codeIn}`).get();
+  if (!codeSnap.exists) throw new HttpsError("not-found", "Invalid code.");
+
+  const data = codeSnap.data() || {};
+  const ownerUid = data.ownerUid as string | undefined;
+  const revokedAt = data.revokedAt as admin.firestore.Timestamp | null | undefined;
+
+  if (!ownerUid) throw new HttpsError("not-found", "Invalid code.");
+  if (ownerUid === myUid) throw new HttpsError("failed-precondition", "Cannot add yourself as contact.");
+  if (revokedAt) throw new HttpsError("failed-precondition", "Code is revoked.");
+
+  // Håndhev kontakt-limit for Standard
+  const myPlan = await getUserPlan(myUid);
+  if (myPlan === "standard") {
+    const contactsSnap = await db.collection(`users/${myUid}/contacts`).get();
+    if (contactsSnap.size >= 10) {
+      throw new HttpsError("resource-exhausted", "Contact limit reached (Standard).");
+    }
+  }
+
+  // Opprett/oppdater kontakt (server-only; klient får ikke lov via rules)
+  const contactRef = db.doc(`users/${myUid}/contacts/${ownerUid}`);
+  await contactRef.set(
+    {
       contactUid: ownerUid,
       canSendTo: true,
-      createdAt: FieldValue.serverTimestamp(),
-      label: null,
+      createdAt: nowTs(),
       blocked: false
-    });
-  });
+    },
+    { merge: true }
+  );
 
   return { contactUid: ownerUid };
 });
 
-/* =========================================================
-   B) sendHusketToContact
-   Input: { recipientUid: string, husket: payload, imageBase64: string }
-   Output: { relayId: string }
-   Server:
-   - sender must have Sky
-   - contact must exist
-   - enforce recipient Standard-limit (25/mnd)
-   - write relay/{relayId} with expiresAt=now+14d
-   - upload image to storage/relay/{recipientUid}/{relayId}.jpg
-   - increment recipient counter
-   ========================================================= */
-export const sendHusketToContact = onCall({ region: "europe-west1", timeoutSeconds: 60, memory: "512MiB" }, async (req) => {
-  const senderUid = requireAuth(req);
+// ------------------------------------------------------------
+// C) sendHusketToContact
+// Input: { recipientUid: string, husket: payload, imageBase64: string }
+// Output: { relayId: string }
+// ------------------------------------------------------------
+export const sendHusketToContact = onCall(async (request) => {
+  const senderUid = assertAuthed(request);
 
-  await assertHasSky(senderUid);
+  const recipientUid = asNonEmptyString(request.data?.recipientUid, "recipientUid");
+  if (recipientUid === senderUid) throw new HttpsError("failed-precondition", "Cannot send to yourself.");
 
-  const data = requireObject(req.data, "data");
-  const recipientUid = requireString(data.recipientUid, "recipientUid");
-
-  if (recipientUid === senderUid) {
-    throw new HttpsError("failed-precondition", "Cannot send to yourself.");
+  const senderPlan = await getUserPlan(senderUid);
+  if (senderPlan !== "sky") {
+    throw new HttpsError("permission-denied", "Sending requires Sky plan.");
   }
 
-  await assertContactExists(senderUid, recipientUid);
+  // Sjekk kontakt finnes og kan sende
+  await ensureCanSendToContact(senderUid, recipientUid);
 
-  const husket = validatePayload(data.husket);
+  // Valider payload
+  const husketIn = request.data?.husket;
+  const payloadBase = validatePayload(husketIn);
 
-  const imageBase64 = requireString(data.imageBase64, "imageBase64");
-  const imageBuf = decodeBase64Image(imageBase64);
-  assertMaxBytes(imageBuf, 6 * 1024 * 1024); // 6 MB hard cap
-
-  const { yyyymm } = await assertMonthlyLimitIfStandardRecipient(recipientUid);
-
-  const relayRef = db.collection("relay").doc();
-  const relayId = relayRef.id;
+  // Image: base64 (prod-ready simplest)
+  const imageBase64 = asNonEmptyString(request.data?.imageBase64, "imageBase64");
 
   const createdAt = nowTs();
   const expiresAt = addDays(createdAt, 14);
+  const relayRef = db.collection("relay").doc();
+  const relayId = relayRef.id;
 
-  const relayPath = relayStoragePath(recipientUid, relayId);
-
-  const relayPayload: HusketPayload = {
-    ...husket,
-    // LÅST: server sets relay image path
-    image: { storagePath: relayPath }
-  };
-
-  // Write doc + upload image + increment counter
-  // We do: upload first (so relay doc never points to missing file)
-  const file = bucket.file(relayPath);
-  await file.save(imageBuf, {
-    contentType: "image/jpeg",
-    resumable: false,
-    metadata: {
-      cacheControl: "private, max-age=3600"
-    }
-  });
-
-  // If upload ok, create relay doc and counter atomically
+  // Håndhev Standard-mottakers månedslimit (25/mnd)
+  const recipientPlan = await getUserPlan(recipientUid);
+  const yyyymm = yyyymmFromNow(createdAt);
   const counterRef = db.doc(`users/${recipientUid}/counters/${yyyymm}`);
 
+  // Lagre bilde i relay storage først (slik at relay doc peker på faktisk path)
+  const relayStoragePath = await uploadRelayImage(recipientUid, relayId, imageBase64);
+
+  const relayDoc = {
+    senderUid,
+    recipientUid,
+    createdAt,
+    expiresAt,
+    openedAt: null as admin.firestore.Timestamp | null,
+    status: "pending" as "pending" | "opened" | "resolved",
+    payload: {
+      ...payloadBase,
+      image: { storagePath: relayStoragePath }
+    }
+  };
+
   await db.runTransaction(async (tx) => {
-    // Re-check counter inside transaction for Standard recipients
-    const recipientPlan = await getUserPlan(recipientUid);
-    if (recipientPlan !== "sky") {
-      const counterSnap = await tx.get(counterRef);
-      const current = counterSnap.exists && typeof counterSnap.data()?.receivedCount === "number"
-        ? (counterSnap.data()!.receivedCount as number)
-        : 0;
-
-      if (current >= 25) {
-        throw new HttpsError("resource-exhausted", "Recipient monthly receive limit reached (25).");
+    if (recipientPlan === "standard") {
+      const cSnap = await tx.get(counterRef);
+      const receivedCount = (cSnap.exists ? Number(cSnap.data()?.receivedCount || 0) : 0) || 0;
+      if (receivedCount >= 25) {
+        throw new HttpsError("resource-exhausted", "Monthly receive limit reached (Standard).");
       }
-
       tx.set(
         counterRef,
         {
-          receivedCount: FieldValue.increment(1),
-          updatedAt: FieldValue.serverTimestamp()
+          receivedCount: receivedCount + 1,
+          updatedAt: createdAt
         },
         { merge: true }
       );
     }
 
-    tx.set(relayRef, {
-      senderUid,
-      recipientUid,
-      createdAt: FieldValue.serverTimestamp(),
-      expiresAt,
-      openedAt: null,
-      status: "pending" as RelayStatus,
-      payload: relayPayload,
-      image: {
-        storagePath: relayPath
-      }
-    });
+    tx.create(relayRef, relayDoc);
   });
 
   return { relayId };
 });
 
-/* =========================================================
-   C) openRelayItem
-   Input: { relayId: string }
-   Output: { ok: true }
-   Server:
-   - verify recipient
-   - set openedAt if not set
-   ========================================================= */
-export const openRelayItem = onCall({ region: "europe-west1" }, async (req) => {
-  const myUid = requireAuth(req);
+// ------------------------------------------------------------
+// D) openRelayItem
+// Input: { relayId: string }
+// Output: { ok: true }
+// ------------------------------------------------------------
+export const openRelayItem = onCall(async (request) => {
+  const myUid = assertAuthed(request);
+  const relayId = asNonEmptyString(request.data?.relayId, "relayId");
 
-  const data = requireObject(req.data, "data");
-  const relayId = requireString(data.relayId, "relayId");
-
-  const ref = db.doc(relayDocPath(relayId));
+  const ref = db.doc(`relay/${relayId}`);
 
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
-    if (!snap.exists) throw new HttpsError("not-found", "Relay item not found.");
+    if (!snap.exists) throw new HttpsError("not-found", "Relay not found.");
 
-    const d = snap.data() || {};
-    if (d.recipientUid !== myUid) throw new HttpsError("permission-denied", "Not your relay item.");
+    const data = snap.data() || {};
+    if (data.recipientUid !== myUid) throw new HttpsError("permission-denied", "Not allowed.");
 
-    if (!d.openedAt) {
+    if (!data.openedAt) {
       tx.update(ref, {
-        openedAt: FieldValue.serverTimestamp(),
-        status: "opened" as RelayStatus
+        openedAt: nowTs(),
+        status: "opened"
       });
     }
   });
@@ -433,90 +413,85 @@ export const openRelayItem = onCall({ region: "europe-west1" }, async (req) => {
   return { ok: true };
 });
 
-/* =========================================================
-   D) resolveRelayItem
-   Input: { relayId: string, action: "save" | "discard" }
-   Output: { savedHusketId?: string }
-   Server:
-   - verify recipient
-   - if save: create husket in users/{recipient}/huskets/{newId}, copy image,
-             delete relay doc, delete relay image (or lifecycle)
-   - if discard: delete relay doc + delete relay image
-   ========================================================= */
-export const resolveRelayItem = onCall({ region: "europe-west1", timeoutSeconds: 60, memory: "512MiB" }, async (req) => {
-  const myUid = requireAuth(req);
+// ------------------------------------------------------------
+// E) resolveRelayItem
+// Input: { relayId: string, action: "save" | "discard" }
+// Output: { savedHusketId?: string }
+// ------------------------------------------------------------
+export const resolveRelayItem = onCall(async (request) => {
+  const myUid = assertAuthed(request);
 
-  const data = requireObject(req.data, "data");
-  const relayId = requireString(data.relayId, "relayId");
-
-  const action = data.action;
+  const relayId = asNonEmptyString(request.data?.relayId, "relayId");
+  const action = asNonEmptyString(request.data?.action, "action") as "save" | "discard";
   if (action !== "save" && action !== "discard") {
     throw new HttpsError("invalid-argument", "action must be 'save' or 'discard'.");
   }
 
-  const relayRef = db.doc(relayDocPath(relayId));
+  const relayRef = db.doc(`relay/${relayId}`);
 
-  // Read relay first (outside txn) for storage paths/payload.
-  const relaySnap = await relayRef.get();
-  if (!relaySnap.exists) throw new HttpsError("not-found", "Relay item not found.");
-
-  const relay = relaySnap.data() || {};
-  if (relay.recipientUid !== myUid) throw new HttpsError("permission-denied", "Not your relay item.");
-
-  const relayImagePath = relay?.image?.storagePath;
-  if (typeof relayImagePath !== "string" || relayImagePath.length === 0) {
-    throw new HttpsError("failed-precondition", "Relay image path missing.");
-  }
-
-  const payload = relay.payload as HusketPayload | undefined;
-  if (!payload || payload.type !== "husket") {
-    throw new HttpsError("failed-precondition", "Relay payload missing/invalid.");
-  }
-
-  if (action === "discard") {
-    // Delete doc, then delete image
-    await relayRef.delete().catch(() => undefined);
-    await bucket.file(relayImagePath).delete({ ignoreNotFound: true }).catch(() => undefined);
-    return { ok: true };
-  }
-
-  // SAVE
-  const newHusketRef = db.collection(`users/${myUid}/huskets`).doc();
-  const newId = newHusketRef.id;
-
-  const destPath = userHusketStoragePath(myUid, newId);
-
-  // Copy relay image -> user husket path
-  await bucket.file(relayImagePath).copy(bucket.file(destPath));
-
-  // Write new husket doc (Sky backup schema)
-  await db.runTransaction(async (tx) => {
-    // ensure relay still exists and is ours
+  const res = await db.runTransaction(async (tx) => {
     const snap = await tx.get(relayRef);
-    if (!snap.exists) throw new HttpsError("not-found", "Relay item not found.");
-    const d = snap.data() || {};
-    if (d.recipientUid !== myUid) throw new HttpsError("permission-denied", "Not your relay item.");
+    if (!snap.exists) throw new HttpsError("not-found", "Relay not found.");
 
-    tx.set(newHusketRef, {
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
+    const relay = snap.data() as any;
+    if (relay.recipientUid !== myUid) throw new HttpsError("permission-denied", "Not allowed.");
+
+    if (action === "discard") {
+      tx.delete(relayRef);
+      return { savedHusketId: undefined as string | undefined, relayStoragePath: relay?.payload?.image?.storagePath as string | undefined };
+    }
+
+    // SAVE
+    const newId = db.collection(`users/${myUid}/huskets`).doc().id;
+    const createdAt = nowTs();
+
+    const relayPayload = relay.payload as HusketRelayPayload;
+    if (!relayPayload?.image?.storagePath) {
+      throw new HttpsError("internal", "Relay image path missing.");
+    }
+
+    const destImagePath = `users/${myUid}/huskets/${newId}.jpg`;
+
+    tx.set(db.doc(`users/${myUid}/huskets/${newId}`), {
+      createdAt,
+      updatedAt: createdAt,
       deletedAt: null,
-      life: null, // set by client later if you want; or carry snapshot if desired
-      comment: payload.comment ?? "",
-      ratingPackKey: payload.ratingPackKey,
-      ratingValue: payload.ratingValue,
-      categoryLabelSnapshot: payload.categoryLabel ?? null,
-      gps: payload.gps ?? null,
-      capturedAt: Timestamp.fromMillis(payload.capturedAt),
-      image: { storagePath: destPath }
+      life: relay.life ?? "private",
+      comment: relayPayload.comment ?? "",
+      ratingPackKey: relayPayload.ratingPackKey,
+      ratingValue: relayPayload.ratingValue,
+      categoryLabelSnapshot: relayPayload.categoryLabel ?? null,
+      gps: relayPayload.gps ?? null,
+      image: {
+        storagePath: destImagePath
+      }
     });
 
-    // Delete relay doc
     tx.delete(relayRef);
+
+    return { savedHusketId: newId, relayStoragePath: relayPayload.image.storagePath };
   });
 
-  // Cleanup relay image
-  await bucket.file(relayImagePath).delete({ ignoreNotFound: true }).catch(() => undefined);
+  // Copy image after transaction (storage er utenfor Firestore transaction)
+  if (action === "save" && res.savedHusketId && res.relayStoragePath) {
+    await copyRelayImageToUserHusket(myUid, res.relayStoragePath, res.savedHusketId);
+    // (valgfritt) slett relay-bilde direkte; lifecycle tar det ellers
+    try {
+      await bucket.file(res.relayStoragePath).delete({ ignoreNotFound: true });
+    } catch {
+      // ignore
+    }
+    return { savedHusketId: res.savedHusketId };
+  }
 
-  return { savedHusketId: newId };
+  if (action === "discard" && res.relayStoragePath) {
+    // Slett relay-bildet hvis mulig (ellers lifecycle)
+    try {
+      await bucket.file(res.relayStoragePath).delete({ ignoreNotFound: true });
+    } catch {
+      // ignore
+    }
+  }
+
+  return {};
 });
