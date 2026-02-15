@@ -5,41 +5,44 @@ import React, { useEffect, useMemo, useState } from "react";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
 import { HUSKET_TYPO } from "../theme/typography";
-import { MCL_HUSKET_THEME } from "../theme";
 import { useToast } from "../components/ToastHost";
 
-import { collection, onSnapshot, orderBy, query, where, type Timestamp as FsTimestamp } from "firebase/firestore";
-import { getDownloadURL, ref as storageRef } from "firebase/storage";
+import { onAuthStateChanged } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
+import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { auth, db, functions } from "../firebase";
 
-import { auth, db, functions, storage } from "../firebase";
-
-type RelayStatus = "pending" | "opened" | "resolved";
-
-type RelayDoc = {
-  senderUid: string;
-  recipientUid: string;
-  createdAt?: FsTimestamp;
-  openedAt?: FsTimestamp | null;
-  expiresAt?: FsTimestamp;
-  status: RelayStatus;
-  payload: any;
-  image?: { storagePath?: string };
+type ContactRow = {
+  contactUid: string;
+  label: string | null;
+  canSendTo: boolean;
+  blocked: boolean;
+  createdAtMs: number;
 };
 
-type RelayItem = {
-  id: string;
-  doc: RelayDoc;
-  imageUrl: string | null;
-};
-
-function fmtDateTime(ts?: any): string {
+async function copyToClipboard(text: string): Promise<boolean> {
   try {
-    const d = ts?.toDate ? ts.toDate() : null;
-    if (!d) return "";
-    return new Intl.DateTimeFormat(undefined, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(d);
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
   } catch {
-    return "";
+    // fallthrough
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "true");
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    ta.style.top = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
   }
 }
 
@@ -60,307 +63,284 @@ export function SharedWithMeScreen({ dict }: { dict: I18nDict }) {
     letterSpacing: HUSKET_TYPO.B.letterSpacing,
   };
 
-  const cardStyle: React.CSSProperties = {
-    border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
-    borderRadius: 16,
-    padding: 12,
-    background: "rgba(255,255,255,0.02)",
-    display: "flex",
-    gap: 12,
-    alignItems: "stretch",
-  };
+  const [uid, setUid] = useState<string | null>(auth.currentUser?.uid ?? null);
 
-  const btnStyle: React.CSSProperties = {
-    border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
-    borderRadius: 999,
-    padding: "8px 12px",
-    background: "transparent",
-    color: MCL_HUSKET_THEME.colors.textOnDark,
-    cursor: "pointer",
-    fontSize: HUSKET_TYPO.B.fontSize,
-    fontWeight: HUSKET_TYPO.B.fontWeight,
-    lineHeight: HUSKET_TYPO.B.lineHeight,
-    letterSpacing: HUSKET_TYPO.B.letterSpacing,
-    whiteSpace: "nowrap",
-  };
+  const [myCode, setMyCode] = useState<string>("");
+  const [codeInput, setCodeInput] = useState<string>("");
 
-  const btnPrimaryStyle: React.CSSProperties = {
-    ...btnStyle,
-    background: MCL_HUSKET_THEME.colors.altSurface,
-    borderColor: MCL_HUSKET_THEME.colors.altSurface,
-  };
+  const [contacts, setContacts] = useState<ContactRow[]>([]);
+  const [contactsLoading, setContactsLoading] = useState<boolean>(true);
 
-  const [items, setItems] = useState<RelayItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [busyCreate, setBusyCreate] = useState(false);
+  const [busyResolve, setBusyResolve] = useState(false);
 
-  const [openId, setOpenId] = useState<string | null>(null);
-  const openItem = useMemo(() => items.find((x) => x.id === openId) ?? null, [items, openId]);
-
-  // Lytt til relay-inbox for current user
   useEffect(() => {
-    const uid = auth.currentUser?.uid;
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setUid(user?.uid ?? null);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
     if (!uid) {
-      setItems([]);
-      setLoading(false);
+      setContacts([]);
+      setContactsLoading(false);
       return;
     }
 
-    setLoading(true);
+    setContactsLoading(true);
 
-    const q = query(collection(db, "relay"), where("recipientUid", "==", uid), orderBy("createdAt", "desc"));
+    const qy = query(collection(db, `users/${uid}/contacts`), orderBy("createdAt", "desc"));
     const unsub = onSnapshot(
-      q,
-      async (snap) => {
-        const docs = snap.docs.map((d) => ({ id: d.id, doc: d.data() as RelayDoc }));
+      qy,
+      (snap) => {
+        const rows: ContactRow[] = snap.docs.map((d) => {
+          const data = d.data() as any;
 
-        // last inn bilde-URLer parallelt, men trygt
-        const resolved: RelayItem[] = await Promise.all(
-          docs.map(async (x) => {
-            const path = x.doc?.image?.storagePath;
-            if (!path) return { id: x.id, doc: x.doc, imageUrl: null };
-            try {
-              const url = await getDownloadURL(storageRef(storage, path));
-              return { id: x.id, doc: x.doc, imageUrl: url };
-            } catch {
-              return { id: x.id, doc: x.doc, imageUrl: null };
-            }
-          })
-        );
+          const createdAtMs =
+            typeof data?.createdAt?.toMillis === "function" ? data.createdAt.toMillis() : 0;
 
-        setItems(resolved);
-        setLoading(false);
+          return {
+            contactUid: (data?.contactUid as string) || d.id,
+            label: typeof data?.label === "string" ? data.label : null,
+            canSendTo: data?.canSendTo === true,
+            blocked: data?.blocked === true,
+            createdAtMs,
+          };
+        });
+
+        setContacts(rows);
+        setContactsLoading(false);
       },
       (err) => {
+        setContactsLoading(false);
+        toast.show(`Kunne ikke lese kontakter: ${err?.message ?? "Ukjent feil"}`);
         // eslint-disable-next-line no-console
         console.error(err);
-        toast.show("Kunne ikke lese Sky-innboksen (relay).");
-        setItems([]);
-        setLoading(false);
       }
     );
 
     return () => unsub();
-  }, [toast]);
+  }, [uid, toast]);
 
-  const callOpenRelayItem = async (relayId: string) => {
-    const fn = httpsCallable(functions, "openRelayItem");
-    await fn({ relayId });
-  };
+  const canUse = Boolean(uid);
 
-  const callResolveRelayItem = async (relayId: string, action: "save" | "discard") => {
-    const fn = httpsCallable(functions, "resolveRelayItem");
-    const res = await fn({ relayId, action });
-    return res.data as any;
-  };
+  const createInviteCode = async () => {
+    if (!canUse) {
+      toast.show("Du er ikke innlogget enda.");
+      return;
+    }
 
-  const handleOpen = async (relayId: string) => {
     try {
-      setOpenId(relayId);
-      await callOpenRelayItem(relayId);
-    } catch (e: any) {
+      setBusyCreate(true);
+      const fn = httpsCallable(functions, "createInviteCode");
+      const res = await fn({});
+      const code =
+        (res.data as any)?.code ?? (typeof res.data === "string" ? (res.data as string) : "");
+
+      if (!code) {
+        toast.show("Fikk ingen kode tilbake.");
+        return;
+      }
+
+      setMyCode(code);
+      const copied = await copyToClipboard(code);
+      toast.show(copied ? `Invite code: ${code} (kopiert)` : `Invite code: ${code}`);
+    } catch (err: any) {
+      toast.show(`Kunne ikke lage invite code: ${err?.message ?? "Ukjent feil"}`);
       // eslint-disable-next-line no-console
-      console.error(e);
-      toast.show("Kunne ikke åpne elementet.");
+      console.error(err);
+    } finally {
+      setBusyCreate(false);
     }
   };
 
-  const handleSave = async (relayId: string) => {
+  const resolveInviteCode = async () => {
+    if (!canUse) {
+      toast.show("Du er ikke innlogget enda.");
+      return;
+    }
+
+    const code = codeInput.trim();
+    if (!code) {
+      toast.show("Lim inn en invite code først.");
+      return;
+    }
+
     try {
-      const res = await callResolveRelayItem(relayId, "save");
-      const savedId = (res as any)?.savedHusketId;
-      toast.show(savedId ? "Lagret i albumet ditt." : "Lagret.");
-      setOpenId(null);
-    } catch (e: any) {
+      setBusyResolve(true);
+      const fn = httpsCallable(functions, "resolveInviteCode");
+      const res = await fn({ code });
+
+      const contactUid =
+        (res.data as any)?.contactUid ?? (typeof res.data === "string" ? (res.data as string) : "");
+
+      setCodeInput("");
+
+      if (!contactUid) {
+        toast.show("Kontakt lagt til, men fikk ingen uid tilbake.");
+        return;
+      }
+
+      toast.show("Kontakt lagt til.");
+    } catch (err: any) {
+      toast.show(`Kunne ikke legge til kontakt: ${err?.message ?? "Ukjent feil"}`);
       // eslint-disable-next-line no-console
-      console.error(e);
-      toast.show("Kunne ikke lagre (resolveRelayItem).");
+      console.error(err);
+    } finally {
+      setBusyResolve(false);
     }
   };
 
-  const handleDiscard = async (relayId: string) => {
-    try {
-      await callResolveRelayItem(relayId, "discard");
-      toast.show("Forkastet.");
-      setOpenId(null);
-    } catch (e: any) {
-      // eslint-disable-next-line no-console
-      console.error(e);
-      toast.show("Kunne ikke forkaste (resolveRelayItem).");
-    }
+  const sortedContacts = useMemo(() => {
+    const arr = [...contacts];
+    arr.sort((a, b) => (b.createdAtMs || 0) - (a.createdAtMs || 0));
+    return arr;
+  }, [contacts]);
+
+  const boxStyle: React.CSSProperties = {
+    border: "1px solid rgba(255,255,255,0.12)",
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 12,
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    boxSizing: "border-box",
+    borderRadius: 12,
+    border: "1px solid rgba(255,255,255,0.18)",
+    background: "rgba(0,0,0,0.08)",
+    color: "inherit",
+    padding: "10px 12px",
+    fontSize: HUSKET_TYPO.B.fontSize,
+    lineHeight: HUSKET_TYPO.B.lineHeight,
+    outline: "none",
+  };
+
+  const btnStyle: React.CSSProperties = {
+    border: "1px solid rgba(255,255,255,0.18)",
+    borderRadius: 999,
+    padding: "10px 12px",
+    background: "rgba(0,0,0,0.12)",
+    color: "inherit",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    fontSize: HUSKET_TYPO.B.fontSize,
+    fontWeight: HUSKET_TYPO.B.fontWeight,
+    lineHeight: HUSKET_TYPO.B.lineHeight,
+  };
+
+  const btnPrimaryStyle: React.CSSProperties = {
+    ...btnStyle,
+    background: "rgba(255,255,255,0.12)",
   };
 
   return (
     <div style={{ padding: 12 }}>
       <div style={{ ...textA, marginBottom: 8 }}>{tGet(dict, "shared.title")}</div>
+      <div className="smallHelp" style={textB}>
+        {tGet(dict, "shared.placeholder")}
+      </div>
 
-      {loading ? (
-        <div className="smallHelp" style={{ ...textB, opacity: 0.8 }}>
-          Laster…
-        </div>
-      ) : null}
+      <div style={boxStyle}>
+        <div style={{ ...textA, marginBottom: 8 }}>Invite code</div>
 
-      {!loading && items.length === 0 ? (
-        <div className="smallHelp" style={textB}>
-          {tGet(dict, "shared.placeholder")}
-        </div>
-      ) : null}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <button type="button" style={btnPrimaryStyle} onClick={createInviteCode} disabled={!canUse || busyCreate}>
+            {busyCreate ? "Lager..." : "Lag / hent min kode"}
+          </button>
 
-      {!loading && items.length > 0 ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
-          {items.map((x) => {
-            const p = x.doc?.payload || {};
-            const comment = typeof p.comment === "string" ? p.comment : "";
-            const cat = typeof p.categoryLabel === "string" ? p.categoryLabel : p.categoryLabelSnapshot || null;
-            const rating = p.ratingValue ? String(p.ratingValue) : "";
-            const pack = p.ratingPackKey ? String(p.ratingPackKey) : "";
-            const created = fmtDateTime(x.doc.createdAt);
-
-            return (
-              <div key={x.id} style={cardStyle}>
-                <div
-                  style={{
-                    width: 92,
-                    minWidth: 92,
-                    height: 92,
-                    borderRadius: 12,
-                    overflow: "hidden",
-                    border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
-                    background: "rgba(0,0,0,0.15)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  {x.imageUrl ? (
-                    <img src={x.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  ) : (
-                    <div style={{ ...textB, opacity: 0.7 }}>Bilde</div>
-                  )}
-                </div>
-
-                <div style={{ flex: "1 1 auto", minWidth: 0 }}>
-                  <div style={{ ...textB, opacity: 0.85, marginBottom: 4 }}>{created}</div>
-                  <div style={{ ...textA, marginBottom: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {cat ? cat : "Uten kategori"}
-                  </div>
-                  <div style={{ ...textB, opacity: 0.9, marginBottom: 6 }}>
-                    {pack && rating ? `Vurdering: ${pack} / ${rating}` : pack || rating ? `Vurdering: ${pack}${rating ? ` ${rating}` : ""}` : "Vurdering: –"}
-                  </div>
-                  {comment ? (
-                    <div style={{ ...textB, opacity: 0.9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {comment}
-                    </div>
-                  ) : (
-                    <div style={{ ...textB, opacity: 0.6 }}>Ingen kommentar</div>
-                  )}
-
-                  <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                    <button type="button" style={btnPrimaryStyle} onClick={() => handleOpen(x.id)}>
-                      Åpne
-                    </button>
-                    <button type="button" style={btnStyle} onClick={() => handleDiscard(x.id)}>
-                      Forkast
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
-
-      {/* Viewer / modal */}
-      {openItem ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.55)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 12,
-            zIndex: 9999,
-          }}
-          onClick={() => setOpenId(null)}
-        >
-          <div
-            style={{
-              width: "min(520px, 100%)",
-              maxHeight: "85vh",
-              overflow: "auto",
-              background: MCL_HUSKET_THEME.colors.altSurface,
-              border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
-              borderRadius: 18,
-              padding: 12,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
-              <div style={textA}>Delt husket</div>
-              <button type="button" style={btnStyle} onClick={() => setOpenId(null)}>
-                Lukk
-              </button>
-            </div>
-
-            <div
-              style={{
-                width: "100%",
-                aspectRatio: "4 / 3",
-                borderRadius: 14,
-                overflow: "hidden",
-                border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
-                background: "rgba(0,0,0,0.15)",
-                marginBottom: 10,
+          {myCode ? (
+            <button
+              type="button"
+              style={btnStyle}
+              onClick={async () => {
+                const ok = await copyToClipboard(myCode);
+                toast.show(ok ? "Kopiert." : "Kunne ikke kopiere.");
               }}
             >
-              {openItem.imageUrl ? (
-                <img src={openItem.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              ) : (
-                <div style={{ ...textB, opacity: 0.7, padding: 12 }}>Bilde kunne ikke lastes</div>
-              )}
-            </div>
-
-            {(() => {
-              const p = openItem.doc?.payload || {};
-              const comment = typeof p.comment === "string" ? p.comment : "";
-              const cat = typeof p.categoryLabel === "string" ? p.categoryLabel : p.categoryLabelSnapshot || null;
-              const rating = p.ratingValue ? String(p.ratingValue) : "";
-              const pack = p.ratingPackKey ? String(p.ratingPackKey) : "";
-              const capturedAt = p.capturedAt ? new Date(Number(p.capturedAt)) : null;
-
-              return (
-                <div>
-                  <div style={{ ...textB, opacity: 0.85, marginBottom: 6 }}>
-                    {capturedAt ? new Intl.DateTimeFormat(undefined, { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(capturedAt) : ""}
-                  </div>
-                  <div style={{ ...textA, marginBottom: 6 }}>{cat ? cat : "Uten kategori"}</div>
-                  <div style={{ ...textB, opacity: 0.9, marginBottom: 10 }}>
-                    {pack && rating ? `Vurdering: ${pack} / ${rating}` : pack || rating ? `Vurdering: ${pack}${rating ? ` ${rating}` : ""}` : "Vurdering: –"}
-                  </div>
-
-                  {comment ? (
-                    <div style={{ ...textB, opacity: 0.95, whiteSpace: "pre-wrap" }}>{comment}</div>
-                  ) : (
-                    <div style={{ ...textB, opacity: 0.6 }}>Ingen kommentar</div>
-                  )}
-
-                  <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
-                    <button type="button" style={btnPrimaryStyle} onClick={() => handleSave(openItem.id)}>
-                      Lagre i album
-                    </button>
-                    <button type="button" style={btnStyle} onClick={() => handleDiscard(openItem.id)}>
-                      Forkast
-                    </button>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
+              Kopier
+            </button>
+          ) : null}
         </div>
-      ) : null}
+
+        {myCode ? (
+          <div style={{ ...textB, marginTop: 10, wordBreak: "break-all", opacity: 0.95 }}>
+            {myCode}
+          </div>
+        ) : (
+          <div style={{ ...textB, marginTop: 10, opacity: 0.7 }}>
+            (Trykk “Lag / hent min kode”)
+          </div>
+        )}
+      </div>
+
+      <div style={boxStyle}>
+        <div style={{ ...textA, marginBottom: 8 }}>Legg til kontakt</div>
+
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <input
+            value={codeInput}
+            onChange={(e) => setCodeInput(e.target.value)}
+            placeholder="Lim inn invite code"
+            style={inputStyle}
+            disabled={!canUse || busyResolve}
+          />
+          <button
+            type="button"
+            style={btnPrimaryStyle}
+            onClick={resolveInviteCode}
+            disabled={!canUse || busyResolve}
+          >
+            {busyResolve ? "Legger til..." : "Legg til"}
+          </button>
+        </div>
+      </div>
+
+      <div style={boxStyle}>
+        <div style={{ ...textA, marginBottom: 8 }}>Kontakter</div>
+
+        {!uid ? (
+          <div style={{ ...textB, opacity: 0.75 }}>Logger inn...</div>
+        ) : contactsLoading ? (
+          <div style={{ ...textB, opacity: 0.75 }}>Laster...</div>
+        ) : sortedContacts.length === 0 ? (
+          <div style={{ ...textB, opacity: 0.75 }}>(Ingen kontakter enda)</div>
+        ) : (
+          <div style={{ display: "grid", gap: 8 }}>
+            {sortedContacts.map((c) => (
+              <div
+                key={c.contactUid}
+                style={{
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: 12,
+                  padding: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ ...textA, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {c.label || c.contactUid}
+                  </div>
+                  {c.label ? (
+                    <div style={{ ...textB, opacity: 0.75, overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {c.contactUid}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div style={{ ...textB, opacity: 0.85, whiteSpace: "nowrap" }}>
+                  {c.blocked ? "Blokkert" : c.canSendTo ? "Kan sende" : "Kan ikke sende"}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
