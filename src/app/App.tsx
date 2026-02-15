@@ -38,7 +38,6 @@ export function App() {
       ...(next.lives.enabledWork ? (["work"] as LifeKey[]) : []),
     ];
 
-    // Always keep at least one valid life selected
     const fallback: LifeKey = allowed[0] ?? "private";
     if (!allowed.includes(life)) setLife(fallback);
   };
@@ -76,7 +75,14 @@ export function App() {
             <CaptureScreen dict={dict} life={life} settings={settings} onRequirePremium={requirePremium} />
           ) : null}
 
-          {route === "album" ? <AlbumScreen dict={dict} life={life} settings={settings} /> : null}
+          {route === "album" ? (
+            <AlbumScreen
+              dict={dict}
+              life={life}
+              settings={settings}
+              onAlbumBecameEmpty={() => setRoute("capture")}
+            />
+          ) : null}
 
           {route === "shared" ? <SharedWithMeScreen dict={dict} /> : null}
 
