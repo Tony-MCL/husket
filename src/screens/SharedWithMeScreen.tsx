@@ -1,89 +1,56 @@
 // ===============================
 // src/screens/SharedWithMeScreen.tsx
 // ===============================
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import type { Husket, Settings } from "../domain/types";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
 import { HUSKET_TYPO } from "../theme/typography";
 import { MCL_HUSKET_THEME } from "../theme";
-
-import type { Husket } from "../domain/types";
-import { getImageBlobByKey } from "../data/husketRepo";
-
-import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
-import { httpsCallable } from "firebase/functions";
-import {
-  collection,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-  where,
-  type Unsubscribe,
-  limit,
-} from "firebase/firestore";
-import { getDownloadURL, ref as storageRef } from "firebase/storage";
-
-import { auth, db, functions, storage } from "../firebase";
 import { useToast } from "../components/ToastHost";
 
-type RelayItem = {
-  id: string;
-  senderUid: string;
-  recipientUid: string;
-  createdAtMs: number;
-  openedAtMs: number | null;
-  status: "pending" | "opened" | "resolved";
-  payload: any; // HusketPayload-ish
-  imagePath: string;
-};
+import { auth, db, functions } from "../firebase";
+import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
+
+import { getImageUrl } from "../data/husketRepo";
+import { getEffectiveRatingPack } from "../domain/settingsCore";
 
 type ContactRow = {
-  uid: string;
-  canSendTo: boolean;
-  blocked: boolean;
+  contactUid: string;
   label: string | null;
+  createdAt?: any;
 };
 
-function toMs(x: any): number {
-  // Firestore Timestamp -> .toMillis()
-  try {
-    if (x && typeof x.toMillis === "function") return x.toMillis();
-  } catch {}
-  if (typeof x === "number") return x;
-  return Date.now();
-}
-
-async function blobToBase64DataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onerror = () => reject(new Error("Failed to read image"));
-    fr.onload = () => resolve(String(fr.result || ""));
-    fr.readAsDataURL(blob);
-  });
-}
-
-export function SharedWithMeScreen(props: {
+type Props = {
   dict: I18nDict;
+  settings: Settings;
 
-  // ✅ NEW: drive the “send husket” flow via App
+  // When album pick returns a husket, App sets this
+  husketToSend: Husket | null;
+  onClearHusketToSend: () => void;
+
+  // Trigger Album pick flow
   onStartSendFlow: () => void;
-}) {
-  const { dict, onStartSendFlow } = props;
+};
+
+function toBase64(buf: ArrayBuffer): string {
+  let binary = "";
+  const bytes = new Uint8Array(buf);
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+async function blobToBase64(blob: Blob): Promise<string> {
+  const ab = await blob.arrayBuffer();
+  return toBase64(ab);
+}
+
+export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusketToSend, onStartSendFlow }: Props) {
   const toast = useToast();
-
-  const [uid, setUid] = useState<string | null>(null);
-
-  const [relay, setRelay] = useState<RelayItem[]>([]);
-  const [relayThumbs, setRelayThumbs] = useState<Record<string, string>>({});
-
-  const [contacts, setContacts] = useState<ContactRow[]>([]);
-  const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteCode, setInviteCode] = useState("");
-
-  const [sendOpen, setSendOpen] = useState(false);
-  const [pendingHusket, setPendingHusket] = useState<Husket | null>(null);
-  const [sending, setSending] = useState(false);
 
   const textA: React.CSSProperties = {
     fontSize: HUSKET_TYPO.A.fontSize,
@@ -99,278 +66,182 @@ export function SharedWithMeScreen(props: {
     letterSpacing: HUSKET_TYPO.B.letterSpacing,
   };
 
-  const panelStyle: React.CSSProperties = {
-    border: `1px solid rgba(247, 243, 237, 0.18)`,
+  const card: React.CSSProperties = {
+    border: `1px solid rgba(247, 243, 237, 0.14)`,
     borderRadius: 16,
     padding: 12,
-    display: "grid",
-    gap: 10,
-    background: "rgba(247, 243, 237, 0.04)",
-  };
-
-  const btnStyle: React.CSSProperties = {
-    border: `1px solid rgba(247, 243, 237, 0.18)`,
-    borderRadius: 16,
-    padding: "10px 12px",
     background: "transparent",
-    color: MCL_HUSKET_THEME.colors.textOnDark,
-    cursor: "pointer",
-    ...textA,
   };
 
-  const btnPrimaryStyle: React.CSSProperties = {
-    ...btnStyle,
+  const primaryBtn: React.CSSProperties = {
     background: MCL_HUSKET_THEME.colors.header,
     color: "rgba(27, 26, 23, 0.92)",
+    border: "1px solid rgba(247, 243, 237, 0.14)",
+    boxShadow: "none",
   };
 
-  const btnDangerStyle: React.CSSProperties = {
-    ...btnStyle,
-    color: MCL_HUSKET_THEME.colors.danger,
+  const ghostBtn: React.CSSProperties = {
+    background: "transparent",
+    color: "rgba(247, 243, 237, 0.92)",
+    border: "1px solid rgba(247, 243, 237, 0.14)",
+    boxShadow: "none",
   };
 
-  const modalBackdrop: React.CSSProperties = {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,0.55)",
-    display: "grid",
-    placeItems: "center",
-    zIndex: 2000,
-    padding: 16,
-  };
+  // --- Invite code input ---
+  const [inviteCode, setInviteCode] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
 
-  const modalBox: React.CSSProperties = {
-    width: "min(560px, 92vw)",
-    borderRadius: 18,
-    background: MCL_HUSKET_THEME.colors.header,
-    color: MCL_HUSKET_THEME.colors.darkSurface,
-    boxShadow: MCL_HUSKET_THEME.elevation.elev2,
-    padding: 14,
-    display: "grid",
-    gap: 12,
-  };
+  // --- Contacts ---
+  const [contacts, setContacts] = useState<ContactRow[]>([]);
+  const [contactsErr, setContactsErr] = useState<string | null>(null);
 
-  const inputStyle: React.CSSProperties = {
-    ...textA,
-    padding: "10px 12px",
-    borderRadius: 14,
-    border: "1px solid rgba(27, 26, 23, 0.18)",
-    background: "rgba(255,255,255,0.85)",
-    outline: "none",
-  };
-
-  // ----------------------------
-  // Auth: ensure we have a user
-  // ----------------------------
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      if (u?.uid) {
-        setUid(u.uid);
-        return;
-      }
-      try {
-        const res = await signInAnonymously(auth);
-        setUid(res.user.uid);
-      } catch (e: any) {
-        toast.show(`Auth failed: ${e?.message ?? "Unknown error"}`);
-      }
-    });
-
-    return () => unsub();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ----------------------------
-  // Listen: relay inbox
-  // ----------------------------
-  useEffect(() => {
+    const uid = auth.currentUser?.uid;
     if (!uid) return;
 
-    let unsub: Unsubscribe | null = null;
-
-    try {
-      const qy = query(
-        collection(db, "relay"),
-        where("recipientUid", "==", uid),
-        orderBy("createdAt", "desc"),
-        limit(50)
-      );
-
-      unsub = onSnapshot(
-        qy,
-        (snap) => {
-          const next: RelayItem[] = snap.docs.map((d) => {
-            const data: any = d.data() || {};
-            return {
-              id: d.id,
-              senderUid: String(data.senderUid || ""),
-              recipientUid: String(data.recipientUid || ""),
-              createdAtMs: toMs(data.createdAt),
-              openedAtMs: data.openedAt ? toMs(data.openedAt) : null,
-              status: (data.status as any) || "pending",
-              payload: data.payload,
-              imagePath: String(data?.image?.storagePath || ""),
-            };
-          });
-          setRelay(next);
-        },
-        (err) => {
-          toast.show("Kunne ikke lese sky-innboksen");
-          // eslint-disable-next-line no-console
-          console.error(err);
-        }
-      );
-    } catch (e) {
-      toast.show("Kunne ikke lese sky-innboksen");
-      // eslint-disable-next-line no-console
-      console.error(e);
-    }
-
-    return () => {
-      if (unsub) unsub();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uid]);
-
-  // Relay thumbs
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      const urls: Record<string, string> = {};
-      for (const item of relay.slice(0, 30)) {
-        if (!item.imagePath) continue;
-        try {
-          const url = await getDownloadURL(storageRef(storage, item.imagePath));
-          if (cancelled) return;
-          urls[item.id] = url;
-        } catch {
-          // ignore (rules might block, or not uploaded yet)
-        }
-      }
-
-      if (cancelled) return;
-      setRelayThumbs((prev) => {
-        // we don't revoke these (download URLs), keep it simple
-        return urls;
-      });
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [relay]);
-
-  // ----------------------------
-  // Listen: contacts
-  // ----------------------------
-  useEffect(() => {
-    if (!uid) return;
-
-    const qy = query(collection(db, `users/${uid}/contacts`), orderBy("createdAt", "desc"), limit(200));
-
+    const qRef = query(collection(db, `users/${uid}/contacts`), orderBy("createdAt", "desc"));
     const unsub = onSnapshot(
-      qy,
+      qRef,
       (snap) => {
-        const next: ContactRow[] = snap.docs.map((d) => {
-          const x: any = d.data() || {};
-          return {
-            uid: d.id,
-            canSendTo: x.canSendTo === true,
-            blocked: x.blocked === true,
-            label: typeof x.label === "string" ? x.label : null,
-          };
+        const rows: ContactRow[] = [];
+        snap.forEach((d) => {
+          const data = d.data() as any;
+          rows.push({
+            contactUid: d.id,
+            label: typeof data.label === "string" ? data.label : null,
+            createdAt: data.createdAt,
+          });
         });
-        setContacts(next);
+        setContacts(rows);
+        setContactsErr(null);
       },
       (err) => {
-        // if rules block read, we tell it (but rules should allow owner read)
-        toast.show("Kunne ikke lese kontakter");
-        // eslint-disable-next-line no-console
-        console.error(err);
+        setContactsErr(err?.message ?? "Unknown error");
       }
     );
 
     return () => unsub();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uid]);
+  }, []);
 
-  const canSendContacts = useMemo(() => {
-    return contacts.filter((c) => c.canSendTo && !c.blocked);
-  }, [contacts]);
-
-  // ----------------------------
-  // Callables
-  // ----------------------------
-  const fnResolveInviteCode = useMemo(() => httpsCallable(functions, "resolveInviteCode"), []);
-  const fnSendHusketToContact = useMemo(() => httpsCallable(functions, "sendHusketToContact"), []);
-  const fnOpenRelayItem = useMemo(() => httpsCallable(functions, "openRelayItem"), []);
-  const fnResolveRelayItem = useMemo(() => httpsCallable(functions, "resolveRelayItem"), []);
-
-  const addContactByInvite = async () => {
+  const onAddContact = async () => {
     const code = inviteCode.trim();
     if (!code) {
-      toast.show("Skriv inn invitasjonskode");
+      toast.show("Skriv inn invitasjonskode.");
       return;
     }
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      toast.show("Ikke innlogget. Prøv igjen.");
+      return;
+    }
+
+    setIsAdding(true);
     try {
-      const res = await fnResolveInviteCode({ code });
-      const contactUid = (res.data as any)?.contactUid;
-      toast.show(contactUid ? "Kontakt lagt til" : "Kontakt lagt til");
-      setInviteOpen(false);
-      setInviteCode("");
+      const fn = httpsCallable(functions, "resolveInviteCode");
+      const res = await fn({ code });
+      const contactUid = (res.data as any)?.contactUid as string | undefined;
+
+      if (contactUid) {
+        toast.show("Kontakt lagt til ✅");
+        setInviteCode("");
+      } else {
+        toast.show("Kunne ikke legge til kontakt.");
+      }
     } catch (e: any) {
-      toast.show(`Kunne ikke legge til kontakt: ${e?.message ?? "Ukjent feil"}`);
+      toast.show(e?.message ? `Feil: ${e.message}` : "Feil ved legg til kontakt");
       // eslint-disable-next-line no-console
       console.error(e);
+    } finally {
+      setIsAdding(false);
     }
   };
 
-  // ----------------------------
-  // SEND FLOW (from App)
-  // ----------------------------
-  const beginSend = (husket: Husket) => {
-    setPendingHusket(husket);
-    setSendOpen(true);
+  // --- Send modal ---
+  const [sendOpen, setSendOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  // open modal automatically when a husket is selected for sending
+  useEffect(() => {
+    if (husketToSend) setSendOpen(true);
+  }, [husketToSend]);
+
+  const selectedSummary = useMemo(() => {
+    if (!husketToSend) return "";
+    const hasRating = husketToSend.ratingValue ? `⭐ ${husketToSend.ratingValue}` : "";
+    const hasComment = husketToSend.comment ? `💬 ${husketToSend.comment}` : "";
+    return [hasRating, hasComment].filter(Boolean).join(" · ");
+  }, [husketToSend]);
+
+  const categoryLabelFor = (h: Husket): string | null => {
+    const cats = settings.categories[h.life] ?? [];
+    const c = cats.find((x) => x.id === h.categoryId);
+    return c?.label ?? null;
   };
 
-  const sendToContact = async (recipientUid: string) => {
-    if (!pendingHusket) return;
+  const ratingPackKeyFor = (h: Husket): string => {
+    // permissive on server, but we still send something consistent
+    const pack = getEffectiveRatingPack(settings, h.life);
+    return pack;
+  };
 
+  const sendToRecipient = async (recipientUid: string) => {
+    if (!husketToSend) return;
+
+    const senderUid = auth.currentUser?.uid;
+    if (!senderUid) {
+      toast.show("Ikke innlogget. Prøv igjen.");
+      return;
+    }
+
+    setSending(true);
     try {
-      setSending(true);
-
-      const blob = await getImageBlobByKey(pendingHusket.imageKey);
-      if (!blob) {
-        toast.show("Fant ikke bildet til husket-en");
+      // 1) load image blob from local store via object URL
+      const url = await getImageUrl(husketToSend.imageKey);
+      if (!url) {
+        toast.show("Fant ikke bilde lokalt for sending.");
         return;
       }
 
-      const imageBase64 = await blobToBase64DataUrl(blob);
+      const blob = await fetch(url).then((r) => r.blob());
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        // ignore
+      }
 
+      const b64 = await blobToBase64(blob);
+
+      // 2) build payload expected by Cloud Function
       const payload = {
         type: "husket",
-        husketId: pendingHusket.id,
-        capturedAt: pendingHusket.createdAt,
-        comment: pendingHusket.comment ?? "",
-        ratingPackKey: "emoji", // permissive on server (you can tighten later)
-        ratingValue: pendingHusket.ratingValue ?? "",
-        categoryLabel: null, // you can map label later if you want
-        gps: pendingHusket.gps ? { lat: pendingHusket.gps.lat, lng: pendingHusket.gps.lng } : null,
+        husketId: husketToSend.id,
+        capturedAt: husketToSend.createdAt,
+        comment: husketToSend.comment ?? "",
+        ratingPackKey: ratingPackKeyFor(husketToSend),
+        ratingValue: husketToSend.ratingValue ?? "",
+        categoryLabel: categoryLabelFor(husketToSend),
+        gps: husketToSend.gps
+          ? { lat: husketToSend.gps.lat, lng: husketToSend.gps.lng, acc: husketToSend.gps.acc, ts: husketToSend.gps.ts }
+          : null,
         image: { storagePath: "client-placeholder" }, // server overwrites
       };
 
-      await fnSendHusketToContact({
+      // 3) call send function
+      const fn = httpsCallable(functions, "sendHusketToContact");
+      const res = await fn({
         recipientUid,
         husket: payload,
-        imageBase64,
+        imageBase64: b64,
       });
 
-      toast.show("Sendt ✅");
+      const relayId = (res.data as any)?.relayId as string | undefined;
+      toast.show(relayId ? "Sendt ✅" : "Sendt (men mangler relayId?)");
+
+      // close & clear pending husket
       setSendOpen(false);
-      setPendingHusket(null);
+      onClearHusketToSend();
     } catch (e: any) {
-      toast.show(`Kunne ikke sende: ${e?.message ?? "Ukjent feil"}`);
+      toast.show(e?.message ? `Send feilet: ${e.message}` : "Send feilet");
       // eslint-disable-next-line no-console
       console.error(e);
     } finally {
@@ -378,249 +249,198 @@ export function SharedWithMeScreen(props: {
     }
   };
 
-  // Expose beginSend to App via window hook (simple + safe)
-  // App will call: (window as any).__husketSkyPick = (husket) => beginSend(husket)
-  useEffect(() => {
-    (window as any).__husketSkyPick = (husket: Husket) => beginSend(husket);
-    return () => {
-      try {
-        delete (window as any).__husketSkyPick;
-      } catch {}
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingHusket]);
-
-  // ----------------------------
-  // Relay actions
-  // ----------------------------
-  const openItem = async (relayId: string) => {
-    try {
-      await fnOpenRelayItem({ relayId });
-    } catch (e) {
-      // ignore (best-effort)
-    }
+  const closeSend = () => {
+    setSendOpen(false);
+    onClearHusketToSend();
   };
 
-  const discardItem = async (relayId: string) => {
-    try {
-      await fnResolveRelayItem({ relayId, action: "discard" });
-      toast.show("Forkastet");
-    } catch (e: any) {
-      toast.show(`Kunne ikke forkaste: ${e?.message ?? "Ukjent feil"}`);
-      // eslint-disable-next-line no-console
-      console.error(e);
-    }
+  // Modal styles
+  const modalBackdrop: React.CSSProperties = {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.55)",
+    display: "grid",
+    placeItems: "center",
+    zIndex: 9999,
+    padding: 16,
   };
 
-  const saveItem = async (relayId: string) => {
-    try {
-      await fnResolveRelayItem({ relayId, action: "save" });
-      toast.show("Lagret ✅");
-    } catch (e: any) {
-      toast.show(`Kunne ikke lagre: ${e?.message ?? "Ukjent feil"}`);
-      // eslint-disable-next-line no-console
-      console.error(e);
-    }
+  const modalCard: React.CSSProperties = {
+    width: "min(520px, 100%)",
+    borderRadius: 18,
+    background: MCL_HUSKET_THEME.colors.header,
+    color: MCL_HUSKET_THEME.colors.darkSurface,
+    border: "1px solid rgba(27, 26, 23, 0.12)",
+    padding: 14,
+    boxShadow: MCL_HUSKET_THEME.elevation.elev2,
   };
 
-  const headerRow: React.CSSProperties = {
+  const modalTitle: React.CSSProperties = {
+    ...textA,
+    marginBottom: 8,
+    color: MCL_HUSKET_THEME.colors.darkSurface,
+  };
+
+  const modalHelp: React.CSSProperties = {
+    ...textB,
+    marginBottom: 10,
+    color: "rgba(27, 26, 23, 0.78)",
+  };
+
+  const modalRow: React.CSSProperties = {
     display: "flex",
-    alignItems: "center",
+    gap: 10,
     justifyContent: "space-between",
-    gap: 12,
+    marginTop: 12,
+  };
+
+  const dangerBtn: React.CSSProperties = {
+    background: "transparent",
+    border: "none",
+    color: MCL_HUSKET_THEME.colors.danger,
+    cursor: "pointer",
+    ...textA,
+  };
+
+  const listItemBtn: React.CSSProperties = {
+    width: "100%",
+    textAlign: "left",
+    padding: "10px 12px",
+    borderRadius: 14,
+    border: "1px solid rgba(27, 26, 23, 0.14)",
+    background: "rgba(255,255,255,0.65)",
+    cursor: "pointer",
+    ...textB,
   };
 
   return (
-    <div style={{ display: "grid", gap: 12 }}>
-      <div style={headerRow}>
-        <div style={textA}>{tGet(dict, "shared.title")}</div>
-      </div>
+    <div style={{ display: "grid", gap: 12, maxWidth: 720, margin: "0 auto" }}>
+      <div style={textA}>{tGet(dict, "shared.title")}</div>
 
-      {/* Actions */}
-      <div style={{ display: "grid", gap: 10 }}>
-        <button type="button" style={btnPrimaryStyle} onClick={onStartSendFlow}>
-          {tGet(dict, "shared.sendButton") || "Send en husket"}
-        </button>
+      {/* Invite code + add */}
+      <div style={{ ...card, display: "grid", gap: 10 }}>
+        <div style={{ ...textB, opacity: 0.85 }}>
+          Invitasjonskode (legg til kontakt)
+        </div>
 
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button type="button" style={btnStyle} onClick={() => setInviteOpen(true)}>
-            {tGet(dict, "shared.addContact") || "Legg til kontakt"}
+          <input
+            value={inviteCode}
+            onChange={(e) => setInviteCode(e.target.value)}
+            placeholder="Skriv kode…"
+            style={{
+              flex: "1 1 220px",
+              padding: "10px 12px",
+              borderRadius: 14,
+              border: "1px solid rgba(247, 243, 237, 0.14)",
+              background: "transparent",
+              color: "rgba(247, 243, 237, 0.92)",
+              ...textB,
+              outline: "none",
+            }}
+          />
+
+          <button
+            type="button"
+            className="flatBtn primary"
+            style={{ ...primaryBtn, minWidth: 160 }}
+            onClick={() => void onAddContact()}
+            disabled={isAdding}
+          >
+            {isAdding ? "Legger til…" : "Legg til"}
           </button>
         </div>
       </div>
 
       {/* Contacts */}
-      <div style={panelStyle}>
-        <div style={textA}>{tGet(dict, "shared.contacts") || "Kontakter"}</div>
-        {contacts.length === 0 ? (
-          <div style={{ ...textB, opacity: 0.75 }}>
-            {tGet(dict, "shared.noContacts") || "Ingen kontakter enda. Legg til med invitasjonskode."}
+      <div style={{ ...card, display: "grid", gap: 10 }}>
+        <div style={{ ...textB, opacity: 0.85 }}>Kontakter</div>
+
+        {contactsErr ? (
+          <div className="smallHelp" style={textB}>
+            Kunne ikke lese kontakter: {contactsErr}
+          </div>
+        ) : contacts.length === 0 ? (
+          <div className="smallHelp" style={textB}>
+            Ingen kontakter enda. Legg til med invitasjonskode.
           </div>
         ) : (
           <div style={{ display: "grid", gap: 8 }}>
             {contacts.map((c) => (
               <div
-                key={c.uid}
+                key={c.contactUid}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 12,
                   padding: "8px 10px",
                   borderRadius: 14,
                   border: "1px solid rgba(247, 243, 237, 0.14)",
+                  ...textB,
                 }}
               >
-                <div style={{ ...textB, overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {c.label ? c.label : c.uid}
-                </div>
-                <div style={{ ...textB, opacity: 0.8 }}>
-                  {c.blocked ? "🚫" : c.canSendTo ? "✅" : "⛔"}
-                </div>
+                <div style={{ fontWeight: 700 }}>{c.label ?? c.contactUid}</div>
+                {c.label ? <div style={{ opacity: 0.7 }}>{c.contactUid}</div> : null}
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Inbox */}
-      <div style={panelStyle}>
-        <div style={textA}>{tGet(dict, "shared.inbox") || "Sky-innboks"}</div>
+      {/* Send */}
+      <div style={{ ...card, display: "grid", gap: 10 }}>
+        <div style={{ ...textB, opacity: 0.85 }}>Deling</div>
 
-        {relay.length === 0 ? (
-          <div className="smallHelp" style={{ ...textB, opacity: 0.75 }}>
-            {tGet(dict, "shared.placeholder") || "Tomt her foreløpig."}
-          </div>
-        ) : (
-          <div style={{ display: "grid", gap: 10 }}>
-            {relay.map((x) => (
-              <div
-                key={x.id}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "72px 1fr",
-                  gap: 10,
-                  padding: 10,
-                  borderRadius: 16,
-                  border: "1px solid rgba(247, 243, 237, 0.14)",
-                  background: "rgba(247, 243, 237, 0.03)",
-                }}
-              >
-                <div
-                  style={{
-                    width: 72,
-                    height: 72,
-                    borderRadius: 14,
-                    overflow: "hidden",
-                    background: "rgba(247, 243, 237, 0.06)",
-                    display: "grid",
-                    placeItems: "center",
-                  }}
-                >
-                  {relayThumbs[x.id] ? (
-                    <img src={relayThumbs[x.id]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  ) : (
-                    <span style={{ ...textB, opacity: 0.7 }}>…</span>
-                  )}
-                </div>
+        <button type="button" className="flatBtn" style={ghostBtn} onClick={onStartSendFlow}>
+          {tGet(dict, "shared.sendButton")}
+        </button>
 
-                <div style={{ display: "grid", gap: 8 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                    <div style={{ ...textB, opacity: 0.9, overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {x.senderUid ? `Fra: ${x.senderUid}` : "Fra: ?"}
-                    </div>
-                    <div style={{ ...textB, opacity: 0.7 }}>
-                      {x.status === "pending" ? "🟦" : x.status === "opened" ? "🟨" : "✅"}
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                    <button type="button" style={btnStyle} onClick={() => void openItem(x.id)}>
-                      Åpne
-                    </button>
-                    <button type="button" style={btnPrimaryStyle} onClick={() => void saveItem(x.id)}>
-                      Lagre
-                    </button>
-                    <button type="button" style={btnDangerStyle} onClick={() => void discardItem(x.id)}>
-                      Forkast
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Invite modal */}
-      {inviteOpen ? (
-        <div style={modalBackdrop} role="dialog" aria-modal="true">
-          <div style={modalBox}>
-            <div style={{ ...textA, marginBottom: 4 }}>Legg til kontakt</div>
-            <div style={{ ...textB, opacity: 0.85 }}>
-              Lim inn invitasjonskode du har fått fra den andre personen.
-            </div>
-
-            <input
-              value={inviteCode}
-              onChange={(e) => setInviteCode(e.target.value)}
-              placeholder="Invitasjonskode"
-              style={inputStyle}
-            />
-
-            <div style={{ display: "flex", gap: 10, justifyContent: "space-between" }}>
-              <button type="button" style={{ ...btnStyle }} onClick={() => setInviteOpen(false)}>
-                Avbryt
-              </button>
-              <button type="button" style={{ ...btnPrimaryStyle }} onClick={() => void addContactByInvite()}>
-                Legg til
-              </button>
-            </div>
-          </div>
+        <div className="smallHelp" style={textB}>
+          Velg en husket i album → velg mottaker → send.
         </div>
-      ) : null}
+      </div>
+
+      {/* Placeholder inbox (vi bygger “innboksen” etter at sending er 100%) */}
+      <div className="smallHelp" style={textB}>
+        {tGet(dict, "shared.placeholder")}
+      </div>
 
       {/* Send modal */}
-      {sendOpen && pendingHusket ? (
+      {sendOpen && husketToSend ? (
         <div style={modalBackdrop} role="dialog" aria-modal="true">
-          <div style={modalBox}>
-            <div style={{ ...textA, marginBottom: 4 }}>Send husket</div>
-            <div style={{ ...textB, opacity: 0.85 }}>
-              Velg hvem du vil sende til.
+          <div style={modalCard}>
+            <div style={modalTitle}>Velg mottaker</div>
+            <div style={modalHelp}>
+              Du sender: <strong>{selectedSummary || "Husket"}</strong>
             </div>
 
-            {canSendContacts.length === 0 ? (
-              <div style={{ ...textB }}>
-                Ingen kontakter du kan sende til enda. Legg til med invitasjonskode først.
-              </div>
+            {contacts.length === 0 ? (
+              <div style={modalHelp}>Ingen kontakter. Legg til med invitasjonskode først.</div>
             ) : (
-              <div style={{ display: "grid", gap: 8 }}>
-                {canSendContacts.map((c) => (
+              <div style={{ display: "grid", gap: 10 }}>
+                {contacts.map((c) => (
                   <button
-                    key={c.uid}
+                    key={c.contactUid}
                     type="button"
-                    style={btnPrimaryStyle}
+                    style={listItemBtn}
+                    onClick={() => void sendToRecipient(c.contactUid)}
                     disabled={sending}
-                    onClick={() => void sendToContact(c.uid)}
+                    title="Send"
                   >
-                    {c.label ? c.label : c.uid}
+                    <div style={{ fontWeight: 800 }}>
+                      {c.label ?? c.contactUid}
+                    </div>
+                    {c.label ? <div style={{ opacity: 0.7 }}>{c.contactUid}</div> : null}
                   </button>
                 ))}
               </div>
             )}
 
-            <div style={{ display: "flex", gap: 10, justifyContent: "space-between" }}>
-              <button
-                type="button"
-                style={btnStyle}
-                onClick={() => {
-                  setSendOpen(false);
-                  setPendingHusket(null);
-                }}
-                disabled={sending}
-              >
+            <div style={modalRow}>
+              <button type="button" onClick={closeSend} style={dangerBtn} disabled={sending}>
                 Avbryt
               </button>
+
+              <div style={{ ...textB, opacity: 0.75 }}>
+                {sending ? "Sender…" : ""}
+              </div>
             </div>
           </div>
         </div>
