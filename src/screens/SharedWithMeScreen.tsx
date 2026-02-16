@@ -13,6 +13,7 @@ import { auth, db, functions, storage } from "../firebase";
 import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { getBytes, ref as sRef } from "firebase/storage";
+import { onAuthStateChanged, type User } from "firebase/auth";
 
 import {
   deleteReceivedHusketById,
@@ -109,6 +110,18 @@ function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> 
 export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusketToSend, onStartSendFlow }: Props) {
   const toast = useToast();
 
+  // -----------------------------
+  // Auth readiness (critical!)
+  // -----------------------------
+  const [authUser, setAuthUser] = useState<User | null>(auth.currentUser ?? null);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => setAuthUser(u));
+    return () => unsub();
+  }, []);
+
+  const uid = authUser?.uid ?? null;
+
   const textA: React.CSSProperties = {
     fontSize: HUSKET_TYPO.A.fontSize,
     fontWeight: HUSKET_TYPO.A.fontWeight,
@@ -203,7 +216,6 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
   const [myInviteBusy, setMyInviteBusy] = useState(false);
 
   const refreshInviteCode = async () => {
-    const uid = auth.currentUser?.uid;
     if (!uid) {
       toast.show("Ikke innlogget. Prøv igjen.");
       return;
@@ -230,9 +242,10 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
   };
 
   useEffect(() => {
+    if (!uid) return;
     void refreshInviteCode();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [uid]);
 
   const copyMyInviteCode = async () => {
     const code = myInviteCode.trim();
@@ -258,7 +271,6 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
   const [contactsErr, setContactsErr] = useState<string | null>(null);
 
   useEffect(() => {
-    const uid = auth.currentUser?.uid;
     if (!uid) return;
 
     const qRef = query(collection(db, `users/${uid}/contacts`), orderBy("createdAt", "desc"));
@@ -281,7 +293,7 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
     );
 
     return () => unsub();
-  }, []);
+  }, [uid]);
 
   const [contactsModalOpen, setContactsModalOpen] = useState(false);
   const [inviteCodeInput, setInviteCodeInput] = useState("");
@@ -294,7 +306,6 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
       return;
     }
 
-    const uid = auth.currentUser?.uid;
     if (!uid) {
       toast.show("Ikke innlogget. Prøv igjen.");
       return;
@@ -363,8 +374,7 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
     const recipientUid = selectedRecipientUid.trim();
     if (!recipientUid) return;
 
-    const senderUid = auth.currentUser?.uid;
-    if (!senderUid) {
+    if (!uid) {
       toast.show("Ikke innlogget. Prøv igjen.");
       return;
     }
@@ -422,7 +432,6 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
   const [relayErr, setRelayErr] = useState<string | null>(null);
 
   useEffect(() => {
-    const uid = auth.currentUser?.uid;
     if (!uid) return;
 
     const qRef = query(collection(db, "relay"), where("recipientUid", "==", uid), orderBy("createdAt", "desc"));
@@ -475,7 +484,7 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
     );
 
     return () => unsub();
-  }, []);
+  }, [uid]);
 
   const nowMs = Date.now();
 
@@ -522,26 +531,25 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
     setReceived(listReceivedHuskets());
   };
 
+  // --- storage paths (v1 backend reality) ---
   const resolveImagePathCandidates = (uid: string, savedId: string, relayRow: RelayRow): string[] => {
+    // IMPORTANT:
+    // Current backend copies to users/{uid}/huskets/{savedId}.jpg
+    // Relay path (if still exists) is relay/{uid}/{relayId}.jpg
     const candidates: string[] = [];
 
-    // 1) best signal: relay says exactly where image is
-    if (relayRow.imagePath) candidates.push(relayRow.imagePath);
-
-    // 2) conservative fallbacks
-    candidates.push(`relay/${relayRow.relayId}`);
-    candidates.push(`relay/${relayRow.relayId}.jpg`);
-
-    candidates.push(`users/${uid}/huskets/${savedId}`);
+    // 1) Most likely (and should be first)
     candidates.push(`users/${uid}/huskets/${savedId}.jpg`);
 
-    candidates.push(`users/${uid}/received/${savedId}`);
-    candidates.push(`users/${uid}/received/${savedId}.jpg`);
+    // 2) If relay doc includes explicit path (sometimes useful, but relay might already be deleted)
+    if (relayRow.imagePath) candidates.push(relayRow.imagePath);
+
+    // 3) Conservative relay fallback
+    candidates.push(`relay/${uid}/${relayRow.relayId}.jpg`);
 
     return Array.from(new Set(candidates.filter(Boolean)));
   };
 
-  // ✅ NEW: download image via Storage SDK (getBytes) instead of URL+fetch
   const downloadImageBlob = async (uid: string, savedId: string, relayRow: RelayRow, controller: AbortController) => {
     const paths = resolveImagePathCandidates(uid, savedId, relayRow);
 
@@ -550,8 +558,6 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
       try {
         if (controller.signal.aborted) throw new Error("Aborted");
 
-        // NOTE: getBytes uses the Firebase SDK transport and avoids common "Failed to fetch" issues.
-        // We keep a generous timeout because images can be large.
         const bytes = await withTimeout(getBytes(sRef(storage, p)), 30000, "Timeout while downloading image");
 
         if (controller.signal.aborted) throw new Error("Aborted");
@@ -570,7 +576,6 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
   };
 
   const saveRelay = async (row: RelayRow) => {
-    const uid = auth.currentUser?.uid;
     if (!uid) {
       toast.show("Ikke innlogget. Prøv igjen.");
       return;
@@ -583,7 +588,7 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
 
     try {
       const fn = httpsCallable(functions, "resolveRelayItem");
-      const res = await fn({ relayId: row.relayId, action: "save" });
+      const res = await withTimeout(fn({ relayId: row.relayId, action: "save" }), 30000, "Timeout while saving relay");
       const savedId = (res.data as any)?.savedHusketId as string | undefined;
 
       if (!savedId) {
@@ -600,6 +605,8 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
       await importReceivedHusketFromSky({
         id: savedId,
         husket: {
+          // This is a "received bucket" locally; we keep life as "private" here because repo contract
+          // already stores received separately via importReceivedHusketFromSky/listReceivedHuskets.
           life: "private",
           createdAt: capturedAt,
           ratingValue: row.payload.ratingValue || null,
@@ -724,7 +731,9 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
         <div style={lineRow}>
           <div style={lineLeft}>
             <div style={lineTitle}>Kontakter</div>
-            <div style={lineSub}>{contacts.length === 0 ? "Ingen" : `${contacts.length} stk`}</div>
+            <div style={lineSub}>
+              {!uid ? "Kobler til…" : contacts.length === 0 ? "Ingen" : `${contacts.length} stk`}
+            </div>
           </div>
 
           <button
@@ -732,6 +741,8 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
             className="flatBtn"
             style={{ ...ghostBtn, minWidth: 130 }}
             onClick={() => setContactsModalOpen(true)}
+            disabled={!uid}
+            title={!uid ? "Kobler til…" : ""}
           >
             Åpne
           </button>
@@ -743,7 +754,7 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
         <div style={lineRow}>
           <div style={lineLeft}>
             <div style={lineTitle}>Invitasjonskode</div>
-            <div style={lineSub}>{myInviteCode ? myInviteCode : myInviteBusy ? "Henter…" : ""}</div>
+            <div style={lineSub}>{!uid ? "" : myInviteCode ? myInviteCode : myInviteBusy ? "Henter…" : ""}</div>
           </div>
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -752,7 +763,7 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
               className="flatBtn"
               style={ghostBtn}
               onClick={() => void copyMyInviteCode()}
-              disabled={!myInviteCode}
+              disabled={!uid || !myInviteCode}
             >
               Kopier
             </button>
@@ -761,7 +772,7 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
               className="flatBtn"
               style={ghostBtn}
               onClick={() => void refreshInviteCode()}
-              disabled={myInviteBusy}
+              disabled={!uid || myInviteBusy}
             >
               {myInviteBusy ? "…" : "Forny"}
             </button>
@@ -777,7 +788,14 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
             <div style={lineSub}>Velg i album → velg mottaker → send</div>
           </div>
 
-          <button type="button" className="flatBtn" style={{ ...ghostBtn, minWidth: 130 }} onClick={onStartSendFlow}>
+          <button
+            type="button"
+            className="flatBtn"
+            style={{ ...ghostBtn, minWidth: 130 }}
+            onClick={onStartSendFlow}
+            disabled={!uid}
+            title={!uid ? "Kobler til…" : ""}
+          >
             Velg
           </button>
         </div>
@@ -788,13 +806,19 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
         <div style={{ ...lineRow, paddingBottom: 0 }}>
           <div style={lineLeft}>
             <div style={lineTitle}>Innboks</div>
-            <div style={lineSub}>{inboxPending.length === 0 ? "Ingen nye" : `${inboxPending.length} ny`}</div>
+            <div style={lineSub}>
+              {!uid ? "Kobler til…" : inboxPending.length === 0 ? "Ingen nye" : `${inboxPending.length} ny`}
+            </div>
           </div>
         </div>
 
         {relayErr ? (
           <div className="smallHelp" style={{ ...textB, marginTop: 8 }}>
             Kunne ikke lese innboks: {relayErr}
+          </div>
+        ) : !uid ? (
+          <div className="smallHelp" style={{ ...textB, marginTop: 8 }}>
+            Kobler til…
           </div>
         ) : inboxPending.length === 0 ? (
           <div className="smallHelp" style={{ ...textB, marginTop: 8 }}>
@@ -829,7 +853,7 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
           </div>
         )}
 
-        {inboxExpired.length > 0 ? (
+        {uid && inboxExpired.length > 0 ? (
           <div style={{ marginTop: 12 }}>
             <div style={{ ...textB, opacity: 0.8, marginBottom: 8 }}>Utløpt</div>
             <div style={{ display: "grid", gap: 8 }}>
@@ -943,13 +967,15 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
                 }}
               />
 
-              <button type="button" style={okBtn} onClick={() => void onAddContact()} disabled={isAdding}>
+              <button type="button" style={okBtn} onClick={() => void onAddContact()} disabled={isAdding || !uid}>
                 {isAdding ? "Legger til…" : "Legg til"}
               </button>
             </div>
 
             <div style={{ marginTop: 12 }}>
-              {contactsErr ? (
+              {!uid ? (
+                <div style={modalHelp}>Kobler til…</div>
+              ) : contactsErr ? (
                 <div style={modalHelp}>Kunne ikke lese kontakter: {contactsErr}</div>
               ) : contacts.length === 0 ? (
                 <div style={modalHelp}>Ingen kontakter enda.</div>
@@ -1042,7 +1068,7 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
                   type="button"
                   onClick={() => void sendSelected()}
                   style={okBtn}
-                  disabled={sending || !selectedRecipientUid}
+                  disabled={sending || !selectedRecipientUid || !uid}
                 >
                   Send
                 </button>
@@ -1052,7 +1078,7 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
         </div>
       ) : null}
 
-      {/* Inbox action modal: no close when idle; allow abort while saving to prevent lock */}
+      {/* Inbox action modal */}
       {inboxAction ? (
         <div style={modalBackdrop} role="dialog" aria-modal="true">
           <div style={modalCard}>
