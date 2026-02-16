@@ -62,6 +62,13 @@ function AppInner() {
     return () => unsub();
   }, [toast]);
 
+  // If sharing is disabled, never allow staying on the shared route.
+  useEffect(() => {
+    if (route === "shared" && !settings.sharingEnabled) {
+      setRoute("capture");
+    }
+  }, [route, settings.sharingEnabled]);
+
   const updateSettings = (next: Settings) => {
     setSettings(next);
     saveSettings(next);
@@ -209,11 +216,20 @@ function AppInner() {
 
       <PaywallModal dict={dict} open={paywallOpen} onCancel={() => setPaywallOpen(false)} onActivate={activatePremiumMock} />
 
-      <BottomNav dict={dict} route={route} onRouteChange={(r) => {
-        // leaving album => exit pick mode
-        if (r !== "album") setAlbumPickMode(false);
-        setRoute(r);
-      }} />
+      <BottomNav
+        dict={dict}
+        settings={settings}
+        route={route}
+        onRouteChange={(r) => {
+          // leaving album => exit pick mode
+          if (r !== "album") setAlbumPickMode(false);
+
+          // sharing is hidden when disabled
+          if (r === "shared" && !settings.sharingEnabled) return;
+
+          setRoute(r);
+        }}
+      />
     </div>
   );
 }
