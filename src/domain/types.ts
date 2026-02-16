@@ -24,9 +24,15 @@ export type CategoryDef = {
 };
 
 export type Settings = {
-  version: 2;
+  version: 3;
   language: LanguageCode;
   premium: boolean;
+
+  /**
+   * Master toggle for Sky/Sharing UI.
+   * When false, sharing is hidden entirely from the app UI.
+   */
+  sharingEnabled: boolean;
 
   gpsGlobalEnabled: boolean;
 
