@@ -12,7 +12,7 @@ import { useToast } from "../components/ToastHost";
 import { auth, db, functions, storage } from "../firebase";
 import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { getDownloadURL, ref as sRef } from "firebase/storage";
+import { getBlob, ref as sRef } from "firebase/storage";
 import { onAuthStateChanged, type User } from "firebase/auth";
 
 import {
