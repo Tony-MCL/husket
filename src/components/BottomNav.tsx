@@ -12,13 +12,14 @@ import { useFlyToTarget } from "../animation/useFlyToTarget";
 type Props = {
   dict: I18nDict;
   route: RouteKey;
+  showSharing?: boolean;
   onRouteChange: (r: RouteKey) => void;
 };
 
 export const FLY_TARGET_ALBUM = "bottomnav:album";
 export const FLY_TARGET_SHARED = "bottomnav:shared";
 
-export function BottomNav({ dict, route, onRouteChange }: Props) {
+export function BottomNav({ dict, route, showSharing = true, onRouteChange }: Props) {
   const { registerTarget } = useFlyToTarget();
 
   const albumBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -26,13 +27,13 @@ export function BottomNav({ dict, route, onRouteChange }: Props) {
 
   useEffect(() => {
     registerTarget(FLY_TARGET_ALBUM, albumBtnRef.current);
-    registerTarget(FLY_TARGET_SHARED, sharedBtnRef.current);
+    registerTarget(FLY_TARGET_SHARED, showSharing ? sharedBtnRef.current : null);
 
     return () => {
       registerTarget(FLY_TARGET_ALBUM, null);
       registerTarget(FLY_TARGET_SHARED, null);
     };
-  }, [registerTarget]);
+  }, [registerTarget, showSharing]);
 
   const BAR_HEIGHT = 56;
 
@@ -116,15 +117,17 @@ export function BottomNav({ dict, route, onRouteChange }: Props) {
           {tGet(dict, "nav.album")}
         </button>
 
-        <button
-          className={`bottomBtn ${route === "shared" ? "active" : ""}`}
-          onClick={() => onRouteChange("shared")}
-          type="button"
-          ref={sharedBtnRef}
-          style={{ ...btnBase, ...(route === "shared" ? btnActive : null) }}
-        >
-          {tGet(dict, "nav.shared")}
-        </button>
+        {showSharing ? (
+          <button
+            className={`bottomBtn ${route === "shared" ? "active" : ""}`}
+            onClick={() => onRouteChange("shared")}
+            type="button"
+            ref={sharedBtnRef}
+            style={{ ...btnBase, ...(route === "shared" ? btnActive : null) }}
+          >
+            {tGet(dict, "nav.shared")}
+          </button>
+        ) : null}
       </div>
     </div>
   );
