@@ -1,0 +1,484 @@
+// ===============================
+// src/screens/CaptureScreen.tsx
+// ===============================
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import type { Husket, LifeKey, Settings } from "../domain/types";
+import type { I18nDict } from "../i18n";
+import { tGet } from "../i18n";
+import { createHusket, countAllHuskets } from "../data/husketRepo";
+import { useToast } from "../components/ToastHost";
+import { HUSKET_TYPO } from "../theme/typography";
+import { MCL_HUSKET_THEME } from "../theme";
+import { getEffectiveRatingPack } from "../domain/settingsCore";
+import { getRatingPackOptions, renderRatingValue } from "../domain/ratingPacks";
+import { useFlyToTarget } from "../animation/useFlyToTarget";
+import { FLY_TARGET_ALBUM } from "../components/BottomNav";
+
+type Props = {
+  dict: I18nDict;
+  life: LifeKey;
+  settings: Settings;
+  onRequirePremium: () => void;
+};
+
+function clamp100(s: string): string {
+  return s.length > 100 ? s.slice(0, 100) : s;
+}
+
+async function getGpsIfAllowed(args: {
+  settings: Settings;
+  categoryId: string | null;
+  categoryDefaultGpsEligible: boolean;
+}): Promise<{ lat: number; lng: number } | null> {
+  const { settings, categoryId, categoryDefaultGpsEligible } = args;
+
+  if (!settings.gpsGlobalEnabled) return null;
+  if (!categoryId) return null;
+
+  const override = settings.categoryGpsOverrides[categoryId];
+  const effective = override === undefined ? categoryDefaultGpsEligible : override;
+  if (!effective) return null;
+
+  if (!("geolocation" in navigator)) return null;
+
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: false, timeout: 4500, maximumAge: 60_000 }
+    );
+  });
+}
+
+/**
+ * Camera-first UX:
+ * - try auto-open once when entering Capture
+ * - always provide a big tappable button
+ */
+export function CaptureScreen({ dict, life, settings, onRequirePremium }: Props) {
+  const toast = useToast();
+  const { flyToTarget, isAnimating } = useFlyToTarget();
+
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [imageBlob, setImageBlob] = useState<Blob | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [rating, setRating] = useState<string | null>(null);
+  const [comment, setComment] = useState<string>("");
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const autoOpenAttemptedRef = useRef(false);
+  const previewFlyRef = useRef<HTMLDivElement | null>(null);
+
+  const catsAll = useMemo(() => settings.categories[life] ?? [], [life, settings.categories]);
+
+  // per-life disabled categories => hide from Capture choices
+  const disabledMap = useMemo(
+    () => settings.disabledCategoryIdsByLife?.[life] ?? {},
+    [settings.disabledCategoryIdsByLife, life]
+  );
+
+  const cats = useMemo(() => {
+    return catsAll.filter((c) => !disabledMap[c.id]);
+  }, [catsAll, disabledMap]);
+
+  // if current selection becomes disabled (or removed), clear it
+  useEffect(() => {
+    if (!categoryId) return;
+    const existsAndEnabled = cats.some((c) => c.id === categoryId);
+    if (!existsAndEnabled) setCategoryId(null);
+  }, [categoryId, cats]);
+
+  const catDefaultGpsEligible = useMemo(() => {
+    if (!categoryId) return false;
+    return catsAll.find((c) => c.id === categoryId)?.gpsEligible ?? false;
+  }, [categoryId, catsAll]);
+
+  const activeRatingPack = useMemo(() => getEffectiveRatingPack(settings, life), [settings, life]);
+  const ratingOpts = useMemo(() => getRatingPackOptions(activeRatingPack), [activeRatingPack]);
+
+  const openCamera = () => {
+    fileRef.current?.click();
+  };
+
+  const onPickFile = async (file: File | null) => {
+    if (!file) return;
+
+    const blob = file.slice(0, file.size, file.type);
+    setImageBlob(blob);
+
+    setRating(null);
+
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    setImagePreviewUrl(URL.createObjectURL(blob));
+  };
+
+  const canSave = !!imageBlob;
+
+  const resetAll = () => {
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    setImagePreviewUrl(null);
+    setImageBlob(null);
+    setRating(null);
+    setComment("");
+    setCategoryId(null);
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  // Try auto-open camera once when entering Capture (camera-first UX)
+  useEffect(() => {
+    if (autoOpenAttemptedRef.current) return;
+    autoOpenAttemptedRef.current = true;
+
+    if (imageBlob) return;
+
+    const t = window.setTimeout(() => {
+      try {
+        fileRef.current?.click();
+      } catch {
+        // ignore
+      }
+    }, 250);
+
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const onSave = async () => {
+    if (isSaving || isAnimating) return;
+
+    if (!imageBlob) {
+      toast.show(tGet(dict, "capture.photoRequired"));
+      return;
+    }
+
+    // Standard: max 100 (paywall triggers elsewhere)
+    const total = countAllHuskets();
+    if (!settings.premium && total >= 100) {
+      onRequirePremium();
+      return;
+    }
+
+    setIsSaving(true);
+
+    const imageKey = `img:${crypto.randomUUID()}`;
+
+    const gps = await getGpsIfAllowed({
+      settings,
+      categoryId,
+      categoryDefaultGpsEligible: catDefaultGpsEligible,
+    });
+
+    const trimmed = clamp100(comment.trim());
+    const commentOrNull = trimmed.length > 0 ? trimmed : null;
+
+    const husketBase: Omit<Husket, "id"> = {
+      life,
+      createdAt: Date.now(),
+      imageKey,
+      ratingValue: rating,
+      comment: commentOrNull,
+      categoryId,
+      gps,
+    };
+
+    try {
+      await createHusket({ husket: husketBase, imageBlob });
+
+      toast.show(tGet(dict, "capture.saved"));
+
+      const sourceEl = previewFlyRef.current;
+      if (sourceEl) {
+        flyToTarget({
+          sourceEl,
+          targetId: FLY_TARGET_ALBUM,
+          onComplete: () => {
+            // NEW FLOW: stay on Capture, reset and open camera again
+            resetAll();
+            window.setTimeout(() => {
+              openCamera();
+            }, 60);
+          },
+        });
+        return;
+      }
+
+      // Fallback (no preview element): still stay on capture
+      resetAll();
+      window.setTimeout(() => {
+        openCamera();
+      }, 60);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // ---- Typography (B) ----
+  const baseTextB: React.CSSProperties = {
+    fontSize: HUSKET_TYPO.B.fontSize,
+    fontWeight: HUSKET_TYPO.B.fontWeight,
+    lineHeight: HUSKET_TYPO.B.lineHeight,
+    letterSpacing: HUSKET_TYPO.B.letterSpacing,
+  };
+
+  const labelTextStyle: React.CSSProperties = {
+    ...baseTextB,
+    color: "rgba(247, 243, 237, 0.78)",
+  };
+
+  const helpTextStyle: React.CSSProperties = {
+    ...baseTextB,
+    color: "rgba(247, 243, 237, 0.60)",
+  };
+
+  const dividerThin: React.CSSProperties = {
+    width: "100%",
+    height: 0,
+    borderTop: "1px solid rgba(247, 243, 237, 0.12)",
+    margin: 0,
+  };
+
+  // ---- Flat reset for rows ----
+  const flatChoiceRowStyle: React.CSSProperties = {
+    border: "none",
+    boxShadow: "none",
+    outline: "none",
+    background: "transparent",
+    padding: 0,
+    borderRadius: 0,
+    justifyContent: "center",
+    textAlign: "center",
+  };
+
+  // ---- Flat pill style (no outline) ----
+  const pillFlatBase: React.CSSProperties = {
+    border: "none",
+    boxShadow: "none",
+    outline: "none",
+    background: "transparent",
+    color: "rgba(247, 243, 237, 0.88)",
+  };
+
+  const pillFlatActive: React.CSSProperties = {
+    background: "rgba(247, 243, 237, 0.10)",
+    color: "rgba(247, 243, 237, 0.95)",
+  };
+
+  // ---- Textarea border matches divider ----
+  const textareaStyle: React.CSSProperties = {
+    ...baseTextB,
+    color: "rgba(247, 243, 237, 0.92)",
+    background: "transparent",
+    border: "1px solid rgba(247, 243, 237, 0.12)",
+    boxShadow: "none",
+    outline: "none",
+    borderRadius: 14,
+  };
+
+  // Primary button style (Ta bilde + “Ta nytt bilde” + Lagre) with DARK text
+  const primaryBtnStyle: React.CSSProperties = {
+    background: MCL_HUSKET_THEME.colors.header,
+    color: "rgba(27, 26, 23, 0.92)",
+    border: "1px solid rgba(247, 243, 237, 0.14)",
+    boxShadow: "none",
+  };
+
+  // Always center the single button under preview
+  const photoActionsStyle: React.CSSProperties = {
+    marginTop: 10,
+    display: "flex",
+    gap: 10,
+    flexWrap: "wrap",
+    justifyContent: "center",
+  };
+
+  return (
+    <div>
+      {/* Preview panel */}
+      <div
+        className="captureFrame"
+        style={{
+          maxWidth: 680,
+          margin: "0 auto",
+        }}
+      >
+        <div
+          className="capturePreview"
+          style={{
+            width: "100%",
+            height: "min(260px, 38vh)",
+            borderRadius: 16,
+            overflow: "hidden",
+            position: "relative",
+          }}
+        >
+          {imagePreviewUrl ? (
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                padding: 10,
+                boxSizing: "border-box",
+                display: "grid",
+                placeItems: "center",
+              }}
+            >
+              <div
+                ref={previewFlyRef}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  borderRadius: 14,
+                  overflow: "hidden",
+                }}
+              >
+                <img
+                  src={imagePreviewUrl}
+                  alt=""
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block",
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: 10, placeItems: "center", padding: 14 }}>
+              <div className="smallHelp" style={helpTextStyle}>
+                {tGet(dict, "capture.cameraHint")}
+              </div>
+
+              <button className="flatBtn primary" style={primaryBtnStyle} onClick={openCamera} type="button">
+                {tGet(dict, "capture.pickPhoto")}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div style={{ marginTop: 12 }}>
+        <div style={dividerThin} />
+      </div>
+
+      {/* Photo action (ONE button only) */}
+      <div style={photoActionsStyle}>
+        <button className="flatBtn primary" style={primaryBtnStyle} onClick={openCamera} type="button">
+          {!imageBlob ? tGet(dict, "capture.pickPhoto") : tGet(dict, "capture.retakePhoto")}
+        </button>
+
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const f = e.target.files?.[0] ?? null;
+            void onPickFile(f);
+          }}
+        />
+      </div>
+
+      {/* Divider */}
+      <div style={{ marginTop: 12 }}>
+        <div style={dividerThin} />
+      </div>
+
+      {/* Rating */}
+      <div className="label" style={{ ...labelTextStyle, marginTop: 10 }}>
+        {tGet(dict, "capture.like")}
+      </div>
+      <div className="ratingRow" aria-label="Rating" style={flatChoiceRowStyle}>
+        {ratingOpts.map((v) => {
+          const active = rating === v;
+          return (
+            <button
+              key={v}
+              className={`pill ${active ? "active" : ""}`}
+              onClick={() => setRating((prev) => (prev === v ? null : v))}
+              type="button"
+              style={{ ...(active ? pillFlatActive : pillFlatBase) }}
+            >
+              {renderRatingValue(v)}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Divider */}
+      <div style={{ marginTop: 12 }}>
+        <div style={dividerThin} />
+      </div>
+
+      {/* Comment */}
+      <div className="label" style={{ ...labelTextStyle, marginTop: 10 }}>
+        {tGet(dict, "capture.comment")}
+      </div>
+      <textarea
+        className="textarea"
+        style={textareaStyle}
+        value={comment}
+        onChange={(e) => setComment(clamp100(e.target.value))}
+        placeholder={tGet(dict, "capture.commentPh")}
+      />
+      <div className="smallHelp" style={helpTextStyle}>
+        {comment.length}/100
+      </div>
+
+      {/* Divider */}
+      <div style={{ marginTop: 12 }}>
+        <div style={dividerThin} />
+      </div>
+
+      {/* Category */}
+      <div className="label" style={{ ...labelTextStyle, marginTop: 10 }}>
+        {tGet(dict, "capture.category")}
+      </div>
+      <div className="ratingRow" aria-label="Categories" style={flatChoiceRowStyle}>
+        {cats.length === 0 ? (
+          <div className="smallHelp" style={helpTextStyle}>
+            {tGet(dict, "capture.noCategories")}
+          </div>
+        ) : (
+          cats.map((c) => {
+            const active = categoryId === c.id;
+            return (
+              <button
+                key={c.id}
+                className={`pill ${active ? "active" : ""}`}
+                onClick={() => setCategoryId((prev) => (prev === c.id ? null : c.id))}
+                type="button"
+                title={c.label}
+                style={{ ...(active ? pillFlatActive : pillFlatBase) }}
+              >
+                {c.label}
+              </button>
+            );
+          })
+        )}
+      </div>
+
+      {/* Divider */}
+      <div style={{ marginTop: 12 }}>
+        <div style={dividerThin} />
+      </div>
+
+      {/* Save */}
+      <div style={{ marginTop: 12, display: "grid", gap: 8, justifyItems: "center" }}>
+        <button
+          className="flatBtn primary"
+          style={primaryBtnStyle}
+          onClick={() => void onSave()}
+          type="button"
+          disabled={!canSave || isSaving || isAnimating}
+        >
+          {tGet(dict, "capture.save")}
+        </button>
+      </div>
+    </div>
+  );
+}
