@@ -66,6 +66,11 @@ function AppInner() {
     setSettings(next);
     saveSettings(next);
 
+    // If sharing was turned OFF while user is on the sharing route, bounce back.
+    if (route === "shared" && next.shareEnabled === false) {
+      setRoute("capture");
+    }
+
     const allowed: LifeKey[] = [
       ...(next.lives.enabledPrivate ? (["private"] as LifeKey[]) : []),
       ...(next.lives.enabledCustom1 ? (["custom1"] as LifeKey[]) : []),
@@ -187,15 +192,19 @@ function AppInner() {
         />
       ) : null}
 
-      {route === "shared" ? (
-        <SharedWithMeScreen
-          dict={dict}
-          settings={settings}
-          husketToSend={pendingHusketToSend}
-          onClearHusketToSend={() => setPendingHusketToSend(null)}
-          onStartSendFlow={startSendFlow}
-        />
-      ) : null}
+      {route === "shared"
+        ? settings.shareEnabled
+          ? (
+            <SharedWithMeScreen
+              dict={dict}
+              settings={settings}
+              husketToSend={pendingHusketToSend}
+              onClearHusketToSend={() => setPendingHusketToSend(null)}
+              onStartSendFlow={startSendFlow}
+            />
+          )
+          : null
+        : null}
 
       <SettingsDrawer
         dict={dict}
@@ -209,11 +218,23 @@ function AppInner() {
 
       <PaywallModal dict={dict} open={paywallOpen} onCancel={() => setPaywallOpen(false)} onActivate={activatePremiumMock} />
 
-      <BottomNav dict={dict} route={route} onRouteChange={(r) => {
-        // leaving album => exit pick mode
-        if (r !== "album") setAlbumPickMode(false);
-        setRoute(r);
-      }} />
+      <BottomNav
+        dict={dict}
+        route={route}
+        showSharing={settings.shareEnabled === true}
+        onRouteChange={(r) => {
+          // leaving album => exit pick mode
+          if (r !== "album") setAlbumPickMode(false);
+
+          // Guard: if sharing is disabled, never navigate to shared.
+          if (r === "shared" && settings.shareEnabled !== true) {
+            setRoute("capture");
+            return;
+          }
+
+          setRoute(r);
+        }}
+      />
     </div>
   );
 }
