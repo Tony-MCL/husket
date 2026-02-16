@@ -8,10 +8,11 @@ import { readJson, writeJson } from "../storage/local";
 const KEY_V1 = "husket.settings.v1";
 const KEY_V2 = "husket.settings.v2";
 
-type SettingsV1 = Omit<Settings, "version" | "ratingPackByLife" | "disabledCategoryIdsByLife"> & {
+type SettingsV1 = Omit<Settings, "version" | "ratingPackByLife" | "disabledCategoryIdsByLife" | "shareCenterEnabled"> & {
   version: 1;
   ratingPackByLife?: never;
   disabledCategoryIdsByLife?: never;
+  shareCenterEnabled?: never;
 };
 
 function migrateV1ToV2(v1: SettingsV1): Settings {
@@ -20,6 +21,7 @@ function migrateV1ToV2(v1: SettingsV1): Settings {
     version: 2,
     ratingPackByLife: {},
     disabledCategoryIdsByLife: {},
+    shareCenterEnabled: false,
   } as Settings;
 }
 
@@ -80,7 +82,9 @@ function ensureCategoriesUpToDate(s: Settings): { next: Settings; changed: boole
     const same =
       Array.isArray(current) &&
       current.length === merged.length &&
-      current.every((c, idx) => c.id === merged[idx].id && c.label === merged[idx].label && c.gpsEligible === merged[idx].gpsEligible);
+      current.every(
+        (c, idx) => c.id === merged[idx].id && c.label === merged[idx].label && c.gpsEligible === merged[idx].gpsEligible
+      );
 
     if (!same) {
       nextCats[life] = merged;
@@ -124,16 +128,17 @@ function ensureLivesFlags(s: Settings): { next: Settings; changed: boolean } {
   };
 }
 
+function ensureShareCenterFlag(s: Settings): { next: Settings; changed: boolean } {
+  const raw: any = s as any;
+  if (typeof raw.shareCenterEnabled === "boolean") return { next: s, changed: false };
+  return { next: { ...s, shareCenterEnabled: false }, changed: true };
+}
+
 export function loadSettings(): Settings {
   const v2 = readJson<Settings>(KEY_V2);
   if (v2 && v2.version === 2) {
     let changed = false;
     let fixed: Settings = v2;
-
-    if (typeof fixed.shareEnabled !== "boolean") {
-      fixed = { ...fixed, shareEnabled: false };
-      changed = true;
-    }
 
     if (!fixed.ratingPackByLife) {
       fixed = { ...fixed, ratingPackByLife: {} };
@@ -142,6 +147,12 @@ export function loadSettings(): Settings {
 
     if (!fixed.disabledCategoryIdsByLife) {
       fixed = { ...fixed, disabledCategoryIdsByLife: {} };
+      changed = true;
+    }
+
+    const ensuredShare = ensureShareCenterFlag(fixed);
+    if (ensuredShare.changed) {
+      fixed = ensuredShare.next;
       changed = true;
     }
 
@@ -164,9 +175,11 @@ export function loadSettings(): Settings {
   const v1 = readJson<SettingsV1>(KEY_V1);
   if (v1 && (v1 as any).version === 1) {
     const migrated = migrateV1ToV2(v1);
-    const ensuredCats = ensureCategoriesUpToDate(migrated);
-    const ensuredLives = ensureLivesFlags(ensuredCats.changed ? ensuredCats.next : migrated);
-    const final = ensuredLives.changed ? ensuredLives.next : ensuredLives.next;
+    const ensuredShare = ensureShareCenterFlag(migrated);
+    const ensuredCats = ensureCategoriesUpToDate(ensuredShare.changed ? ensuredShare.next : migrated);
+    const ensuredLives = ensureLivesFlags(ensuredCats.changed ? ensuredCats.next : ensuredCats.next);
+
+    const final = ensuredLives.next;
 
     writeJson(KEY_V2, final);
     return final;
@@ -177,7 +190,7 @@ export function loadSettings(): Settings {
     ...fresh,
     ratingPackByLife: fresh.ratingPackByLife ?? {},
     disabledCategoryIdsByLife: fresh.disabledCategoryIdsByLife ?? {},
-    shareEnabled: typeof (fresh as any).shareEnabled === "boolean" ? (fresh as any).shareEnabled : false,
+    shareCenterEnabled: typeof (fresh as any).shareCenterEnabled === "boolean" ? fresh.shareCenterEnabled : false,
   };
   writeJson(KEY_V2, fixedFresh);
   return fixedFresh;
