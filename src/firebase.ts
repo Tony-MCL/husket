@@ -18,4 +18,4 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const functions = getFunctions(app, "europe-west1");
-export const storage = getStorage(app);
+export const storage = getStorage(app, "gs://husket-sky.firebasestorage.app");
