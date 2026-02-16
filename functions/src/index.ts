@@ -122,7 +122,7 @@ function validatePayload(raw: unknown): HusketPayload {
     ratingValue,
     categoryLabel,
     gps,
-    image: { storagePath }
+    image: { storagePath },
   };
 }
 
@@ -203,6 +203,11 @@ function userHusketStoragePath(uid: string, husketId: string): string {
   return `users/${uid}/huskets/${husketId}.jpg`;
 }
 
+// IMPORTANT: received path has NO extension to match current frontend (users/{uid}/received/{id})
+function userReceivedStoragePath(uid: string, receivedId: string): string {
+  return `users/${uid}/received/${receivedId}`;
+}
+
 function addDays(ts: Timestamp, days: number): Timestamp {
   const ms = ts.toMillis() + days * 24 * 60 * 60 * 1000;
   return Timestamp.fromMillis(ms);
@@ -275,14 +280,14 @@ export const createInviteCode = onCall({ region: "europe-west1" }, async (req) =
       tx.set(codeRef, {
         ownerUid: myUid,
         createdAt: FieldValue.serverTimestamp(),
-        revokedAt: null
+        revokedAt: null,
       });
 
       tx.set(
         userRef,
         {
           inviteCode: code,
-          inviteCodeUpdatedAt: FieldValue.serverTimestamp()
+          inviteCodeUpdatedAt: FieldValue.serverTimestamp(),
         },
         { merge: true }
       );
@@ -341,7 +346,7 @@ export const resolveInviteCode = onCall({ region: "europe-west1" }, async (req) 
       canSendTo: true,
       createdAt: FieldValue.serverTimestamp(),
       label: null,
-      blocked: false
+      blocked: false,
     });
   });
 
@@ -386,7 +391,7 @@ export const sendHusketToContact = onCall(
 
     const relayPayload: HusketPayload = {
       ...husket,
-      image: { storagePath: relayPath }
+      image: { storagePath: relayPath },
     };
 
     // Upload first
@@ -394,7 +399,7 @@ export const sendHusketToContact = onCall(
     await file.save(imageBuf, {
       contentType: "image/jpeg",
       resumable: false,
-      metadata: { cacheControl: "private, max-age=3600" }
+      metadata: { cacheControl: "private, max-age=3600" },
     });
 
     const counterRef = db.doc(`users/${recipientUid}/counters/${yyyymm}`);
@@ -416,7 +421,7 @@ export const sendHusketToContact = onCall(
           counterRef,
           {
             receivedCount: FieldValue.increment(1),
-            updatedAt: FieldValue.serverTimestamp()
+            updatedAt: FieldValue.serverTimestamp(),
           },
           { merge: true }
         );
@@ -430,7 +435,7 @@ export const sendHusketToContact = onCall(
         openedAt: null,
         status: "pending" as RelayStatus,
         payload: relayPayload,
-        image: { storagePath: relayPath }
+        image: { storagePath: relayPath },
       });
     });
 
@@ -459,7 +464,7 @@ export const openRelayItem = onCall({ region: "europe-west1" }, async (req) => {
     if (!d.openedAt) {
       tx.update(ref, {
         openedAt: FieldValue.serverTimestamp(),
-        status: "opened" as RelayStatus
+        status: "opened" as RelayStatus,
       });
     }
   });
@@ -510,8 +515,10 @@ export const resolveRelayItem = onCall(
     const newHusketRef = db.collection(`users/${myUid}/huskets`).doc();
     const newId = newHusketRef.id;
 
-    const destPath = userHusketStoragePath(myUid, newId);
+    // IMPORTANT: store received image under users/{uid}/received/{id} (no extension)
+    const destPath = userReceivedStoragePath(myUid, newId);
 
+    // Copy the relay image to recipient received-path
     await bucket.file(relayImagePath).copy(bucket.file(destPath));
 
     await db.runTransaction(async (tx) => {
@@ -531,14 +538,16 @@ export const resolveRelayItem = onCall(
         categoryLabelSnapshot: payload.categoryLabel ?? null,
         gps: payload.gps ?? null,
         capturedAt: Timestamp.fromMillis(payload.capturedAt),
-        image: { storagePath: destPath }
+        image: { storagePath: destPath },
       });
 
       tx.delete(relayRef);
     });
 
+    // Best-effort cleanup
     await bucket.file(relayImagePath).delete({ ignoreNotFound: true }).catch(() => undefined);
 
+    // Return the id (frontend already uses this), path is persisted in Firestore doc anyway.
     return { savedHusketId: newId };
   }
 );
