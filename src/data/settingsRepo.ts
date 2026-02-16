@@ -130,6 +130,11 @@ export function loadSettings(): Settings {
     let changed = false;
     let fixed: Settings = v2;
 
+    if (typeof fixed.shareEnabled !== "boolean") {
+      fixed = { ...fixed, shareEnabled: false };
+      changed = true;
+    }
+
     if (!fixed.ratingPackByLife) {
       fixed = { ...fixed, ratingPackByLife: {} };
       changed = true;
@@ -172,6 +177,7 @@ export function loadSettings(): Settings {
     ...fresh,
     ratingPackByLife: fresh.ratingPackByLife ?? {},
     disabledCategoryIdsByLife: fresh.disabledCategoryIdsByLife ?? {},
+    shareEnabled: typeof (fresh as any).shareEnabled === "boolean" ? (fresh as any).shareEnabled : false,
   };
   writeJson(KEY_V2, fixedFresh);
   return fixedFresh;
