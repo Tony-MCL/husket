@@ -1,7 +1,62 @@
 // ===============================
 // src/domain/types.ts
 // ===============================
-export type LanguageCode = "auto" | "en" | "no";
+export type RouteKey = "capture" | "album" | "shared";
+
+export type LifeKey = "private" | "work";
+
+export type LanguageCode = "auto" | "no" | "en";
+
+export type Settings = {
+  version: 2;
+  language: LanguageCode;
+  premium: boolean;
+
+  /**
+   * Sky / sharing center is opt-in. When false, the entire sharing UI is hidden.
+   * Default: false (especially important for wrapped/mobile builds).
+   */
+  sharingEnabled: boolean;
+
+  gpsGlobalEnabled: boolean;
+
+  // Multi-life
+  enabledLives: Partial<Record<LifeKey, boolean>>;
+
+  // Rating pack (per-life)
+  ratingPackByLife: Partial<Record<LifeKey, RatingPackKey>>;
+
+  // Category disabling (per-life)
+  disabledCategoryIdsByLife: Partial<Record<LifeKey, string[]>>;
+
+  // TODO: More settings later...
+};
+
+export type Husket = {
+  id: string;
+  life: LifeKey;
+
+  createdAt: number; // ms epoch
+  capturedAt?: number | null; // ms epoch (optional separate field)
+
+  // Image stored in IDB
+  imageKey: string;
+
+  // Data
+  ratingValue?: string | null;
+  comment?: string | null;
+  categoryId?: string | null;
+
+  // Optional GPS
+  gps?: {
+    lat: number;
+    lon: number;
+    acc?: number | null;
+  } | null;
+
+  // Optional extra meta
+  meta?: Record<string, unknown>;
+};
 
 export type RatingPackKey =
   | "emoji"
@@ -12,69 +67,3 @@ export type RatingPackKey =
   | "weather"
   | "heartpoop"
   | "dice";
-
-export type LifeKey = "private" | "work" | "custom1" | "custom2";
-
-export type CategoryId = string;
-
-export type CategoryDef = {
-  id: CategoryId;
-  label: string;
-  gpsEligible: boolean;
-};
-
-export type Settings = {
-  version: 2;
-  language: LanguageCode;
-  premium: boolean;
-
-  gpsGlobalEnabled: boolean;
-
-  // Global fallback/default
-  ratingPack: RatingPackKey;
-
-  // Optional per-life overrides (falls back to ratingPack)
-  ratingPackByLife: Partial<Record<LifeKey, RatingPackKey>>;
-
-  lives: {
-    privateName: string;
-    workName: string;
-    custom1Name: string;
-    custom2Name: string;
-
-    enabledPrivate: boolean;
-    enabledWork: boolean;
-
-    enabledCustom1: boolean;
-    enabledCustom2: boolean;
-  };
-
-  categories: Record<LifeKey, CategoryDef[]>;
-
-  // Per-life disabled categories (true = disabled)
-  disabledCategoryIdsByLife?: Partial<Record<LifeKey, Record<CategoryId, true>>>;
-
-  categoryGpsOverrides: Record<CategoryId, boolean>;
-};
-
-export type Husket = {
-  id: string;
-  life: LifeKey;
-
-  createdAt: number;
-
-  imageKey: string;
-
-  ratingValue: string | null;
-  comment: string | null;
-  categoryId: CategoryId | null;
-
-  gps: { lat: number; lng: number } | null;
-};
-
-export type Account = {
-  version: 1;
-  userId: string;
-  email: string;
-  createdAt: number;
-};
