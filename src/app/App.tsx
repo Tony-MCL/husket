@@ -66,11 +66,6 @@ function AppInner() {
     setSettings(next);
     saveSettings(next);
 
-    // If sharing was turned OFF while user is on the sharing route, bounce back.
-    if (route === "shared" && next.shareEnabled === false) {
-      setRoute("capture");
-    }
-
     const allowed: LifeKey[] = [
       ...(next.lives.enabledPrivate ? (["private"] as LifeKey[]) : []),
       ...(next.lives.enabledCustom1 ? (["custom1"] as LifeKey[]) : []),
@@ -81,6 +76,15 @@ function AppInner() {
     const fallback: LifeKey = allowed[0] ?? "private";
     if (!allowed.includes(life)) setLife(fallback);
   };
+
+  // If sharing is disabled, force user out of the sharing route.
+  useEffect(() => {
+    if (!settings.shareCenterEnabled && route === "shared") {
+      setAlbumPickMode(false);
+      setPendingHusketToSend(null);
+      setRoute("capture");
+    }
+  }, [settings.shareCenterEnabled, route]);
 
   const requirePremium = () => {
     setPaywallOpen(true);
@@ -192,19 +196,15 @@ function AppInner() {
         />
       ) : null}
 
-      {route === "shared"
-        ? settings.shareEnabled
-          ? (
-            <SharedWithMeScreen
-              dict={dict}
-              settings={settings}
-              husketToSend={pendingHusketToSend}
-              onClearHusketToSend={() => setPendingHusketToSend(null)}
-              onStartSendFlow={startSendFlow}
-            />
-          )
-          : null
-        : null}
+      {route === "shared" && settings.shareCenterEnabled ? (
+        <SharedWithMeScreen
+          dict={dict}
+          settings={settings}
+          husketToSend={pendingHusketToSend}
+          onClearHusketToSend={() => setPendingHusketToSend(null)}
+          onStartSendFlow={startSendFlow}
+        />
+      ) : null}
 
       <SettingsDrawer
         dict={dict}
@@ -221,13 +221,13 @@ function AppInner() {
       <BottomNav
         dict={dict}
         route={route}
-        showSharing={settings.shareEnabled === true}
+        showShared={settings.shareCenterEnabled}
         onRouteChange={(r) => {
           // leaving album => exit pick mode
           if (r !== "album") setAlbumPickMode(false);
 
-          // Guard: if sharing is disabled, never navigate to shared.
-          if (r === "shared" && settings.shareEnabled !== true) {
+          // guard: shared route not allowed if sharing disabled
+          if (r === "shared" && !settings.shareCenterEnabled) {
             setRoute("capture");
             return;
           }
