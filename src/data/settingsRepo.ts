@@ -7,19 +7,34 @@ import { readJson, writeJson } from "../storage/local";
 
 const KEY_V1 = "husket.settings.v1";
 const KEY_V2 = "husket.settings.v2";
+const KEY_V3 = "husket.settings.v3";
 
-type SettingsV1 = Omit<Settings, "version" | "ratingPackByLife" | "disabledCategoryIdsByLife"> & {
+type SettingsV1 = Omit<Settings, "version" | "ratingPackByLife" | "disabledCategoryIdsByLife" | "sharingEnabled"> & {
   version: 1;
   ratingPackByLife?: never;
   disabledCategoryIdsByLife?: never;
+  sharingEnabled?: never;
 };
 
-function migrateV1ToV2(v1: SettingsV1): Settings {
+type SettingsV2 = Omit<Settings, "version" | "sharingEnabled"> & {
+  version: 2;
+  sharingEnabled?: never;
+};
+
+function migrateV1ToV2(v1: SettingsV1): SettingsV2 {
   return {
     ...(v1 as any),
     version: 2,
     ratingPackByLife: {},
     disabledCategoryIdsByLife: {},
+  } as SettingsV2;
+}
+
+function migrateV2ToV3(v2: SettingsV2): Settings {
+  return {
+    ...(v2 as any),
+    version: 3,
+    sharingEnabled: false,
   } as Settings;
 }
 
@@ -124,11 +139,23 @@ function ensureLivesFlags(s: Settings): { next: Settings; changed: boolean } {
   };
 }
 
+function ensureSharingFlag(s: Settings): { next: Settings; changed: boolean } {
+  if (typeof (s as any).sharingEnabled === "boolean") return { next: s, changed: false };
+  return {
+    next: {
+      ...s,
+      sharingEnabled: false,
+    },
+    changed: true,
+  };
+}
+
 export function loadSettings(): Settings {
-  const v2 = readJson<Settings>(KEY_V2);
-  if (v2 && v2.version === 2) {
+  // --- v3 ---
+  const v3 = readJson<Settings>(KEY_V3);
+  if (v3 && v3.version === 3) {
     let changed = false;
-    let fixed: Settings = v2;
+    let fixed: Settings = v3;
 
     if (!fixed.ratingPackByLife) {
       fixed = { ...fixed, ratingPackByLife: {} };
@@ -152,33 +179,59 @@ export function loadSettings(): Settings {
       changed = true;
     }
 
-    if (changed) writeJson(KEY_V2, fixed);
+    const ensuredSharing = ensureSharingFlag(fixed);
+    if (ensuredSharing.changed) {
+      fixed = ensuredSharing.next;
+      changed = true;
+    }
+
+    if (changed) writeJson(KEY_V3, fixed);
     return fixed;
   }
 
-  const v1 = readJson<SettingsV1>(KEY_V1);
-  if (v1 && (v1 as any).version === 1) {
-    const migrated = migrateV1ToV2(v1);
+  // --- v2 -> v3 ---
+  const v2 = readJson<SettingsV2>(KEY_V2);
+  if (v2 && v2.version === 2) {
+    const migrated = migrateV2ToV3(v2);
+
     const ensuredCats = ensureCategoriesUpToDate(migrated);
     const ensuredLives = ensureLivesFlags(ensuredCats.changed ? ensuredCats.next : migrated);
-    const final = ensuredLives.changed ? ensuredLives.next : ensuredLives.next;
+    const ensuredSharing = ensureSharingFlag(ensuredLives.changed ? ensuredLives.next : ensuredLives.next);
 
-    writeJson(KEY_V2, final);
+    const final = ensuredSharing.changed ? ensuredSharing.next : ensuredSharing.next;
+    writeJson(KEY_V3, final);
     return final;
   }
 
+  // --- v1 -> v2 -> v3 ---
+  const v1 = readJson<SettingsV1>(KEY_V1);
+  if (v1 && (v1 as any).version === 1) {
+    const v2m = migrateV1ToV2(v1);
+    const v3m = migrateV2ToV3(v2m);
+
+    const ensuredCats = ensureCategoriesUpToDate(v3m);
+    const ensuredLives = ensureLivesFlags(ensuredCats.changed ? ensuredCats.next : v3m);
+    const ensuredSharing = ensureSharingFlag(ensuredLives.changed ? ensuredLives.next : ensuredLives.next);
+
+    const final = ensuredSharing.changed ? ensuredSharing.next : ensuredSharing.next;
+    writeJson(KEY_V3, final);
+    return final;
+  }
+
+  // Fresh
   const fresh = defaultSettings();
   const fixedFresh: Settings = {
     ...fresh,
     ratingPackByLife: fresh.ratingPackByLife ?? {},
     disabledCategoryIdsByLife: fresh.disabledCategoryIdsByLife ?? {},
+    sharingEnabled: typeof (fresh as any).sharingEnabled === "boolean" ? fresh.sharingEnabled : false,
   };
-  writeJson(KEY_V2, fixedFresh);
+  writeJson(KEY_V3, fixedFresh);
   return fixedFresh;
 }
 
 export function saveSettings(next: Settings): void {
-  writeJson(KEY_V2, next);
+  writeJson(KEY_V3, next);
 }
 
 export function setPremium(premium: boolean): Settings {
