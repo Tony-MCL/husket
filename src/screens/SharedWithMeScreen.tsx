@@ -12,7 +12,7 @@ import { useToast } from "../components/ToastHost";
 import { auth, db, functions, storage } from "../firebase";
 import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { getBytes, ref as sRef } from "firebase/storage";
+import { getDownloadURL, ref as sRef } from "firebase/storage";
 import { onAuthStateChanged, type User } from "firebase/auth";
 
 import {
@@ -539,45 +539,59 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
 
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-const downloadImageBlob = async (uid: string, savedId: string, controller: AbortController) => {
-  const paths = resolveImagePathCandidates(uid, savedId);
-  const p = paths[0];
-
-  let lastErr: any = null;
-
-  // Retry a few times because server-side copy can take a moment
-  const delays = [250, 500, 900, 1400, 2000]; // ~5 sek total
-  for (let attempt = 0; attempt < delays.length; attempt++) {
-    try {
-      if (controller.signal.aborted) throw new Error("Aborted");
-
-      const bytes = await withTimeout(getBytes(sRef(storage, p)), 30000, "Timeout while downloading image");
-
-      if (controller.signal.aborted) throw new Error("Aborted");
-
-      const blob = new Blob([bytes], { type: "image/jpeg" });
-      if (blob.size > 0) return blob;
-
-      throw new Error("Empty image blob");
-    } catch (e: any) {
-      lastErr = e;
-
-      if (controller.signal.aborted) throw new Error("Aborted");
-
-      const msg = String(e?.message ?? "");
-      const code = String(e?.code ?? "");
-      const isNotFound = msg.includes("object-not-found") || code.includes("object-not-found");
-      const isUnauthorized = msg.includes("unauthorized") || code.includes("unauthorized") || msg.includes("permission");
-
-      if (isUnauthorized) break;
-      if (!isNotFound) break;
-
-      await sleep(delays[attempt]);
+  const downloadImageBlob = async (uid: string, savedId: string, controller: AbortController) => {
+    const p = resolveImagePathCandidates(uid, savedId)[0];
+  
+    let lastErr: any = null;
+  
+    // Litt mer rom: copy i backend + nett kan ta tid
+    const delays = [300, 700, 1200, 1800, 2500, 3500]; // ~10 sek total
+    for (let attempt = 0; attempt < delays.length; attempt++) {
+      try {
+        if (controller.signal.aborted) throw new Error("Aborted");
+  
+        // 1) hent URL via Storage SDK (authed)
+        const url = await withTimeout(getDownloadURL(sRef(storage, p)), 20000, "Timeout while getting download URL");
+  
+        if (controller.signal.aborted) throw new Error("Aborted");
+  
+        // 2) fetch selve fila (med timeout)
+        const res = await withTimeout(fetch(url, { signal: controller.signal }), 60000, "Timeout while downloading image");
+        if (!res.ok) throw new Error(`Download failed (${res.status})`);
+  
+        const blob = await res.blob();
+        if (blob.size > 0) return blob;
+  
+        throw new Error("Empty image blob");
+      } catch (e: any) {
+        lastErr = e;
+  
+        if (controller.signal.aborted) throw new Error("Aborted");
+  
+        const msg = String(e?.message ?? "");
+        const code = String(e?.code ?? "");
+  
+        // Firebase Storage errors kan komme som code, mens fetch feiler som msg
+        const isNotFound =
+          msg.includes("object-not-found") ||
+          code.includes("object-not-found") ||
+          msg.includes("storage/object-not-found");
+  
+        const isUnauthorized =
+          msg.includes("unauthorized") ||
+          code.includes("unauthorized") ||
+          msg.includes("permission") ||
+          msg.includes("storage/unauthorized");
+  
+        if (isUnauthorized) break;
+        if (!isNotFound) break;
+  
+        await sleep(delays[attempt]);
+      }
     }
-  }
-
-  throw lastErr ?? new Error("Could not download image");
-};
+  
+    throw lastErr ?? new Error("Could not download image");
+  };
 
   const saveRelay = async (row: RelayRow) => {
     if (!uid) {
