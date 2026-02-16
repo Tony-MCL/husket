@@ -476,6 +476,36 @@ export function SettingsDrawer({
 
         <div className="hr" style={hrStyle} />
 
+        {/* Sharing (global) */}
+        <div style={lineRow}>
+          <div style={lineLeft}>
+            <div style={lineTitle}>Deling</div>
+          </div>
+
+          <div style={toggleWrapStyle}>
+            <button
+              type="button"
+              className="flatBtn"
+              style={toggleBtnStyle(!!settings.sharingEnabled)}
+              onClick={() => update({ sharingEnabled: true })}
+              aria-pressed={!!settings.sharingEnabled}
+            >
+              ON
+            </button>
+            <button
+              type="button"
+              className="flatBtn"
+              style={toggleBtnStyle(!settings.sharingEnabled)}
+              onClick={() => update({ sharingEnabled: false })}
+              aria-pressed={!settings.sharingEnabled}
+            >
+              OFF
+            </button>
+          </div>
+        </div>
+
+        <div className="hr" style={hrStyle} />
+
         {/* Rating pack (per active life) */}
         <div style={lineRow}>
           <div style={lineLeft}>
