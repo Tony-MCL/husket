@@ -3,6 +3,7 @@
 // ===============================
 import React, { useEffect, useRef } from "react";
 import type { RouteKey } from "../app/routes";
+import type { Settings } from "../domain/types";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
 import { MCL_HUSKET_THEME } from "../theme";
@@ -11,6 +12,7 @@ import { useFlyToTarget } from "../animation/useFlyToTarget";
 
 type Props = {
   dict: I18nDict;
+  settings: Settings;
   route: RouteKey;
   onRouteChange: (r: RouteKey) => void;
 };
@@ -18,21 +20,23 @@ type Props = {
 export const FLY_TARGET_ALBUM = "bottomnav:album";
 export const FLY_TARGET_SHARED = "bottomnav:shared";
 
-export function BottomNav({ dict, route, onRouteChange }: Props) {
+export function BottomNav({ dict, settings, route, onRouteChange }: Props) {
   const { registerTarget } = useFlyToTarget();
 
   const albumBtnRef = useRef<HTMLButtonElement | null>(null);
   const sharedBtnRef = useRef<HTMLButtonElement | null>(null);
 
+  const showSharing = !!settings.sharingEnabled;
+
   useEffect(() => {
     registerTarget(FLY_TARGET_ALBUM, albumBtnRef.current);
-    registerTarget(FLY_TARGET_SHARED, sharedBtnRef.current);
+    registerTarget(FLY_TARGET_SHARED, showSharing ? sharedBtnRef.current : null);
 
     return () => {
       registerTarget(FLY_TARGET_ALBUM, null);
       registerTarget(FLY_TARGET_SHARED, null);
     };
-  }, [registerTarget]);
+  }, [registerTarget, showSharing]);
 
   const BAR_HEIGHT = 56;
 
@@ -116,15 +120,17 @@ export function BottomNav({ dict, route, onRouteChange }: Props) {
           {tGet(dict, "nav.album")}
         </button>
 
-        <button
-          className={`bottomBtn ${route === "shared" ? "active" : ""}`}
-          onClick={() => onRouteChange("shared")}
-          type="button"
-          ref={sharedBtnRef}
-          style={{ ...btnBase, ...(route === "shared" ? btnActive : null) }}
-        >
-          {tGet(dict, "nav.shared")}
-        </button>
+        {showSharing ? (
+          <button
+            className={`bottomBtn ${route === "shared" ? "active" : ""}`}
+            onClick={() => onRouteChange("shared")}
+            type="button"
+            ref={sharedBtnRef}
+            style={{ ...btnBase, ...(route === "shared" ? btnActive : null) }}
+          >
+            {tGet(dict, "nav.shared")}
+          </button>
+        ) : null}
       </div>
     </div>
   );
