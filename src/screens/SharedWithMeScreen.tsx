@@ -12,7 +12,7 @@ import { useToast } from "../components/ToastHost";
 import { auth, db, functions, storage } from "../firebase";
 import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { getDownloadURL, ref as sRef } from "firebase/storage";
+import { getBytes, ref as sRef } from "firebase/storage";
 
 import {
   deleteReceivedHusketById,
@@ -104,30 +104,6 @@ function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> 
   return Promise.race([p, timeout]).finally(() => {
     if (t) clearTimeout(t);
   }) as Promise<T>;
-}
-
-async function fetchWithTimeout(url: string, ms: number, signal?: AbortSignal): Promise<Response> {
-  const ctrl = signal ? null : new AbortController();
-  const sig = signal ?? ctrl!.signal;
-
-  let t: any = null;
-  const timeoutPromise = new Promise<never>((_resolve, reject) => {
-    t = setTimeout(() => {
-      try {
-        if (ctrl) ctrl.abort();
-      } catch {
-        // ignore
-      }
-      reject(new Error("Timeout while downloading image"));
-    }, ms);
-  });
-
-  try {
-    const res = (await Promise.race([fetch(url, { signal: sig }), timeoutPromise])) as Response;
-    return res;
-  } finally {
-    if (t) clearTimeout(t);
-  }
 }
 
 export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusketToSend, onStartSendFlow }: Props) {
@@ -514,7 +490,6 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
   const [inboxAction, setInboxAction] = useState<RelayRow | null>(null);
   const [inboxBusy, setInboxBusy] = useState(false);
 
-  // ✅ NEW: allow cancel while saving (prevents "locked out" if download hangs)
   const [inboxAborter, setInboxAborter] = useState<AbortController | null>(null);
 
   const closeInboxAction = () => {
@@ -550,38 +525,47 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
   const resolveImagePathCandidates = (uid: string, savedId: string, relayRow: RelayRow): string[] => {
     const candidates: string[] = [];
 
-    // 1) If relay had imagePath, try that
+    // 1) best signal: relay says exactly where image is
     if (relayRow.imagePath) candidates.push(relayRow.imagePath);
 
-    // 2) Common conventions (we try several without breaking anything)
-    candidates.push(`users/${uid}/huskets/${savedId}.jpg`);
-    candidates.push(`users/${uid}/huskets/${savedId}`);
-    candidates.push(`users/${uid}/received/${savedId}.jpg`);
-    candidates.push(`users/${uid}/received/${savedId}`);
-    candidates.push(`relay/${relayRow.relayId}.jpg`);
+    // 2) conservative fallbacks
     candidates.push(`relay/${relayRow.relayId}`);
+    candidates.push(`relay/${relayRow.relayId}.jpg`);
 
-    // de-dup
+    candidates.push(`users/${uid}/huskets/${savedId}`);
+    candidates.push(`users/${uid}/huskets/${savedId}.jpg`);
+
+    candidates.push(`users/${uid}/received/${savedId}`);
+    candidates.push(`users/${uid}/received/${savedId}.jpg`);
+
     return Array.from(new Set(candidates.filter(Boolean)));
   };
 
+  // ✅ NEW: download image via Storage SDK (getBytes) instead of URL+fetch
   const downloadImageBlob = async (uid: string, savedId: string, relayRow: RelayRow, controller: AbortController) => {
     const paths = resolveImagePathCandidates(uid, savedId, relayRow);
 
     let lastErr: any = null;
     for (const p of paths) {
       try {
-        const url = await withTimeout(getDownloadURL(sRef(storage, p)), 8000, "Timeout while resolving image URL");
-        const res = await fetchWithTimeout(url, 12000, controller.signal);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const blob = await res.blob();
-        if (blob && blob.size > 0) return blob;
-        throw new Error("Empty blob");
+        if (controller.signal.aborted) throw new Error("Aborted");
+
+        // NOTE: getBytes uses the Firebase SDK transport and avoids common "Failed to fetch" issues.
+        // We keep a generous timeout because images can be large.
+        const bytes = await withTimeout(getBytes(sRef(storage, p)), 30000, "Timeout while downloading image");
+
+        if (controller.signal.aborted) throw new Error("Aborted");
+
+        const blob = new Blob([bytes], { type: "image/jpeg" });
+        if (blob.size > 0) return blob;
+
+        throw new Error("Empty image blob");
       } catch (e: any) {
         lastErr = e;
         // try next path
       }
     }
+
     throw lastErr ?? new Error("Could not download image");
   };
 
@@ -598,7 +582,6 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
     setInboxAborter(controller);
 
     try {
-      // 1) resolve (server persists and should also mark relay as resolved)
       const fn = httpsCallable(functions, "resolveRelayItem");
       const res = await fn({ relayId: row.relayId, action: "save" });
       const savedId = (res.data as any)?.savedHusketId as string | undefined;
@@ -610,16 +593,14 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
         return;
       }
 
-      // 2) download image (bounded by timeouts)
       const blob = await downloadImageBlob(uid, savedId, row, controller);
 
-      // 3) store locally in a separate "received" bucket
       const capturedAt = row.payload.capturedAt || Date.now();
 
       await importReceivedHusketFromSky({
         id: savedId,
         husket: {
-          life: "private", // not shown in main album; life is irrelevant in received bucket
+          life: "private",
           createdAt: capturedAt,
           ratingValue: row.payload.ratingValue || null,
           comment: row.payload.comment || null,
@@ -633,14 +614,13 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
       toast.show("Lagret ✅ (Delt med meg)");
       closeInboxAction();
     } catch (e: any) {
-      if (e?.name === "AbortError") {
+      if (e?.name === "AbortError" || e?.message === "Aborted") {
         toast.show("Avbrutt.");
       } else {
         toast.show(e?.message ? `Kunne ikke lagre: ${e.message}` : "Kunne ikke lagre");
         // eslint-disable-next-line no-console
         console.error(e);
       }
-      // IMPORTANT: do NOT close modal on error — user can try again or delete.
       setInboxBusy(false);
       setInboxAborter(null);
     }
