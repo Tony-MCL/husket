@@ -134,9 +134,11 @@ export function getDefaultCategoriesByLife(life?: LifeKey) {
 
 export function defaultSettings(): Settings {
   return {
-    version: 2,
+    version: 3,
     language: "auto",
     premium: false,
+
+    sharingEnabled: false,
 
     gpsGlobalEnabled: true,
 
