@@ -12,14 +12,14 @@ import { useFlyToTarget } from "../animation/useFlyToTarget";
 type Props = {
   dict: I18nDict;
   route: RouteKey;
-  showSharing?: boolean;
   onRouteChange: (r: RouteKey) => void;
+  showShared?: boolean;
 };
 
 export const FLY_TARGET_ALBUM = "bottomnav:album";
 export const FLY_TARGET_SHARED = "bottomnav:shared";
 
-export function BottomNav({ dict, route, showSharing = true, onRouteChange }: Props) {
+export function BottomNav({ dict, route, onRouteChange, showShared = true }: Props) {
   const { registerTarget } = useFlyToTarget();
 
   const albumBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -27,13 +27,13 @@ export function BottomNav({ dict, route, showSharing = true, onRouteChange }: Pr
 
   useEffect(() => {
     registerTarget(FLY_TARGET_ALBUM, albumBtnRef.current);
-    registerTarget(FLY_TARGET_SHARED, showSharing ? sharedBtnRef.current : null);
+    registerTarget(FLY_TARGET_SHARED, showShared ? sharedBtnRef.current : null);
 
     return () => {
       registerTarget(FLY_TARGET_ALBUM, null);
       registerTarget(FLY_TARGET_SHARED, null);
     };
-  }, [registerTarget, showSharing]);
+  }, [registerTarget, showShared]);
 
   const BAR_HEIGHT = 56;
 
@@ -117,7 +117,7 @@ export function BottomNav({ dict, route, showSharing = true, onRouteChange }: Pr
           {tGet(dict, "nav.album")}
         </button>
 
-        {showSharing ? (
+        {showShared ? (
           <button
             className={`bottomBtn ${route === "shared" ? "active" : ""}`}
             onClick={() => onRouteChange("shared")}
