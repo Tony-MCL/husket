@@ -532,48 +532,52 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
   };
 
   // --- storage paths (v1 backend reality) ---
-  const resolveImagePathCandidates = (uid: string, savedId: string, relayRow: RelayRow): string[] => {
-    // IMPORTANT:
-    // Current backend copies to users/{uid}/huskets/{savedId}.jpg
-    // Relay path (if still exists) is relay/{uid}/{relayId}.jpg
-    const candidates: string[] = [];
-
-    // 1) Most likely (and should be first)
-    candidates.push(`users/${uid}/huskets/${savedId}.jpg`);
-
-    // 2) If relay doc includes explicit path (sometimes useful, but relay might already be deleted)
-    if (relayRow.imagePath) candidates.push(relayRow.imagePath);
-
-    // 3) Conservative relay fallback
-    candidates.push(`relay/${uid}/${relayRow.relayId}.jpg`);
-
-    return Array.from(new Set(candidates.filter(Boolean)));
+  const resolveImagePathCandidates = (uid: string, savedId: string): string[] => {
+    // Client must NEVER try relay/, rules deny it by contract.
+    return [`users/${uid}/huskets/${savedId}.jpg`];
   };
 
-  const downloadImageBlob = async (uid: string, savedId: string, relayRow: RelayRow, controller: AbortController) => {
-    const paths = resolveImagePathCandidates(uid, savedId, relayRow);
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-    let lastErr: any = null;
-    for (const p of paths) {
-      try {
-        if (controller.signal.aborted) throw new Error("Aborted");
+const downloadImageBlob = async (uid: string, savedId: string, controller: AbortController) => {
+  const paths = resolveImagePathCandidates(uid, savedId);
+  const p = paths[0];
 
-        const bytes = await withTimeout(getBytes(sRef(storage, p)), 30000, "Timeout while downloading image");
+  let lastErr: any = null;
 
-        if (controller.signal.aborted) throw new Error("Aborted");
+  // Retry a few times because server-side copy can take a moment
+  const delays = [250, 500, 900, 1400, 2000]; // ~5 sek total
+  for (let attempt = 0; attempt < delays.length; attempt++) {
+    try {
+      if (controller.signal.aborted) throw new Error("Aborted");
 
-        const blob = new Blob([bytes], { type: "image/jpeg" });
-        if (blob.size > 0) return blob;
+      const bytes = await withTimeout(getBytes(sRef(storage, p)), 30000, "Timeout while downloading image");
 
-        throw new Error("Empty image blob");
-      } catch (e: any) {
-        lastErr = e;
-        // try next path
-      }
+      if (controller.signal.aborted) throw new Error("Aborted");
+
+      const blob = new Blob([bytes], { type: "image/jpeg" });
+      if (blob.size > 0) return blob;
+
+      throw new Error("Empty image blob");
+    } catch (e: any) {
+      lastErr = e;
+
+      if (controller.signal.aborted) throw new Error("Aborted");
+
+      const msg = String(e?.message ?? "");
+      const code = String(e?.code ?? "");
+      const isNotFound = msg.includes("object-not-found") || code.includes("object-not-found");
+      const isUnauthorized = msg.includes("unauthorized") || code.includes("unauthorized") || msg.includes("permission");
+
+      if (isUnauthorized) break;
+      if (!isNotFound) break;
+
+      await sleep(delays[attempt]);
     }
+  }
 
-    throw lastErr ?? new Error("Could not download image");
-  };
+  throw lastErr ?? new Error("Could not download image");
+};
 
   const saveRelay = async (row: RelayRow) => {
     if (!uid) {
@@ -598,7 +602,7 @@ export function SharedWithMeScreen({ dict, settings, husketToSend, onClearHusket
         return;
       }
 
-      const blob = await downloadImageBlob(uid, savedId, row, controller);
+      const blob = await downloadImageBlob(uid, savedId, controller);
 
       const capturedAt = row.payload.capturedAt || Date.now();
 
