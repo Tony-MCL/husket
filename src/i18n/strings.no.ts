@@ -8,7 +8,6 @@ export const no = {
   nav: {
     new: "Ny husket",
     album: "Album",
-    shared: "Delt med meg",
   },
   top: {
     private: "Privat",
@@ -67,10 +66,5 @@ export const no = {
       "Denne funksjonen er Premium. Aktiver Premium for å låse opp ubegrenset lagring, ekstra liv og egendefinerte kategorier.",
     cancel: "Avbryt",
     activate: "Aktiver Premium (mock)",
-  },
-  shared: {
-    title: "Delt med meg",
-    placeholder:
-      "Skylagring/deling kommer senere. (Her blir det en egen feed når sync er på plass.)",
   },
 };
