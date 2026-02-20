@@ -100,15 +100,6 @@ export function BottomNav({ dict, route, onRouteChange }: Props) {
         >
           {tGet(dict, "nav.album")}
         </button>
-
-        <button
-          className={`bottomBtn ${route === "shared" ? "active" : ""}`}
-          onClick={() => onRouteChange("shared")}
-          type="button"
-          style={{ ...btnBase, ...(route === "shared" ? btnActive : null) }}
-        >
-          {tGet(dict, "nav.shared")}
-        </button>
       </div>
     </div>
   );
