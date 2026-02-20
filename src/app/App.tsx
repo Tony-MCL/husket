@@ -11,7 +11,6 @@ import { BottomNav } from "../components/BottomNav";
 import type { RouteKey } from "./routes";
 import { CaptureScreen } from "../screens/CaptureScreen";
 import { AlbumScreen } from "../screens/AlbumScreen";
-import { SharedWithMeScreen } from "../screens/SharedWithMeScreen";
 import { SettingsDrawer } from "../components/SettingsDrawer";
 import { PaywallModal } from "../components/PaywallModal";
 import { MCL_HUSKET_THEME } from "../theme";
@@ -72,12 +71,16 @@ export function App() {
         />
 
         {route === "capture" ? (
-          <CaptureScreen dict={dict} life={life} settings={settings} onRequirePremium={requirePremium} onSavedGoAlbum={onSavedGoAlbum} />
+          <CaptureScreen
+            dict={dict}
+            life={life}
+            settings={settings}
+            onRequirePremium={requirePremium}
+            onSavedGoAlbum={onSavedGoAlbum}
+          />
         ) : null}
 
         {route === "album" ? <AlbumScreen dict={dict} life={life} settings={settings} /> : null}
-
-        {route === "shared" ? <SharedWithMeScreen dict={dict} /> : null}
 
         <SettingsDrawer
           dict={dict}
@@ -89,7 +92,12 @@ export function App() {
           onRequirePremium={requirePremium}
         />
 
-        <PaywallModal dict={dict} open={paywallOpen} onCancel={() => setPaywallOpen(false)} onActivate={activatePremiumMock} />
+        <PaywallModal
+          dict={dict}
+          open={paywallOpen}
+          onCancel={() => setPaywallOpen(false)}
+          onActivate={activatePremiumMock}
+        />
 
         <BottomNav dict={dict} route={route} onRouteChange={setRoute} />
       </div>
