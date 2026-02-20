@@ -2,18 +2,9 @@
 // src/i18n/strings.no.ts
 // ===============================
 export const no = {
-  app: {
-    title: "husket",
-  },
-  nav: {
-    new: "Ny husket",
-    album: "Album",
-  },
-  top: {
-    private: "Privat",
-    work: "Jobb",
-    menu: "Meny",
-  },
+  app: { title: "husket" },
+  nav: { new: "Ny husket", album: "Album" },
+  top: { private: "Privat", work: "Jobb", menu: "Meny" },
   capture: {
     title: "Capture",
     pickPhoto: "Ta bilde",
@@ -31,13 +22,7 @@ export const no = {
     gpsSaved: "GPS lagret",
     gpsDenied: "GPS ikke tilgjengelig",
   },
-  album: {
-    empty: "Ingen husket'er enda.",
-    open: "Åpne",
-    created: "Opprettet",
-    map: "Åpne i Maps",
-    gps: "GPS",
-  },
+  album: { empty: "Ingen husket'er enda.", open: "Åpne", created: "Opprettet", map: "Åpne i Maps", gps: "GPS" },
   settings: {
     title: "Innstillinger",
     activeLife: "Aktivt liv",
@@ -49,8 +34,7 @@ export const no = {
     premiumOff: "Standard (gratis)",
     premiumOn: "Premium aktiv",
     buyPremium: "Kjøp Premium (mock)",
-    premiumDesc:
-      "Premium: ubegrenset lagring, 2 ekstra liv, flere rating-sett, egendefinerte kategorier.",
+    premiumDesc: "Premium: ubegrenset lagring, 2 ekstra liv, flere rating-sett, egendefinerte kategorier.",
     lives: "Liv/modus",
     customLives: "Egendefinerte liv (Premium)",
     enable: "Aktiver",
@@ -62,8 +46,7 @@ export const no = {
   },
   paywall: {
     title: "Premium",
-    body:
-      "Denne funksjonen er Premium. Aktiver Premium for å låse opp ubegrenset lagring, ekstra liv og egendefinerte kategorier.",
+    body: "Denne funksjonen er Premium. Aktiver Premium for å låse opp ubegrenset lagring, ekstra liv og egendefinerte kategorier.",
     cancel: "Avbryt",
     activate: "Aktiver Premium (mock)",
   },
