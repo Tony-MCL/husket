@@ -7,38 +7,43 @@ import { MCL_HUSKET_THEME } from "../theme";
 type Props = {
   onDone: () => void;
 
-  /** Defaults to "/splash.mp4" */
-  mp4Src?: string;
-
-  /** Defaults to "/splash.gif" */
-  gifSrc?: string;
-
   /**
-   * Minimum time the splash must be visible (ms),
-   * even if media ends quickly or fails to load.
-   * Defaults to 6000 (4s anim + ~2s).
+   * Filnavn i /public (Vite) – default: "splash.mp4"
+   * NB: vi bruker BASE_URL, så dette fungerer også på GitHub Pages subpaths.
    */
+  mp4File?: string;
+
+  /** Filnavn i /public – default: "splash.gif" */
+  gifFile?: string;
+
+  /** Minimum synlig tid (ms). Default 6000 */
   minVisibleMs?: number;
 
-  /**
-   * Hard fallback timeout (ms).
-   * Defaults to 9000.
-   */
+  /** Hard timeout (ms). Default 9000 */
   hardTimeoutMs?: number;
 };
 
+function withBaseUrl(file: string): string {
+  const base = import.meta.env.BASE_URL || "/";
+  const safeBase = base.endsWith("/") ? base : `${base}/`;
+  return `${safeBase}${file.replace(/^\//, "")}`;
+}
+
 export function SplashScreen({
   onDone,
-  mp4Src = "/splash.mp4",
-  gifSrc = "/splash.gif",
+  mp4File = "splash.mp4",
+  gifFile = "splash.gif",
   minVisibleMs = 6000,
   hardTimeoutMs = 9000,
 }: Props) {
   const startedAtRef = useRef<number>(Date.now());
   const doneRef = useRef(false);
 
-  const [videoFailed, setVideoFailed] = useState(false);
+  const [useGif, setUseGif] = useState(false);
   const [mediaEnded, setMediaEnded] = useState(false);
+
+  const mp4Src = useMemo(() => withBaseUrl(mp4File), [mp4File]);
+  const gifSrc = useMemo(() => withBaseUrl(gifFile), [gifFile]);
 
   const finish = () => {
     if (doneRef.current) return;
@@ -53,7 +58,6 @@ export function SplashScreen({
   };
 
   useEffect(() => {
-    // Hard timeout: never get stuck here
     const t = window.setTimeout(() => finish(), hardTimeoutMs);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -95,8 +99,8 @@ export function SplashScreen({
     display: "block",
   };
 
-  const fallbackTextStyle: React.CSSProperties = {
-    fontWeight: 800,
+  const titleStyle: React.CSSProperties = {
+    fontWeight: 900,
     letterSpacing: 0.4,
     opacity: 0.92,
   };
@@ -116,40 +120,39 @@ export function SplashScreen({
   return (
     <div style={shellStyle}>
       <div style={centerStyle}>
-        {!videoFailed ? (
+        {!useGif ? (
           <video
-            src={mp4Src}
             autoPlay
             muted
             playsInline
             onEnded={() => setMediaEnded(true)}
-            onError={() => {
-              // If mp4 missing/unplayable, fall back to gif – but do NOT auto-finish.
-              setVideoFailed(true);
+            onError={(e) => {
+              // Vanligste årsak: feil path (GitHub Pages base) eller unsupported codec
+              console.warn("Splash mp4 failed, falling back to gif:", mp4Src, e);
+              setUseGif(true);
             }}
             style={mediaStyle}
-          />
+          >
+            <source src={mp4Src} type="video/mp4" />
+          </video>
         ) : (
           <img
             src={gifSrc}
             alt="husket splash"
             onLoad={() => {
-              // GIF has no reliable "ended" event; we keep minVisibleMs anyway.
-              // Mark mediaEnded to start the min-visible countdown once it's loaded.
+              // GIF: ingen reliable ended event, men vi starter nedtelling når den er lastet
               setMediaEnded(true);
             }}
-            onError={() => {
-              // If both mp4 and gif missing, show text and just wait minVisibleMs/hardTimeoutMs.
+            onError={(e) => {
+              console.warn("Splash gif failed too:", gifSrc, e);
+              // Hvis begge feiler: vi lar minVisible/hardTimeout styre videre
               setMediaEnded(true);
             }}
             style={mediaStyle}
           />
         )}
 
-        {videoFailed ? null : null}
-
-        {/* If assets are missing, the img tag will error and we still show this */}
-        <div style={fallbackTextStyle}>husket</div>
+        <div style={titleStyle}>husket</div>
 
         <button type="button" style={skipStyle} onClick={finishWithMinDelay}>
           Trykk for å hoppe over
