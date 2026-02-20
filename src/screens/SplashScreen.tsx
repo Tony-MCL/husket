@@ -7,19 +7,13 @@ import { MCL_HUSKET_THEME } from "../theme";
 type Props = {
   onDone: () => void;
 
-  /**
-   * Filnavn i /public (Vite) – default: "splash.mp4"
-   * NB: vi bruker BASE_URL, så dette fungerer også på GitHub Pages subpaths.
-   */
   mp4File?: string;
-
-  /** Filnavn i /public – default: "splash.gif" */
   gifFile?: string;
 
-  /** Minimum synlig tid (ms). Default 6000 */
+  /** Minimum synlig tid (ms). Default 4500 */
   minVisibleMs?: number;
 
-  /** Hard timeout (ms). Default 9000 */
+  /** Hard timeout (ms). Default 6500 */
   hardTimeoutMs?: number;
 };
 
@@ -33,8 +27,8 @@ export function SplashScreen({
   onDone,
   mp4File = "splash.mp4",
   gifFile = "splash.gif",
-  minVisibleMs = 6000,
-  hardTimeoutMs = 9000,
+  minVisibleMs = 4500,
+  hardTimeoutMs = 6500,
 }: Props) {
   const startedAtRef = useRef<number>(Date.now());
   const doneRef = useRef(false);
@@ -127,7 +121,6 @@ export function SplashScreen({
             playsInline
             onEnded={() => setMediaEnded(true)}
             onError={(e) => {
-              // Vanligste årsak: feil path (GitHub Pages base) eller unsupported codec
               console.warn("Splash mp4 failed, falling back to gif:", mp4Src, e);
               setUseGif(true);
             }}
@@ -139,13 +132,9 @@ export function SplashScreen({
           <img
             src={gifSrc}
             alt="husket splash"
-            onLoad={() => {
-              // GIF: ingen reliable ended event, men vi starter nedtelling når den er lastet
-              setMediaEnded(true);
-            }}
+            onLoad={() => setMediaEnded(true)}
             onError={(e) => {
               console.warn("Splash gif failed too:", gifSrc, e);
-              // Hvis begge feiler: vi lar minVisible/hardTimeout styre videre
               setMediaEnded(true);
             }}
             style={mediaStyle}
