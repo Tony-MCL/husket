@@ -36,7 +36,6 @@ export function App() {
       ...(next.lives.enabledWork ? (["work"] as LifeKey[]) : []),
     ];
 
-    // Always keep at least one valid life selected
     const fallback: LifeKey = allowed[0] ?? "private";
     if (!allowed.includes(life)) setLife(fallback);
   };
