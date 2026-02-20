@@ -2,18 +2,9 @@
 // src/i18n/strings.en.ts
 // ===============================
 export const en = {
-  app: {
-    title: "husket",
-  },
-  nav: {
-    new: "New husket",
-    album: "Album",
-  },
-  top: {
-    private: "Private",
-    work: "Work",
-    menu: "Menu",
-  },
+  app: { title: "husket" },
+  nav: { new: "New husket", album: "Album" },
+  top: { private: "Private", work: "Work", menu: "Menu" },
   capture: {
     title: "Capture",
     pickPhoto: "Take photo",
@@ -31,13 +22,7 @@ export const en = {
     gpsSaved: "GPS saved",
     gpsDenied: "GPS not available",
   },
-  album: {
-    empty: "No huskets yet.",
-    open: "Open",
-    created: "Created",
-    map: "Open in Maps",
-    gps: "GPS",
-  },
+  album: { empty: "No huskets yet.", open: "Open", created: "Created", map: "Open in Maps", gps: "GPS" },
   settings: {
     title: "Settings",
     activeLife: "Active life",
@@ -49,8 +34,7 @@ export const en = {
     premiumOff: "Standard (free)",
     premiumOn: "Premium active",
     buyPremium: "Buy Premium (mock)",
-    premiumDesc:
-      "Premium: unlimited storage, 2 extra lives, more rating packs, custom categories.",
+    premiumDesc: "Premium: unlimited storage, 2 extra lives, more rating packs, custom categories.",
     lives: "Lives/modes",
     customLives: "Custom lives (Premium)",
     enable: "Enable",
@@ -62,8 +46,7 @@ export const en = {
   },
   paywall: {
     title: "Premium",
-    body:
-      "This feature is Premium. Activate Premium to unlock unlimited storage, extra lives and custom categories.",
+    body: "This feature is Premium. Activate Premium to unlock unlimited storage, extra lives and custom categories.",
     cancel: "Cancel",
     activate: "Activate Premium (mock)",
   },
