@@ -5,7 +5,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { MCL_HUSKET_THEME } from "../theme";
 
 type Props = {
-  /** Called when splash is done (video ended or timeout/skip). */
   onDone: () => void;
 
   /** Defaults to "/splash.mp4" */
@@ -14,18 +13,32 @@ type Props = {
   /** Defaults to "/splash.gif" */
   gifSrc?: string;
 
-  /** Hard fallback timeout in ms (defaults to 4200) */
-  fallbackMs?: number;
+  /**
+   * Minimum time the splash must be visible (ms),
+   * even if media ends quickly or fails to load.
+   * Defaults to 6000 (4s anim + ~2s).
+   */
+  minVisibleMs?: number;
+
+  /**
+   * Hard fallback timeout (ms).
+   * Defaults to 9000.
+   */
+  hardTimeoutMs?: number;
 };
 
 export function SplashScreen({
   onDone,
   mp4Src = "/splash.mp4",
   gifSrc = "/splash.gif",
-  fallbackMs = 4200,
+  minVisibleMs = 6000,
+  hardTimeoutMs = 9000,
 }: Props) {
+  const startedAtRef = useRef<number>(Date.now());
   const doneRef = useRef(false);
+
   const [videoFailed, setVideoFailed] = useState(false);
+  const [mediaEnded, setMediaEnded] = useState(false);
 
   const finish = () => {
     if (doneRef.current) return;
@@ -33,11 +46,24 @@ export function SplashScreen({
     onDone();
   };
 
+  const finishWithMinDelay = () => {
+    const elapsed = Date.now() - startedAtRef.current;
+    const remaining = Math.max(0, minVisibleMs - elapsed);
+    window.setTimeout(() => finish(), remaining);
+  };
+
   useEffect(() => {
-    const t = window.setTimeout(() => finish(), fallbackMs);
+    // Hard timeout: never get stuck here
+    const t = window.setTimeout(() => finish(), hardTimeoutMs);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!mediaEnded) return;
+    finishWithMinDelay();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mediaEnded]);
 
   const shellStyle = useMemo<React.CSSProperties>(
     () => ({
@@ -45,85 +71,89 @@ export function SplashScreen({
       width: "100%",
       display: "grid",
       placeItems: "center",
-      background: MCL_HUSKET_THEME.colors.bg,
-      color: MCL_HUSKET_THEME.colors.text,
+      backgroundColor: MCL_HUSKET_THEME.colors.altSurface,
+      color: MCL_HUSKET_THEME.colors.textOnDark,
       padding: 18,
+      boxSizing: "border-box",
       userSelect: "none",
     }),
     []
   );
 
-  const cardStyle: React.CSSProperties = {
-    width: "min(520px, 92vw)",
-    borderRadius: 18,
-    border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
-    background: "rgba(255,255,255,0.75)",
-    boxShadow: "0 10px 24px rgba(0,0,0,0.12)",
-    overflow: "hidden",
-  };
-
-  const mediaBoxStyle: React.CSSProperties = {
-    width: "100%",
-    aspectRatio: "1 / 1",
-    background: "rgba(27, 26, 23, 0.06)",
+  const centerStyle: React.CSSProperties = {
+    width: "min(560px, 92vw)",
     display: "grid",
     placeItems: "center",
+    gap: 14,
   };
 
-  const hintStyle: React.CSSProperties = {
-    padding: "10px 12px",
-    borderTop: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-    color: "rgba(27, 26, 23, 0.72)",
-    fontSize: 12,
-    fontWeight: 650,
+  const mediaStyle: React.CSSProperties = {
+    width: "min(420px, 80vw)",
+    height: "auto",
+    maxHeight: "70vh",
+    objectFit: "contain",
+    display: "block",
   };
 
-  const skipBtnStyle: React.CSSProperties = {
-    border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
-    borderRadius: 999,
-    padding: "8px 12px",
-    background: "transparent",
-    color: "rgba(27, 26, 23, 0.8)",
-    fontSize: 12,
+  const fallbackTextStyle: React.CSSProperties = {
     fontWeight: 800,
-    lineHeight: 1,
+    letterSpacing: 0.4,
+    opacity: 0.92,
+  };
+
+  const skipStyle: React.CSSProperties = {
+    marginTop: 6,
+    opacity: 0.6,
+    fontSize: 12,
+    fontWeight: 700,
     cursor: "pointer",
+    background: "transparent",
+    border: "none",
+    color: MCL_HUSKET_THEME.colors.textOnDark,
+    padding: 8,
   };
 
   return (
-    <div style={shellStyle} onClick={finish} role="button" aria-label="Skip splash" tabIndex={0}>
-      <div style={cardStyle}>
-        <div style={mediaBoxStyle}>
-          {!videoFailed ? (
-            <video
-              src={mp4Src}
-              autoPlay
-              muted
-              playsInline
-              onEnded={finish}
-              onError={() => setVideoFailed(true)}
-              style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
-            />
-          ) : (
-            <img
-              src={gifSrc}
-              alt="husket splash"
-              onError={() => finish()}
-              style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
-            />
-          )}
-        </div>
+    <div style={shellStyle}>
+      <div style={centerStyle}>
+        {!videoFailed ? (
+          <video
+            src={mp4Src}
+            autoPlay
+            muted
+            playsInline
+            onEnded={() => setMediaEnded(true)}
+            onError={() => {
+              // If mp4 missing/unplayable, fall back to gif – but do NOT auto-finish.
+              setVideoFailed(true);
+            }}
+            style={mediaStyle}
+          />
+        ) : (
+          <img
+            src={gifSrc}
+            alt="husket splash"
+            onLoad={() => {
+              // GIF has no reliable "ended" event; we keep minVisibleMs anyway.
+              // Mark mediaEnded to start the min-visible countdown once it's loaded.
+              setMediaEnded(true);
+            }}
+            onError={() => {
+              // If both mp4 and gif missing, show text and just wait minVisibleMs/hardTimeoutMs.
+              setMediaEnded(true);
+            }}
+            style={mediaStyle}
+          />
+        )}
 
-        <div style={hintStyle}>
-          <span>Tap anywhere to skip</span>
-          <button type="button" onClick={finish} style={skipBtnStyle}>
-            Skip
-          </button>
-        </div>
+        {videoFailed ? null : null}
+
+        {/* If assets are missing, the img tag will error and we still show this */}
+        <div style={fallbackTextStyle}>husket</div>
+
+        <button type="button" style={skipStyle} onClick={finishWithMinDelay}>
+          Trykk for å hoppe over
+        </button>
       </div>
     </div>
   );
