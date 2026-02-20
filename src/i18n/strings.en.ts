@@ -8,7 +8,6 @@ export const en = {
   nav: {
     new: "New husket",
     album: "Album",
-    shared: "Shared with me",
   },
   top: {
     private: "Private",
@@ -67,10 +66,5 @@ export const en = {
       "This feature is Premium. Activate Premium to unlock unlimited storage, extra lives and custom categories.",
     cancel: "Cancel",
     activate: "Activate Premium (mock)",
-  },
-  shared: {
-    title: "Shared with me",
-    placeholder:
-      "Cloud storage/sharing will come later. (This will become a feed when sync is in place.)",
   },
 };
