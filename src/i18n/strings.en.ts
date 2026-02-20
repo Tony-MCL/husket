@@ -5,6 +5,15 @@ export const en = {
   app: { title: "husket" },
   nav: { new: "New husket", album: "Album" },
   top: { private: "Private", work: "Work", menu: "Menu" },
+
+  start: {
+    title: "Choose life",
+    subtitle: "Pick where this husket belongs. You can switch later.",
+    hint: "Tip: lives can be enabled/renamed in Settings.",
+    custom1: "Custom 1",
+    custom2: "Custom 2",
+  },
+
   capture: {
     title: "Capture",
     pickPhoto: "Take photo",
@@ -22,7 +31,9 @@ export const en = {
     gpsSaved: "GPS saved",
     gpsDenied: "GPS not available",
   },
+
   album: { empty: "No huskets yet.", open: "Open", created: "Created", map: "Open in Maps", gps: "GPS" },
+
   settings: {
     title: "Settings",
     activeLife: "Active life",
@@ -44,6 +55,7 @@ export const en = {
     gpsPerCat: "GPS per category",
     close: "Close",
   },
+
   paywall: {
     title: "Premium",
     body: "This feature is Premium. Activate Premium to unlock unlimited storage, extra lives and custom categories.",
