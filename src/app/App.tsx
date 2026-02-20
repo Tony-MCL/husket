@@ -64,7 +64,8 @@ export function App() {
         onDone={() => setBoot("lifeSelect")}
         mp4Src="/splash.mp4"
         gifSrc="/splash.gif"
-        fallbackMs={4200}
+        minVisibleMs={6000}
+        hardTimeoutMs={9000}
       />
     );
   }
