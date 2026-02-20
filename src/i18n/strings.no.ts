@@ -5,6 +5,15 @@ export const no = {
   app: { title: "husket" },
   nav: { new: "Ny husket", album: "Album" },
   top: { private: "Privat", work: "Jobb", menu: "Meny" },
+
+  start: {
+    title: "Velg liv",
+    subtitle: "Velg hvor denne husket’en hører hjemme. Du kan bytte senere.",
+    hint: "Tips: liv kan aktiveres og få navn i Innstillinger.",
+    custom1: "Egendefinert 1",
+    custom2: "Egendefinert 2",
+  },
+
   capture: {
     title: "Capture",
     pickPhoto: "Ta bilde",
@@ -22,7 +31,9 @@ export const no = {
     gpsSaved: "GPS lagret",
     gpsDenied: "GPS ikke tilgjengelig",
   },
+
   album: { empty: "Ingen husket'er enda.", open: "Åpne", created: "Opprettet", map: "Åpne i Maps", gps: "GPS" },
+
   settings: {
     title: "Innstillinger",
     activeLife: "Aktivt liv",
@@ -44,6 +55,7 @@ export const no = {
     gpsPerCat: "GPS per kategori",
     close: "Lukk",
   },
+
   paywall: {
     title: "Premium",
     body: "Denne funksjonen er Premium. Aktiver Premium for å låse opp ubegrenset lagring, ekstra liv og egendefinerte kategorier.",
