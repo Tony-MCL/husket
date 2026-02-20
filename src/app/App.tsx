@@ -14,11 +14,16 @@ import { AlbumScreen } from "../screens/AlbumScreen";
 import { SettingsDrawer } from "../components/SettingsDrawer";
 import { PaywallModal } from "../components/PaywallModal";
 import { MCL_HUSKET_THEME } from "../theme";
+import { SplashScreen } from "../screens/SplashScreen";
+import { LifeSelectScreen } from "../screens/LifeSelectScreen";
+
+type BootStage = "splash" | "lifeSelect" | "main";
 
 export function App() {
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
   const dict = useMemo(() => getDict(settings.language), [settings.language]);
 
+  const [boot, setBoot] = useState<BootStage>("splash");
   const [life, setLife] = useState<LifeKey>("private");
   const [route, setRoute] = useState<RouteKey>("capture");
 
@@ -40,9 +45,7 @@ export function App() {
     if (!allowed.includes(life)) setLife(fallback);
   };
 
-  const requirePremium = () => {
-    setPaywallOpen(true);
-  };
+  const requirePremium = () => setPaywallOpen(true);
 
   const activatePremiumMock = () => {
     const next: Settings = { ...settings, premium: true };
@@ -52,6 +55,37 @@ export function App() {
 
   const onSavedGoAlbum = () => setRoute("album");
 
+  // -------------------------------
+  // Boot flow: Splash -> Life select -> Main
+  // -------------------------------
+  if (boot === "splash") {
+    return (
+      <SplashScreen
+        onDone={() => setBoot("lifeSelect")}
+        mp4Src="/splash.mp4"
+        gifSrc="/splash.gif"
+        fallbackMs={4200}
+      />
+    );
+  }
+
+  if (boot === "lifeSelect") {
+    return (
+      <LifeSelectScreen
+        dict={dict}
+        settings={settings}
+        onPick={(picked) => {
+          setLife(picked);
+          setRoute("capture");
+          setBoot("main");
+        }}
+      />
+    );
+  }
+
+  // -------------------------------
+  // Main app
+  // -------------------------------
   return (
     <ToastProvider>
       <div
