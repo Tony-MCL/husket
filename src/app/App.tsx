@@ -62,8 +62,8 @@ export function App() {
     return (
       <SplashScreen
         onDone={() => setBoot("lifeSelect")}
-        mp4Src="/splash.mp4"
-        gifSrc="/splash.gif"
+        mp4Src="splash.mp4"
+        gifSrc="splash.gif"
         minVisibleMs={6000}
         hardTimeoutMs={9000}
       />
