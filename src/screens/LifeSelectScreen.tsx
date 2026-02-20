@@ -23,12 +23,9 @@ export function LifeSelectScreen({ dict, settings, onPick }: Props) {
   const choices = useMemo<LifeChoice[]>(() => {
     const list: LifeChoice[] = [];
 
-    if (settings.lives.enabledPrivate) {
-      list.push({ key: "private", label: tGet(dict, "top.private") });
-    }
-    if (settings.lives.enabledWork) {
-      list.push({ key: "work", label: tGet(dict, "top.work") });
-    }
+    if (settings.lives.enabledPrivate) list.push({ key: "private", label: tGet(dict, "top.private") });
+    if (settings.lives.enabledWork) list.push({ key: "work", label: tGet(dict, "top.work") });
+
     if (settings.lives.enabledCustom1) {
       list.push({
         key: "custom1",
@@ -42,10 +39,8 @@ export function LifeSelectScreen({ dict, settings, onPick }: Props) {
       });
     }
 
-    // Safety fallback: always allow private
-    if (list.length === 0) {
-      list.push({ key: "private", label: tGet(dict, "top.private") });
-    }
+    // Safety fallback
+    if (list.length === 0) list.push({ key: "private", label: tGet(dict, "top.private") });
 
     return list;
   }, [dict, settings]);
@@ -56,88 +51,82 @@ export function LifeSelectScreen({ dict, settings, onPick }: Props) {
     display: "grid",
     placeItems: "center",
     padding: 18,
-    background: MCL_HUSKET_THEME.colors.bg,
-    color: MCL_HUSKET_THEME.colors.text,
+    boxSizing: "border-box",
+    backgroundColor: MCL_HUSKET_THEME.colors.altSurface,
+    color: MCL_HUSKET_THEME.colors.textOnDark,
   };
 
-  const cardStyle: React.CSSProperties = {
+  const centerStyle: React.CSSProperties = {
     width: "min(520px, 92vw)",
-    borderRadius: 18,
-    border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
-    background: "rgba(255,255,255,0.78)",
-    boxShadow: "0 10px 24px rgba(0,0,0,0.12)",
-    padding: 14,
     display: "grid",
-    gap: 12,
+    placeItems: "center",
+    gap: 18,
+    textAlign: "center",
   };
 
   const titleStyle: React.CSSProperties = {
     margin: 0,
     fontSize: HUSKET_TYPO.A.fontSize,
-    fontWeight: HUSKET_TYPO.A.fontWeight,
+    fontWeight: 900,
     lineHeight: HUSKET_TYPO.A.lineHeight,
     letterSpacing: HUSKET_TYPO.A.letterSpacing,
-    color: "rgba(27,26,23,0.92)",
   };
 
-  const helpStyle: React.CSSProperties = {
+  const subtitleStyle: React.CSSProperties = {
     margin: 0,
-    color: "rgba(27,26,23,0.70)",
-    fontSize: 12,
-    fontWeight: 650,
+    opacity: 0.78,
+    fontSize: 13,
+    fontWeight: 700,
     lineHeight: 1.25,
+    maxWidth: 420,
   };
 
-  const gridStyle: React.CSSProperties = {
+  const buttonsWrapStyle: React.CSSProperties = {
     display: "grid",
-    gridTemplateColumns: "1fr",
-    gap: 10,
-    marginTop: 4,
-  };
-
-  const btnStyle: React.CSSProperties = {
-    width: "100%",
-    border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
-    borderRadius: 16,
-    padding: "14px 12px",
-    background: "transparent",
-    color: "rgba(27,26,23,0.90)",
-    cursor: "pointer",
-
-    fontSize: HUSKET_TYPO.B.fontSize,
-    fontWeight: HUSKET_TYPO.B.fontWeight,
-    lineHeight: HUSKET_TYPO.B.lineHeight,
-    letterSpacing: HUSKET_TYPO.B.letterSpacing,
-    textAlign: "left",
-  };
-
-  const pillStyle: React.CSSProperties = {
-    display: "inline-flex",
+    gap: 12,
+    justifyItems: "center",
     alignItems: "center",
-    gap: 8,
-    border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
-    borderRadius: 999,
-    padding: "6px 10px",
-    background: "rgba(27, 26, 23, 0.04)",
+    marginTop: 6,
+  };
+
+  // Flat buttons: no border, no card, no chip background
+  const flatBtnStyle: React.CSSProperties = {
+    width: "min(320px, 86vw)",
+    background: "transparent",
+    border: "none",
+    padding: "14px 10px",
+    cursor: "pointer",
+    color: MCL_HUSKET_THEME.colors.textOnDark,
+
+    fontSize: 18,
+    fontWeight: 900,
+    letterSpacing: 0.2,
+  };
+
+  const hintStyle: React.CSSProperties = {
+    margin: 0,
+    opacity: 0.6,
     fontSize: 12,
-    fontWeight: 800,
+    fontWeight: 700,
+    lineHeight: 1.25,
+    maxWidth: 440,
   };
 
   return (
     <div style={shellStyle}>
-      <div style={cardStyle}>
+      <div style={centerStyle}>
         <h1 style={titleStyle}>{tGet(dict, "start.title")}</h1>
-        <p style={helpStyle}>{tGet(dict, "start.subtitle")}</p>
+        <p style={subtitleStyle}>{tGet(dict, "start.subtitle")}</p>
 
-        <div style={gridStyle}>
+        <div style={buttonsWrapStyle}>
           {choices.map((c) => (
-            <button key={c.key} type="button" style={btnStyle} onClick={() => onPick(c.key)}>
-              <span style={pillStyle}>{c.label}</span>
+            <button key={c.key} type="button" style={flatBtnStyle} onClick={() => onPick(c.key)}>
+              {c.label}
             </button>
           ))}
         </div>
 
-        <p style={helpStyle}>{tGet(dict, "start.hint")}</p>
+        <p style={hintStyle}>{tGet(dict, "start.hint")}</p>
       </div>
     </div>
   );
