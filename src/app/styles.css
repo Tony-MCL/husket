@@ -31,746 +31,208 @@ MCL Husket – unified base + typography A/B
   --shadow2: 0 10px 24px rgba(0, 0, 0, 0.12);
 
   /* ---------------------------------
+     Theme system
+     --------------------------------- */
+  --bgImage: url("/fjord-bg.png");
+  --bgFallback: #062324;
+  --altSurface: #0f2f36;
+  --darkSurface: #071417;
+  --textOnDark: #eaf4f6;
+
+  /* ---------------------------------
      TYPOGRAPHY SYSTEM (A/B)
      --------------------------------- */
   /* A: buttons + headers (TopBar-type) */
   --typoA-size: 13px;
   --typoA-weight: 800;
-  --typoA-line: 1.1;
-  --typoA-track: 0px;
+  --typoA-line: 1;
 
-  /* B: choices + labels + info fields */
+  /* B: body labels + help text */
   --typoB-size: 13px;
-  --typoB-weight: 700;
-  --typoB-line: 1.2;
-  --typoB-track: 0px;
+  --typoB-weight: 600;
+  --typoB-line: 1.25;
+}
 
-  /* Help: same family as B, just smaller */
-  --typoHelp-size: 12px;
-  --typoHelp-weight: 650;
-  --typoHelp-line: 1.2;
-  --typoHelp-track: 0px;
+/* ===============================
+   Theme presets (v1)
+   - App wrapper sets: className="theme-${settings.themeKey}"
+   =============================== */
+
+.theme-fjord {
+  /* base image shared by appShell + bootShell + captureFrame */
+  --bgImage: url("/fjord-bg.png");
+
+  /* fjord color pack */
+  --header: #b7cbd6;
+  --line: #d6e3ea;
+  --line2: rgba(7, 20, 23, 0.14);
+
+  --altSurface: #0f2f36;
+  --darkSurface: #071417;
+  --textOnDark: #eaf4f6;
+
+  /* in-app (fog UI) defaults */
+  --ink: #eaf4f6;
+  --muted: rgba(234, 244, 246, 0.72);
+
+  --btn: rgba(234, 244, 246, 0.04);
+  --btnHover: rgba(234, 244, 246, 0.06);
 }
 
 * {
   box-sizing: border-box;
-  -webkit-tap-highlight-color: transparent;
 }
 
 html,
-body {
+body,
+#root {
   height: 100%;
   margin: 0;
+  padding: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
 }
 
-a {
-  color: inherit;
-}
-
-button {
-  font: inherit;
-}
-
-/* App shell keeps room for fixed bottom nav */
+/* -------------------------------
+   App shell + background
+------------------------------- */
 .appShell {
   min-height: 100svh;
-  padding: 10px 10px calc(96px + env(safe-area-inset-bottom)) 10px;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bgFallback);
 
-  /* ✅ IMPORTANT: create safe stacking context for pseudo layers */
+  color: var(--ink);
   position: relative;
-  isolation: isolate;
-
-  /* fallback hvis bildet ikke lastes */
-  background-color: #062324;
-
-  color: #eaf6f6;
-
-  /* NOTE: fog moved to ::after so it can’t be overridden by other background rules */
-  background: none;
+  overflow: hidden;
 }
 
-/* ✅ Sharp base image behind the entire app (viewport aligned) */
 .appShell::before {
   content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  pointer-events: none;
-
-  background-image: url("/fjord-bg.png");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-}
-
-/* ✅ Fog / overlays ALWAYS on top (cannot be overridden by other backgrounds) */
-.appShell::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-
-  background:
-    /* bottom water deepen */
-    linear-gradient(
-      to bottom,
-      rgba(0, 0, 0, 0.00) 55%,
-      rgba(6, 35, 36, 0.55) 78%,
-      rgba(6, 35, 36, 0.92) 100%
-    ),
-    /* overall contrast */
-    linear-gradient(
-      to bottom,
-      rgba(6, 35, 36, 0.72) 0%,
-      rgba(8, 52, 54, 0.68) 45%,
-      rgba(10, 70, 72, 0.72) 100%
-    );
-
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-}
-
-/* Boot / full-screen shells (Splash + LifeSelect) */
-.bootShell {
-  min-height: 100svh;
-  width: 100%;
-  padding: 18px;
-  box-sizing: border-box;
-
-  position: relative;
-  isolation: isolate;
-
-  /* fallback hvis bildet ikke lastes */
-  background-color: #062324;
-
-  color: #eaf6f6;
-
-  /* NOTE: fog moved to ::after */
-  background: none;
-}
-
-/* ✅ Sharp base image behind boot screens too (viewport aligned) */
-.bootShell::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  pointer-events: none;
-
-  background-image: url("/fjord-bg.png");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-}
-
-/* ✅ Fog / overlays ALWAYS on top for boot screens */
-.bootShell::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-
-  background:
-    linear-gradient(
-      to bottom,
-      rgba(0, 0, 0, 0.00) 55%,
-      rgba(6, 35, 36, 0.55) 78%,
-      rgba(6, 35, 36, 0.92) 100%
-    ),
-    linear-gradient(
-      to bottom,
-      rgba(6, 35, 36, 0.72) 0%,
-      rgba(8, 52, 54, 0.68) 45%,
-      rgba(10, 70, 72, 0.72) 100%
-    );
-
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-}
-
-.hr {
-  height: 1px;
-  background: var(--line);
-  margin: 10px 0;
-}
-
-/* -------------------------------
-   Buttons
--------------------------------- */
-.flatBtn {
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--ink);
-  border-radius: 999px;
-  padding: 10px 14px;
-  line-height: 1;
-
-  font-size: var(--typoA-size);
-  font-weight: var(--typoA-weight);
-  letter-spacing: var(--typoA-track);
-}
-
-.flatBtn:hover {
-  background: var(--btnHover);
-}
-
-.flatBtn.primary {
-  border-color: rgba(139, 94, 52, 0.65);
-}
-
-.flatBtn.danger {
-  border-color: rgba(194, 59, 59, 0.75);
-}
-
-.flatBtn.confirm {
-  border-color: rgba(47, 163, 107, 0.75);
-}
-
-.flatBtn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-/* -------------------------------
-   Inputs
--------------------------------- */
-.input,
-.textarea,
-.select {
-  width: 100%;
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--ink);
-  border-radius: var(--radius);
-  padding: 10px 12px;
-  outline: none;
-
-  font-size: var(--typoB-size);
-  font-weight: var(--typoB-weight);
-  line-height: var(--typoB-line);
-  letter-spacing: var(--typoB-track);
-}
-
-.textarea {
-  min-height: 110px;
-  resize: none;
-}
-
-/* Titles above choice blocks */
-.label {
-  font-size: var(--typoB-size);
-  font-weight: var(--typoB-weight);
-  line-height: var(--typoB-line);
-  letter-spacing: var(--typoB-track);
-
-  color: var(--muted);
-  margin: 10px 0 6px;
-}
-
-/* Help text */
-.smallHelp {
-  font-size: var(--typoHelp-size);
-  font-weight: var(--typoHelp-weight);
-  line-height: var(--typoHelp-line);
-  letter-spacing: var(--typoHelp-track);
-
-  color: var(--muted);
-}
-
-/* -------------------------------
-   Top row / lives (legacy CSS)
--------------------------------- */
-.topRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 2px 10px;
-}
-
-.lifeTabs {
-  display: flex;
-  gap: 0;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.lifeTab {
-  padding: 10px 16px;
-  background: transparent;
-  color: var(--ink);
-  border: none;
-  border-right: 1px solid var(--line);
-  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
-  font-size: var(--typoA-size);
-  font-weight: var(--typoA-weight);
-  line-height: 1;
-}
-
-.lifeTab:last-child {
-  border-right: none;
-}
-
-.lifeTab.active {
-  transform: translateY(-0.5px) scale(1.2);
-}
-
-.lifeTab:active {
-  transform: translateY(0.5px) scale(1.01);
-}
-
-.hamburger {
-  width: 46px;
-  height: 40px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: transparent;
-  display: grid;
-  place-items: center;
-}
-
-.hamburgerLines {
-  width: 22px;
-  height: 14px;
-  position: relative;
-}
-
-.hamburgerLines span {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: rgba(27, 26, 23, 0.75);
-  border-radius: 2px;
-}
-
-.hamburgerLines span:nth-child(1) { top: 0; }
-.hamburgerLines span:nth-child(2) { top: 6px; }
-.hamburgerLines span:nth-child(3) { top: 12px; }
-
-/* -------------------------------
-   Capture
--------------------------------- */
-.captureFrame {
-  margin-top: 12px;
-
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  overflow: hidden;
-
-  position: relative; /* 👈 viktig for ::before */
-  background: transparent;
-}
-
-/* ✅ Sharp window inside the preview (same base image, viewport-aligned) */
-.captureFrame::before {
-  content: "";
   position: absolute;
   inset: 0;
-  z-index: 0;
-  pointer-events: none;
-
-  background-image: url("/fjord-bg.png");
+  background-image: var(--bgImage);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-
-  /* ✅ match the base layer exactly */
   background-attachment: fixed;
+  filter: saturate(1.1);
+  transform: scale(1.02);
+  z-index: 0;
 }
 
-/* Sørg for at alt innhold i captureFrame ligger OVER bakgrunnen */
-.captureFrame > * {
-  position: relative;
+.appShell::after {
+  /* fog overlay */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.42);
   z-index: 1;
 }
 
-.capturePreview {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  display: grid;
-  place-items: center;
-  color: var(--muted);
-
-  /* We want the sharp window to show when empty */
-  background: transparent;
-}
-
-.capturePreview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.ratingRow {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 10px 10px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-.pill {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 8px 10px;
-  background: transparent;
-  color: var(--ink);
-
-  font-size: var(--typoB-size);
-  font-weight: var(--typoB-weight);
-  line-height: 1;
-
-  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
-}
-
-.pill.active {
-  font-weight: var(--typoA-weight);
-  transform: translateY(-0.5px) scale(1.3);
-  border-color: rgba(27, 26, 23, 0.28);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
-}
-
-.pill:active {
-  transform: translateY(0.5px) scale(1.01);
-}
-
-/* -------------------------------
-   Bottom navigation
--------------------------------- */
-.bottomNav {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 12px 10px calc(12px + env(safe-area-inset-bottom));
-  background: var(--header);
-  border-top: 1px solid var(--line);
-}
-
-.bottomNavInner {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 10px;
-}
-
-.bottomBtn {
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--ink);
-  border-radius: 999px;
-  padding: 14px 10px;
-
-  font-size: var(--typoA-size);
-  font-weight: var(--typoA-weight);
-  line-height: 1;
-
-  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
-}
-
-.bottomBtn.active {
-  transform: translateY(-0.5px) scale(1.2);
-  border-color: rgba(27, 26, 23, 0.28);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
-}
-
-.bottomBtn:active {
-  transform: translateY(0.5px) scale(1.01);
-}
-
-/* -------------------------------
-   Album
--------------------------------- */
-.albumGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.thumb {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  overflow: hidden;
-  background: rgba(27, 26, 23, 0.02);
-}
-
-.thumbImg {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  object-fit: cover;
-  display: block;
-}
-
-.thumbMeta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 10px;
-
-  font-size: var(--typoHelp-size);
-  font-weight: var(--typoHelp-weight);
-  color: var(--muted);
-}
-
-.badge {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 4px 8px;
-  color: var(--muted);
-
-  font-size: var(--typoHelp-size);
-  font-weight: var(--typoHelp-weight);
-  line-height: 1.1;
-}
-
-/* ===============================
-   Drawer / Modals
--------------------------------- */
-.drawerOverlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  z-index: 1000;
-}
-
-.drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  height: 100%;
-  width: min(92vw, 360px);
-  background: var(--header);
-  border-left: 1px solid var(--line);
-  padding: 12px;
-  overflow: auto;
-  z-index: 1001;
-}
-
-.modalOverlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: grid;
-  place-items: center;
-  padding: 16px;
-}
-
-.modalBox {
-  width: min(520px, 100%);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: 14px;
-  box-shadow: var(--shadow2);
-}
-
-.modalTitle {
-  font-size: var(--typoA-size);
-  font-weight: var(--typoA-weight);
-  margin: 0 0 8px;
-  color: var(--ink);
-}
-
-.modalActions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-  margin-top: 12px;
-}
-
-/* -------------------------------
-   Toast
--------------------------------- */
-.toastHost {
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 10px;
-  display: grid;
-  place-items: center;
-  pointer-events: none;
-  z-index: 50;
-}
-
-.toast {
-  pointer-events: none;
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: 999px;
-  padding: 10px 14px;
-
-  font-size: var(--typoA-size);
-  font-weight: var(--typoA-weight);
-  color: var(--ink);
-
-  max-width: 92vw;
-  box-shadow: var(--shadow1);
-}
-
-/* -------------------------------
-   Viewer
--------------------------------- */
-.viewer {
-  position: fixed;
-  inset: 0;
-}
-
-.viewerTop {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.viewerBottom {
-  display: grid;
-  gap: 10px;
-}
-
-.viewerMetaLine {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-
-  color: var(--muted);
-  font-size: var(--typoHelp-size);
-  font-weight: var(--typoHelp-weight);
-}
-
-/* ===============================
-   Husket viewer CARD sizing (v2)
-   =============================== */
-
-.husketCard {
-  width: 100%;
-  max-width: 980px;
-  height: min(84vh, 820px);
-  border-radius: 18px;
-  overflow: hidden;
-  background: #fff;
-
-  display: grid;
-  grid-template-rows: 1fr auto;
+.topRow,
+.bottomNav,
+.screen {
   position: relative;
+  z-index: 2;
 }
 
-.husketCardTop {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  background: #000;
-}
-
-.husketCardImg {
+/* -------------------------------
+   Boot shell (splash / life-select)
+------------------------------- */
+.bootShell {
+  min-height: 100svh;
   width: 100%;
-  height: 100%;
+  background-color: var(--bgFallback);
+  position: relative;
   overflow: hidden;
-  display: grid;
-  place-items: center;
-  background: #000;
 }
 
-.husketCardImg img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-}
-
-.husketCardSide {
-  width: 56px;
-  border-left: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(0, 0, 0, 0.35);
-  display: grid;
-  align-content: start;
-  gap: 10px;
-  padding: 12px 10px;
-}
-
-.husketSidePill {
-  width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 999px;
-  padding: 6px 8px;
-  color: rgba(255, 255, 255, 0.92);
-
-  font-size: var(--typoHelp-size);
-  font-weight: var(--typoHelp-weight);
-  line-height: 1.1;
-
-  display: grid;
-  place-items: center;
-  text-decoration: none;
-}
-
-.husketCardMeta {
-  padding: 12px 12px 14px;
-  background: #fff;
-  color: #0b0b0b;
-  display: grid;
-  gap: 10px;
-}
-
-.husketCardMeta .badge {
-  border-color: rgba(0, 0, 0, 0.16);
-  color: rgba(0, 0, 0, 0.72);
-}
-
-.husketCardMeta .viewerMetaLine {
-  color: rgba(0, 0, 0, 0.62);
-}
-
-.husketCardMeta .smallHelp {
-  color: rgba(0, 0, 0, 0.62);
-}
-
-.husketCardMeta .flatBtn {
-  border-color: rgba(0, 0, 0, 0.18);
-  color: rgba(0, 0, 0, 0.85);
-}
-
-.husketCardMeta .flatBtn:hover {
-  background: rgba(0, 0, 0, 0.06);
-}
-
-.husketCardArrow {
+.bootShell::before {
+  content: "";
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 5;
-
-  width: 42px;
-  height: 42px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(0, 0, 0, 0.28);
-  color: rgba(255, 255, 255, 0.92);
-  display: grid;
-  place-items: center;
-
-  font-size: var(--typoA-size);
-  font-weight: var(--typoA-weight);
-  line-height: 1;
+  inset: 0;
+  background-image: var(--bgImage);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  filter: saturate(1.05);
+  transform: scale(1.02);
+  z-index: 0;
 }
 
-.husketCardArrow:active {
-  transform: translateY(-50%) scale(0.98);
+.bootShell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.42);
+  z-index: 1;
 }
 
-.husketCardArrow.left {
-  left: 10px;
+.bootShell > * {
+  position: relative;
+  z-index: 2;
 }
 
-.husketCardArrow.right {
-  right: 10px;
+/* -------------------------------
+   Capture frame preview window
+------------------------------- */
+.captureFrame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.30);
+}
+
+.captureFrame::before {
+  content: "";
+  position: absolute;
+  inset: -30px;
+  background-image: var(--bgImage);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  /* ✅ keeps the "sharp preview window" feeling */
+  background-attachment: fixed;
+
+  filter: saturate(1.1);
+  transform: scale(1.02);
+  z-index: 0;
+}
+
+.captureFrame::after {
+  /* ✅ keep fog inside preview too */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.42);
+  z-index: 1;
+}
+
+.captureFrame > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* -------------------------------
+   Generic UI helpers (existing)
+------------------------------- */
+.hr {
+  height: 1px;
+  width: 100%;
+  background: var(--line2);
+  opacity: 1;
+}
+
+.flatBtn {
+  border: none;
+  cursor: pointer;
+}
+
+.select {
+  font: inherit;
 }
