@@ -320,20 +320,21 @@ button {
 }
 
 /* ✅ Preview får samme “world” som bakgrunnen (viewport-aligned),
-      men UTEN de mørke overlayene fra appShell */
+      men kan aldri ligge over UI / fange klikk */
 .captureFrame::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: 0;
+  pointer-events: none;          /* ✅ NEW: never intercept clicks */
 
   background-image: url("/fjord-bg.png");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
 
-  /* 👇 nøkkelen: matcher utsnittet så det ser sømløst ut */
-  background-attachment: fixed;
+  /* ✅ CHANGED: fixed kan lage “usynlig lag” over fixed UI på enkelte browsere */
+  background-attachment: scroll;
 }
 
 /* Sørg for at alt innhold i captureFrame ligger OVER bakgrunnen */
@@ -480,13 +481,14 @@ button {
   line-height: 1.1;
 }
 
-/* -------------------------------
+/* ===============================
    Drawer / Modals
 -------------------------------- */
 .drawerOverlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.35);
+  z-index: 1000;              /* ✅ NEW: ensure overlay is above app content */
 }
 
 .drawer {
@@ -499,6 +501,7 @@ button {
   border-left: 1px solid var(--line);
   padding: 12px;
   overflow: auto;
+  z-index: 1001;              /* ✅ NEW: ensure drawer is above overlay */
 }
 
 .modalOverlay {
