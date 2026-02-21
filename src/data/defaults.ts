@@ -140,6 +140,9 @@ export function defaultSettings(): Settings {
 
     gpsGlobalEnabled: true,
 
+    // ✅ Theme (v1)
+    themeKey: "fjord",
+
     ratingPack: "emoji",
     ratingPackByLife: {},
 
