@@ -26,45 +26,42 @@ const PRIVATE_CATS: CategoryDef[] = [
   { id: "p.experiences", label: "Opplevelser", gpsEligible: true },
   { id: "p.places", label: "Steder", gpsEligible: true },
 
-  // Premium: one editable custom category (single slot)
-  { id: "p.custom.1", label: "Egendefinert", gpsEligible: true },
+  // Private custom (single slot)
+  { id: "p.custom", label: "Egendefinert", gpsEligible: true },
 ];
+
+export const PRIVATE_CUSTOM_CATEGORY_ID = "p.custom";
 
 // -------------------------------
 // Categories: WORK
 // -------------------------------
 const WORK_CATS: CategoryDef[] = [
   // Standard (Jobb)
-  { id: "w.place", label: "Sted", gpsEligible: true },
-  { id: "w.task", label: "Oppgave", gpsEligible: false },
-  { id: "w.issue", label: "Avvik", gpsEligible: true },
+  { id: "w.site", label: "Sted", gpsEligible: true },
+  { id: "w.task", label: "Oppgave", gpsEligible: true },
+  { id: "w.deviation", label: "Avvik", gpsEligible: true },
   { id: "w.note", label: "Notat", gpsEligible: false },
   { id: "w.meeting", label: "Møte", gpsEligible: false },
   { id: "w.other", label: "Annet", gpsEligible: false },
 
   // Premium (Jobb)
   { id: "w.siteVisit", label: "Befaring", gpsEligible: true },
-  { id: "w.safety", label: "Sikkerhet", gpsEligible: false },
+  { id: "w.safety", label: "HMS", gpsEligible: false },
   { id: "w.quality", label: "Kvalitet", gpsEligible: false },
   { id: "w.progress", label: "Fremdrift", gpsEligible: false },
-  { id: "w.docs", label: "Dokumentasjon", gpsEligible: false },
-  { id: "w.delivery", label: "Leveranse", gpsEligible: false },
+  { id: "w.docs", label: "Dokumenter", gpsEligible: false },
+  { id: "w.delivery", label: "Leveranse", gpsEligible: true },
   { id: "w.client", label: "Kunde", gpsEligible: false },
   { id: "w.plan", label: "Plan", gpsEligible: false },
   { id: "w.risk", label: "Risiko", gpsEligible: false },
 
-  // Premium: one editable custom category (single slot)
-  { id: "w.custom.1", label: "Egendefinert", gpsEligible: false },
+  // Work custom (single slot)
+  { id: "w.custom", label: "Egendefinert", gpsEligible: true },
 ];
 
-// -------------------------------
-// Custom category IDs (editable slots)
-// -------------------------------
-export const PRIVATE_CUSTOM_CATEGORY_ID = "p.custom.1" as const;
-export const WORK_CUSTOM_CATEGORY_ID = "w.custom.1" as const;
+export const WORK_CUSTOM_CATEGORY_ID = "w.custom";
 
-/** Categories that should only be available when Premium is enabled. */
-export const PREMIUM_CATEGORY_IDS_BY_LIFE: Partial<Record<LifeKey, string[]>> = {
+export const PREMIUM_CATEGORY_IDS_BY_LIFE: Record<LifeKey, string[]> = {
   private: [
     "p.restaurants",
     "p.bars",
@@ -77,66 +74,25 @@ export const PREMIUM_CATEGORY_IDS_BY_LIFE: Partial<Record<LifeKey, string[]>> = 
     "p.places",
     PRIVATE_CUSTOM_CATEGORY_ID,
   ],
-  work: [
-    "w.siteVisit",
-    "w.safety",
-    "w.quality",
-    "w.progress",
-    "w.docs",
-    "w.delivery",
-    "w.client",
-    "w.plan",
-    "w.risk",
-    WORK_CUSTOM_CATEGORY_ID,
-  ],
+  work: ["w.siteVisit", "w.safety", "w.quality", "w.progress", "w.docs", "w.delivery", "w.client", "w.plan", "w.risk", WORK_CUSTOM_CATEGORY_ID],
+  custom1: [],
+  custom2: [],
 };
 
-// -------------------------------
-// Helpers
-// -------------------------------
-function cloneCats(list: CategoryDef[]): CategoryDef[] {
-  return list.map((c) => ({ ...c }));
-}
-
-/**
- * Repo expects this export.
- * Overloads:
- * - getDefaultCategoriesByLife(life) -> CategoryDef[]
- * - getDefaultCategoriesByLife() -> Record<LifeKey, CategoryDef[]>
- */
-export function getDefaultCategoriesByLife(life: LifeKey): CategoryDef[];
-export function getDefaultCategoriesByLife(): Record<LifeKey, CategoryDef[]>;
-export function getDefaultCategoriesByLife(life?: LifeKey) {
-  const empty: CategoryDef[] = [];
-
-  if (life) {
-    switch (life) {
-      case "private":
-        return cloneCats(PRIVATE_CATS);
-      case "work":
-        return cloneCats(WORK_CATS);
-      case "custom1":
-        return cloneCats(empty);
-      case "custom2":
-        return cloneCats(empty);
-      default:
-        return cloneCats(PRIVATE_CATS);
-    }
-  }
-
-  return {
-    private: cloneCats(PRIVATE_CATS),
-    work: cloneCats(WORK_CATS),
-    custom1: cloneCats(empty),
-    custom2: cloneCats(empty),
-  };
+export function getDefaultCategoriesByLife(life: LifeKey): CategoryDef[] {
+  if (life === "private") return PRIVATE_CATS;
+  if (life === "work") return WORK_CATS;
+  return [];
 }
 
 export function defaultSettings(): Settings {
   return {
     version: 2,
+
     language: "auto",
     premium: false,
+
+    themeKey: "fjord",
 
     gpsGlobalEnabled: true,
 
@@ -144,10 +100,10 @@ export function defaultSettings(): Settings {
     ratingPackByLife: {},
 
     lives: {
-      privateName: "Privat",
-      workName: "Jobb",
-      custom1Name: "Liv 3",
-      custom2Name: "Liv 4",
+      privateName: "Private",
+      workName: "Work",
+      custom1Name: "",
+      custom2Name: "",
 
       enabledPrivate: true,
       enabledWork: true,
@@ -156,9 +112,14 @@ export function defaultSettings(): Settings {
       enabledCustom2: false,
     },
 
-    categories: getDefaultCategoriesByLife(),
+    categories: {
+      private: PRIVATE_CATS,
+      work: WORK_CATS,
+      custom1: [],
+      custom2: [],
+    },
 
-    // Default ON/OFF:
+    // Default: active categories are limited:
     // - Privat: 4 aktive som default (Mat&drikke, Reiser, Folk, Ting)
     // - Jobb: 4 aktive som default (Sted, Oppgave, Avvik, Notat)
     // - Custom-liv: starter tomme
