@@ -281,10 +281,31 @@ button {
   border-radius: var(--radius);
   overflow: hidden;
 
-  /* 👇 Samme bilde, men UTEN mørke gradient-lag */
-  background: url("/fjord-bg.png");
+  position: relative; /* 👈 viktig for ::before */
+  background: transparent;
+}
+
+/* ✅ Preview får samme “world” som bakgrunnen (viewport-aligned),
+      men UTEN de mørke overlayene fra appShell */
+.captureFrame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+
+  background-image: url("/fjord-bg.png");
   background-size: cover;
   background-position: center;
+  background-repeat: no-repeat;
+
+  /* 👇 nøkkelen: matcher utsnittet så det ser sømløst ut */
+  background-attachment: fixed;
+}
+
+/* Sørg for at alt innhold i captureFrame ligger OVER bakgrunnen */
+.captureFrame > * {
+  position: relative;
+  z-index: 1;
 }
 
 .capturePreview {
