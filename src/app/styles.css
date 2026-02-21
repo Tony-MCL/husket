@@ -319,22 +319,9 @@ button {
   background: transparent;
 }
 
-/* ✅ Preview får samme “world” som bakgrunnen (viewport-aligned),
-      men kan aldri ligge over UI / fange klikk */
+/* ✅ Disabled: avoid separate background inside preview (caused mismatch/stacking issues) */
 .captureFrame::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;          /* ✅ NEW: never intercept clicks */
-
-  background-image: url("/fjord-bg.png");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-
-  /* ✅ CHANGED: fixed kan lage “usynlig lag” over fixed UI på enkelte browsere */
-  background-attachment: scroll;
+  content: none;
 }
 
 /* Sørg for at alt innhold i captureFrame ligger OVER bakgrunnen */
@@ -349,7 +336,9 @@ button {
   display: grid;
   place-items: center;
   color: var(--muted);
-  background: rgba(27, 26, 23, 0.08);
+
+  /* ✅ Let the app background show through */
+  background: transparent;
 }
 
 .capturePreview img {
