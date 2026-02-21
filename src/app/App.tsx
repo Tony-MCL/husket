@@ -196,10 +196,13 @@ export function App() {
     <div style={fadeStyle}>
       <ToastProvider>
         <div
-          className="appShell"
+          className="appShell fjordBg"
           style={{
-            backgroundColor: MCL_HUSKET_THEME.colors.altSurface,
+            // ✅ behold tekstfarge som før (kun utseende)
             color: MCL_HUSKET_THEME.colors.textOnDark,
+
+            // ✅ fjern inline backgroundColor som blokkerte gradient
+            // (bakgrunn settes i CSS via .fjordBg)
           }}
         >
           <TopBar
