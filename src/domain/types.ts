@@ -14,7 +14,7 @@ export type RatingPackKey =
   | "heartpoop"
   | "dice";
 
-/** Theme keys (add more later: "sunset" | "forest" | ...) */
+/** Add more later: "sunset" | "forest" | "desert" | ... */
 export type ThemeKey = "fjord";
 
 export type Settings = {
@@ -22,7 +22,7 @@ export type Settings = {
   language: LanguageCode;
   premium: boolean;
 
-  /** Visual theme (background image + UI palette). */
+  /** Visual theme (background + palette) */
   themeKey: ThemeKey;
 
   lives: {
@@ -49,6 +49,5 @@ export type Settings = {
 
   ratingPackByLife: Record<LifeKey, RatingPackKey>;
 
-  /** Backwards compat / future use */
   categoryGpsOverrides: Record<CategoryId, boolean>;
 };
