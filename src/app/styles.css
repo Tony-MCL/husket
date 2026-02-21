@@ -275,14 +275,16 @@ button {
    Capture
 -------------------------------- */
 .captureFrame {
-  margin-top: 12px;   /* 👈 ny linje */
+  margin-top: 12px;
 
   border: 1px solid var(--line);
   border-radius: var(--radius);
   overflow: hidden;
 
-  /* Vi skal fikse overlay her under */
-  background: transparent;
+  /* 👇 Samme bilde, men UTEN mørke gradient-lag */
+  background: url("/fjord-bg.png");
+  background-size: cover;
+  background-position: center;
 }
 
 .capturePreview {
