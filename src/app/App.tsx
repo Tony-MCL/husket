@@ -198,11 +198,7 @@ export function App() {
         <div
           className="appShell fjordBg"
           style={{
-            // ✅ behold tekstfarge som før (kun utseende)
             color: MCL_HUSKET_THEME.colors.textOnDark,
-
-            // ✅ fjern inline backgroundColor som blokkerte gradient
-            // (bakgrunn settes i CSS via .fjordBg)
           }}
         >
           <TopBar
@@ -236,6 +232,10 @@ export function App() {
             onClose={() => setDrawerOpen(false)}
             onChange={updateSettings}
             onRequirePremium={requirePremium}
+            onSetActiveLife={(nextLife) => {
+              setLife(nextLife);
+              setStoredLife(nextLife);
+            }}
           />
 
           <PaywallModal
