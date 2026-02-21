@@ -146,31 +146,35 @@ export function App() {
       ? { opacity: 0, transition: `opacity ${FADE_MS}ms ease` }
       : { opacity: 1, transition: `opacity ${FADE_MS}ms ease` };
 
+  const themeClass = `theme-${settings.themeKey}`;
+
   // -------------------------------
   // Boot flow: Splash -> (fade) -> Life select/Main
   // -------------------------------
   if (boot === "splash") {
     return (
-      <SplashScreen
-        onDone={() => {
-          // start fade out, then switch screen, then fade in
-          setFade("fadingOut");
-          window.setTimeout(() => {
-            goAfterSplash();
-            setFade("fadingIn");
-          }, FADE_MS);
-        }}
-        mp4File="splash.mp4"
-        gifFile="splash.gif"
-        minVisibleMs={4500}
-        hardTimeoutMs={6500}
-      />
+      <div className={themeClass}>
+        <SplashScreen
+          onDone={() => {
+            // start fade out, then switch screen, then fade in
+            setFade("fadingOut");
+            window.setTimeout(() => {
+              goAfterSplash();
+              setFade("fadingIn");
+            }, FADE_MS);
+          }}
+          mp4File="splash.mp4"
+          gifFile="splash.gif"
+          minVisibleMs={4500}
+          hardTimeoutMs={6500}
+        />
+      </div>
     );
   }
 
   if (boot === "lifeSelect") {
     return (
-      <div style={fadeStyle}>
+      <div className={themeClass} style={fadeStyle}>
         <LifeSelectScreen
           dict={dict}
           settings={settings}
@@ -193,10 +197,10 @@ export function App() {
   // Main app
   // -------------------------------
   return (
-    <div style={fadeStyle}>
+    <div className={themeClass} style={fadeStyle}>
       <ToastProvider>
         <div
-          className="appShell fjordBg"
+          className="appShell"
           style={{
             color: MCL_HUSKET_THEME.colors.textOnDark,
           }}
