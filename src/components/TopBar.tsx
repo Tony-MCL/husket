@@ -5,7 +5,6 @@ import React, { useMemo } from "react";
 import type { LifeKey, Settings } from "../domain/types";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
-import { MCL_HUSKET_THEME } from "../theme";
 import { HUSKET_TYPO } from "../theme/typography";
 
 type Props = {
@@ -29,9 +28,9 @@ export function TopBar({ dict, settings, life, onLifeChange: _onLifeChange, onOp
   const BAR_HEIGHT = 56;
 
   const headerStyle: React.CSSProperties = {
-    background: MCL_HUSKET_THEME.colors.header,
-    borderBottom: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
-    color: MCL_HUSKET_THEME.colors.darkSurface,
+    background: "var(--header)",
+    borderBottom: "1px solid var(--line)",
+    color: "var(--darkSurface)",
     minHeight: BAR_HEIGHT,
     display: "flex",
     alignItems: "center",
@@ -41,11 +40,11 @@ export function TopBar({ dict, settings, life, onLifeChange: _onLifeChange, onOp
   };
 
   const lifeLabelStyle: React.CSSProperties = {
-    border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
+    border: "1px solid var(--line)",
     borderRadius: 999,
     padding: "8px 12px",
-    background: MCL_HUSKET_THEME.colors.altSurface,
-    color: MCL_HUSKET_THEME.colors.textOnDark,
+    background: "var(--altSurface)",
+    color: "var(--textOnDark)",
     whiteSpace: "nowrap",
     fontSize: HUSKET_TYPO.A.fontSize,
     fontWeight: HUSKET_TYPO.A.fontWeight,
@@ -69,7 +68,7 @@ export function TopBar({ dict, settings, life, onLifeChange: _onLifeChange, onOp
   };
 
   const burgerLinesStyle: React.CSSProperties = {
-    color: MCL_HUSKET_THEME.colors.darkSurface,
+    color: "var(--darkSurface)",
   };
 
   return (
