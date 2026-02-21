@@ -23,12 +23,18 @@ export type CategoryDef = {
   gpsEligible: boolean;
 };
 
+// ✅ Theme keys (v1: only fjord, ready for later additions)
+export type ThemeKey = "fjord" | "forest" | "sunset" | "night" | "desert";
+
 export type Settings = {
   version: 2;
   language: LanguageCode;
   premium: boolean;
 
   gpsGlobalEnabled: boolean;
+
+  // ✅ Theme selection (global)
+  themeKey: ThemeKey;
 
   // Global fallback/default
   ratingPack: RatingPackKey;
