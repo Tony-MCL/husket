@@ -65,15 +65,14 @@ export function SplashScreen({
 
   const shellStyle = useMemo<React.CSSProperties>(
     () => ({
-      minHeight: "100vh",
+      minHeight: "100svh",
       width: "100%",
       display: "grid",
       placeItems: "center",
-      backgroundColor: MCL_HUSKET_THEME.colors.altSurface,
-      color: MCL_HUSKET_THEME.colors.textOnDark,
       padding: 18,
       boxSizing: "border-box",
       userSelect: "none",
+      color: MCL_HUSKET_THEME.colors.textOnDark,
     }),
     []
   );
@@ -112,7 +111,7 @@ export function SplashScreen({
   };
 
   return (
-    <div style={shellStyle}>
+    <div className="bootShell" style={shellStyle}>
       <div style={centerStyle}>
         {!useGif ? (
           <video
