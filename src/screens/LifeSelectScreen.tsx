@@ -46,13 +46,12 @@ export function LifeSelectScreen({ dict, settings, onPick }: Props) {
   }, [dict, settings]);
 
   const shellStyle: React.CSSProperties = {
-    minHeight: "100vh",
+    minHeight: "100svh",
     width: "100%",
     display: "grid",
     placeItems: "center",
     padding: 18,
     boxSizing: "border-box",
-    backgroundColor: MCL_HUSKET_THEME.colors.altSurface,
     color: MCL_HUSKET_THEME.colors.textOnDark,
   };
 
@@ -113,7 +112,7 @@ export function LifeSelectScreen({ dict, settings, onPick }: Props) {
   };
 
   return (
-    <div style={shellStyle}>
+    <div className="bootShell" style={shellStyle}>
       <div style={centerStyle}>
         <h1 style={titleStyle}>{tGet(dict, "start.title")}</h1>
         <p style={subtitleStyle}>{tGet(dict, "start.subtitle")}</p>
