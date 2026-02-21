@@ -284,46 +284,18 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
           }}
         >
           {imagePreviewUrl ? (
-            <div
+            <img
+              src={imagePreviewUrl}
+              alt=""
               style={{
                 width: "100%",
                 height: "100%",
-                padding: 10,
-                boxSizing: "border-box",
-                display: "grid",
-                placeItems: "center",
+                objectFit: "cover",
+                display: "block",
               }}
-            >
-              <div
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  borderRadius: 14,
-                  overflow: "hidden",
-                }}
-              >
-                <img
-                  src={imagePreviewUrl}
-                  alt=""
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                    display: "block",
-                  }}
-                />
-              </div>
-            </div>
+            />
           ) : (
-            <div style={{ display: "grid", gap: 10, placeItems: "center", padding: 14 }}>
-              <div className="smallHelp" style={helpTextStyle}>
-                {tGet(dict, "capture.cameraHint")}
-              </div>
-
-              <button className="flatBtn primary" style={primaryBtnStyle} onClick={openCamera} type="button">
-                {tGet(dict, "capture.pickPhoto")}
-              </button>
-            </div>
+            <div aria-hidden="true" />
           )}
         </div>
       </div>
