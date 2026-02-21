@@ -18,6 +18,7 @@ function migrateV1ToV2(v1: SettingsV1): Settings {
   return {
     ...(v1 as any),
     version: 2,
+    themeKey: "fjord",
     ratingPackByLife: {},
     disabledCategoryIdsByLife: {},
   } as Settings;
@@ -137,6 +138,11 @@ export function loadSettings(): Settings {
 
     if (!fixed.disabledCategoryIdsByLife) {
       fixed = { ...fixed, disabledCategoryIdsByLife: {} };
+      changed = true;
+    }
+
+    if (!fixed.themeKey) {
+      fixed = { ...fixed, themeKey: "fjord" };
       changed = true;
     }
 
