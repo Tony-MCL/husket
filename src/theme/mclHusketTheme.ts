@@ -1,46 +1,50 @@
+// ===============================
+// src/theme/mclHusketTheme.ts
+// ===============================
 // ======================================================
 // Husket – Morning Coffee Labs (Single Theme, locked)
-// Built from official MCL tokens (light + dark mix)
+// Fjord-inspired variant (appearance only)
 // ======================================================
 
 export const MCL_HUSKET_THEME = {
   colors: {
-    // Core surfaces (Light base)
-    bg: "#FFFAF4", // --mcl-bg (light)
-    surface: "#FFFFFF", // --mcl-surface (light)
-    header: "#D7C2A8", // --mcl-header (holy, locked)
+    // Core surfaces
+    bg: "#FFFAF4",
+    surface: "#FFFFFF",
 
-    // Text (Light base)
-    text: "#1B1A17", // --mcl-text (light)
-    muted: "#6B655F", // --mcl-muted (light)
+    // ✅ Fjord header (misty blue-gray, still “calm”)
+    header: "#B7CBD6",
 
-    // Text on dark surfaces (needed for altSurface/darkSurface)
-    textOnDark: "#F7F3ED", // --mcl-text (dark)
+    // Text (light base)
+    text: "#1B1A17",
+    muted: "#6B655F",
 
-    // Brand (Light base)
-    brand: "#8B5E34", // --mcl-brand (light)
-    accent: "#B08968", // --mcl-accent (light)
+    // Text on dark surfaces
+    textOnDark: "#EAF4F6",
+
+    // Brand accents (fjord teal)
+    brand: "#2B6F76",
+    accent: "#4B8F9B",
 
     // Lines / separators
-    outline: "#E8DFD5", // --mcl-outline (light)
+    outline: "#D6E3EA",
 
-    // Dark “premium punch” accents (from dark mode)
-    altSurface: "#3B2E23", // --mcl-altbg (dark) – used for selected chips/badges
-    darkSurface: "#1B1A17", // --mcl-surface (dark)
+    // Dark base surfaces (fjord deep)
+    altSurface: "#0F2F36",
+    darkSurface: "#071417",
 
     // System
     overlay: "rgba(0,0,0,0.40)",
 
-    // Destructive (not part of the pasted MCL token set)
+    // Destructive
     danger: "#C23B3B",
   },
 
-  radius: 16, // --radius
+  radius: 16,
 
   elevation: {
-    // Light-mode shadows (app is light-based)
-    elev1: "0 4px 10px rgba(0,0,0,.08)", // --elev-1 (light)
-    elev2: "0 10px 24px rgba(0,0,0,.12)", // --elev-2 (light)
+    elev1: "0 4px 10px rgba(0,0,0,.08)",
+    elev2: "0 10px 24px rgba(0,0,0,.12)",
   },
 } as const;
 
