@@ -8,10 +8,11 @@ import { readJson, writeJson } from "../storage/local";
 const KEY_V1 = "husket.settings.v1";
 const KEY_V2 = "husket.settings.v2";
 
-type SettingsV1 = Omit<Settings, "version" | "ratingPackByLife" | "disabledCategoryIdsByLife"> & {
+type SettingsV1 = Omit<Settings, "version" | "ratingPackByLife" | "disabledCategoryIdsByLife" | "themeKey"> & {
   version: 1;
   ratingPackByLife?: never;
   disabledCategoryIdsByLife?: never;
+  themeKey?: never;
 };
 
 function migrateV1ToV2(v1: SettingsV1): Settings {
@@ -20,6 +21,9 @@ function migrateV1ToV2(v1: SettingsV1): Settings {
     version: 2,
     ratingPackByLife: {},
     disabledCategoryIdsByLife: {},
+
+    // ✅ Theme default for migrated installs
+    themeKey: "fjord",
   } as Settings;
 }
 
@@ -80,7 +84,10 @@ function ensureCategoriesUpToDate(s: Settings): { next: Settings; changed: boole
     const same =
       Array.isArray(current) &&
       current.length === merged.length &&
-      current.every((c, idx) => c.id === merged[idx].id && c.label === merged[idx].label && c.gpsEligible === merged[idx].gpsEligible);
+      current.every(
+        (c, idx) =>
+          c.id === merged[idx].id && c.label === merged[idx].label && c.gpsEligible === merged[idx].gpsEligible
+      );
 
     if (!same) {
       nextCats[life] = merged;
@@ -124,6 +131,22 @@ function ensureLivesFlags(s: Settings): { next: Settings; changed: boolean } {
   };
 }
 
+// ✅ Ensure themeKey exists and is valid-ish
+function ensureThemeKey(s: Settings): { next: Settings; changed: boolean } {
+  const key = (s as any).themeKey;
+  if (key === "fjord" || key === "forest" || key === "sunset" || key === "night" || key === "desert") {
+    return { next: s, changed: false };
+  }
+
+  return {
+    next: {
+      ...s,
+      themeKey: "fjord",
+    },
+    changed: true,
+  };
+}
+
 export function loadSettings(): Settings {
   const v2 = readJson<Settings>(KEY_V2);
   if (v2 && v2.version === 2) {
@@ -137,6 +160,12 @@ export function loadSettings(): Settings {
 
     if (!fixed.disabledCategoryIdsByLife) {
       fixed = { ...fixed, disabledCategoryIdsByLife: {} };
+      changed = true;
+    }
+
+    const ensuredTheme = ensureThemeKey(fixed);
+    if (ensuredTheme.changed) {
+      fixed = ensuredTheme.next;
       changed = true;
     }
 
@@ -159,8 +188,9 @@ export function loadSettings(): Settings {
   const v1 = readJson<SettingsV1>(KEY_V1);
   if (v1 && (v1 as any).version === 1) {
     const migrated = migrateV1ToV2(v1);
-    const ensuredCats = ensureCategoriesUpToDate(migrated);
-    const ensuredLives = ensureLivesFlags(ensuredCats.changed ? ensuredCats.next : migrated);
+    const ensuredTheme = ensureThemeKey(migrated);
+    const ensuredCats = ensureCategoriesUpToDate(ensuredTheme.changed ? ensuredTheme.next : migrated);
+    const ensuredLives = ensureLivesFlags(ensuredCats.changed ? ensuredCats.next : (ensuredTheme.changed ? ensuredTheme.next : migrated));
     const final = ensuredLives.changed ? ensuredLives.next : ensuredLives.next;
 
     writeJson(KEY_V2, final);
@@ -170,6 +200,7 @@ export function loadSettings(): Settings {
   const fresh = defaultSettings();
   const fixedFresh: Settings = {
     ...fresh,
+    themeKey: (fresh as any).themeKey ?? "fjord",
     ratingPackByLife: fresh.ratingPackByLife ?? {},
     disabledCategoryIdsByLife: fresh.disabledCategoryIdsByLife ?? {},
   };
