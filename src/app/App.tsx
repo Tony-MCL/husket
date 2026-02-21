@@ -13,7 +13,6 @@ import { CaptureScreen } from "../screens/CaptureScreen";
 import { AlbumScreen } from "../screens/AlbumScreen";
 import { SettingsDrawer } from "../components/SettingsDrawer";
 import { PaywallModal } from "../components/PaywallModal";
-import { MCL_HUSKET_THEME } from "../theme";
 import { SplashScreen } from "../screens/SplashScreen";
 import { LifeSelectScreen } from "../screens/LifeSelectScreen";
 
@@ -151,26 +150,28 @@ export function App() {
   // -------------------------------
   if (boot === "splash") {
     return (
-      <SplashScreen
-        onDone={() => {
-          // start fade out, then switch screen, then fade in
-          setFade("fadingOut");
-          window.setTimeout(() => {
-            goAfterSplash();
-            setFade("fadingIn");
-          }, FADE_MS);
-        }}
-        mp4File="splash.mp4"
-        gifFile="splash.gif"
-        minVisibleMs={4500}
-        hardTimeoutMs={6500}
-      />
+      <div className={`theme-${settings.themeKey}`}>
+        <SplashScreen
+          onDone={() => {
+            // start fade out, then switch screen, then fade in
+            setFade("fadingOut");
+            window.setTimeout(() => {
+              goAfterSplash();
+              setFade("fadingIn");
+            }, FADE_MS);
+          }}
+          mp4File="splash.mp4"
+          gifFile="splash.gif"
+          minVisibleMs={4500}
+          hardTimeoutMs={6500}
+        />
+      </div>
     );
   }
 
   if (boot === "lifeSelect") {
     return (
-      <div style={fadeStyle}>
+      <div style={fadeStyle} className={`theme-${settings.themeKey}`}>
         <LifeSelectScreen
           dict={dict}
           settings={settings}
@@ -195,12 +196,7 @@ export function App() {
   return (
     <div style={fadeStyle}>
       <ToastProvider>
-        <div
-          className="appShell fjordBg"
-          style={{
-            color: MCL_HUSKET_THEME.colors.textOnDark,
-          }}
-        >
+        <div className={`appShell theme-${settings.themeKey}`}>
           <TopBar
             dict={dict}
             settings={settings}
