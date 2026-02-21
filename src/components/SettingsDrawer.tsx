@@ -20,7 +20,7 @@ type Props = {
   onChange: (next: Settings) => void;
   onRequirePremium: () => void;
 
-  // ✅ NEW: allow changing active life from SettingsDrawer
+  // ✅ allow changing active life from SettingsDrawer
   onSetActiveLife: (life: LifeKey) => void;
 };
 
@@ -466,7 +466,7 @@ export function SettingsDrawer({
 
         <div className="hr" style={hrStyle} />
 
-        {/* ✅ Active life (global / session) */}
+        {/* Active life (global / session) */}
         <div style={lineRow}>
           <div style={lineLeft}>
             <div style={lineTitle}>Aktivt liv</div>
@@ -492,6 +492,29 @@ export function SettingsDrawer({
               );
             })}
           </div>
+        </div>
+
+        <div className="hr" style={hrStyle} />
+
+        {/* ✅ Theme (global) */}
+        <div style={lineRow}>
+          <div style={lineLeft}>
+            <div style={lineTitle}>Tema</div>
+          </div>
+
+          <select
+            className="select"
+            style={topbarSelectStyle}
+            value={settings.themeKey}
+            onChange={(e) => update({ themeKey: e.target.value as Settings["themeKey"] })}
+          >
+            <option value="fjord">Fjord</option>
+            {/* Klar for flere senere */}
+            {/* <option value="forest">Forest</option>
+            <option value="sunset">Sunset</option>
+            <option value="night">Night</option>
+            <option value="desert">Desert</option> */}
+          </select>
         </div>
 
         <div className="hr" style={hrStyle} />
