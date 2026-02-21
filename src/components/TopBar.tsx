@@ -16,12 +16,6 @@ type Props = {
   onOpenSettings: () => void;
 };
 
-type LifeTab = {
-  key: LifeKey;
-  label: string;
-  enabled: boolean;
-};
-
 function getLifeLabel(dict: I18nDict, settings: Settings, key: LifeKey): string {
   if (key === "private") return tGet(dict, "top.private");
   if (key === "work") return tGet(dict, "top.work");
@@ -29,16 +23,8 @@ function getLifeLabel(dict: I18nDict, settings: Settings, key: LifeKey): string 
   return settings.lives.custom2Name || "Custom 2";
 }
 
-export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: Props) {
-  const lives: LifeTab[] = useMemo(() => {
-    const tabs: LifeTab[] = [
-      { key: "private", label: getLifeLabel(dict, settings, "private"), enabled: !!settings.lives.enabledPrivate },
-      { key: "custom1", label: getLifeLabel(dict, settings, "custom1"), enabled: !!settings.lives.enabledCustom1 },
-      { key: "custom2", label: getLifeLabel(dict, settings, "custom2"), enabled: !!settings.lives.enabledCustom2 },
-      { key: "work", label: getLifeLabel(dict, settings, "work"), enabled: !!settings.lives.enabledWork },
-    ];
-    return tabs.filter((t) => t.enabled);
-  }, [dict, settings]);
+export function TopBar({ dict, settings, life, onLifeChange: _onLifeChange, onOpenSettings }: Props) {
+  const activeLifeLabel = useMemo(() => getLifeLabel(dict, settings, life), [dict, settings, life]);
 
   const BAR_HEIGHT = 56;
 
@@ -54,45 +40,17 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: P
     boxSizing: "border-box",
   };
 
-  const tabsWrapStyle: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    flexWrap: "nowrap",
-    overflowX: "auto",
-    WebkitOverflowScrolling: "touch",
-    paddingBottom: 2,
-    border: "none",
-    outline: "none",
-    boxShadow: "none",
-    background: "transparent",
-    borderRadius: 0,
-  };
-
-  const tabBaseStyle: React.CSSProperties = {
+  const lifeLabelStyle: React.CSSProperties = {
     border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
     borderRadius: 999,
-    padding: "6px 10px",
-    background: "transparent",
-    color: MCL_HUSKET_THEME.colors.darkSurface,
+    padding: "8px 12px",
+    background: MCL_HUSKET_THEME.colors.altSurface,
+    color: MCL_HUSKET_THEME.colors.textOnDark,
     whiteSpace: "nowrap",
     fontSize: HUSKET_TYPO.A.fontSize,
     fontWeight: HUSKET_TYPO.A.fontWeight,
     lineHeight: HUSKET_TYPO.A.lineHeight,
     letterSpacing: HUSKET_TYPO.A.letterSpacing,
-    transform: "none",
-    transition: "background-color 120ms ease, border-color 120ms ease, color 120ms ease",
-  };
-
-  const tabActiveStyle: React.CSSProperties = {
-    background: MCL_HUSKET_THEME.colors.altSurface,
-    border: `1px solid ${MCL_HUSKET_THEME.colors.altSurface}`,
-    color: MCL_HUSKET_THEME.colors.textOnDark,
-    fontSize: HUSKET_TYPO.A.fontSize,
-    fontWeight: HUSKET_TYPO.A.fontWeight,
-    lineHeight: HUSKET_TYPO.A.lineHeight,
-    letterSpacing: HUSKET_TYPO.A.letterSpacing,
-    transform: "none",
   };
 
   const burgerStyle: React.CSSProperties = {
@@ -116,18 +74,8 @@ export function TopBar({ dict, settings, life, onLifeChange, onOpenSettings }: P
 
   return (
     <div className="topRow" style={headerStyle}>
-      <div className="lifeTabs" role="tablist" aria-label="Lives" style={tabsWrapStyle}>
-        {lives.map((x) => (
-          <button
-            key={x.key}
-            className={`lifeTab ${life === x.key ? "active" : ""}`}
-            onClick={() => onLifeChange(x.key)}
-            type="button"
-            style={{ ...tabBaseStyle, ...(life === x.key ? tabActiveStyle : null) }}
-          >
-            {x.label}
-          </button>
-        ))}
+      <div style={lifeLabelStyle} aria-label="Active life">
+        {activeLifeLabel}
       </div>
 
       <button className="hamburger" onClick={onOpenSettings} type="button" aria-label={tGet(dict, "top.menu")} style={burgerStyle}>
