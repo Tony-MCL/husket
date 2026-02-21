@@ -1,11 +1,492 @@
 /* ===============================
+src/app/styles.css
+MCL Husket – unified base + typography A/B
+=============================== */
+
+:root {
+  /* ---------------------------------
+     MCL Husket (light base)
+     Mirrors MCL_HUSKET_THEME as close as CSS can
+     --------------------------------- */
+  --bg: #fffaf4;        /* theme.colors.bg */
+  --panel: #ffffff;     /* theme.colors.surface */
+  --header: #d7c2a8;    /* theme.colors.header */
+
+  --ink: #1b1a17;       /* theme.colors.text */
+  --muted: #6b655f;     /* theme.colors.muted */
+
+  --line: #e8dfd5;      /* theme.colors.outline */
+  --line2: rgba(27, 26, 23, 0.14);
+
+  --btn: rgba(27, 26, 23, 0.04);
+  --btnHover: rgba(27, 26, 23, 0.06);
+
+  --danger: #c23b3b;    /* theme.colors.danger (custom) */
+  --confirm: #2fa36b;   /* keep */
+  --primary: #8b5e34;   /* theme.colors.brand */
+
+  --radius: 16px;       /* theme.radius */
+
+  --shadow1: 0 4px 10px rgba(0, 0, 0, 0.08);
+  --shadow2: 0 10px 24px rgba(0, 0, 0, 0.12);
+
+  /* ---------------------------------
+     TYPOGRAPHY SYSTEM (A/B)
+     --------------------------------- */
+  /* A: buttons + headers (TopBar-type) */
+  --typoA-size: 13px;
+  --typoA-weight: 800;
+  --typoA-line: 1.1;
+  --typoA-track: 0px;
+
+  /* B: choices + labels + info fields */
+  --typoB-size: 13px;
+  --typoB-weight: 700;
+  --typoB-line: 1.2;
+  --typoB-track: 0px;
+
+  /* Help: same family as B, just smaller */
+  --typoHelp-size: 12px;
+  --typoHelp-weight: 650;
+  --typoHelp-line: 1.2;
+  --typoHelp-track: 0px;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font: inherit;
+}
+
+/* App shell keeps room for fixed bottom nav */
+.appShell {
+  min-height: 100svh;
+  padding: 10px 10px calc(96px + env(safe-area-inset-bottom)) 10px;
+
+  /* fallback hvis bildet ikke lastes */
+  background-color: #062324;
+
+  color: #eaf6f6;
+
+  /* ✅ Bilde + overlays (vann dypere nederst) */
+  background:
+    /* bottom water deepen */
+    linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.00) 55%,
+      rgba(6, 35, 36, 0.55) 78%,
+      rgba(6, 35, 36, 0.92) 100%
+    ),
+    /* overall contrast */
+    linear-gradient(
+      to bottom,
+      rgba(6, 35, 36, 0.72) 0%,
+      rgba(8, 52, 54, 0.68) 45%,
+      rgba(10, 70, 72, 0.72) 100%
+    ),
+    url("/fjord-bg.png");
+
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  /* ✅ fixed er ofte glitchy på mobil / webview */
+  background-attachment: scroll;
+}
+
+/* Boot / full-screen shells (Splash + LifeSelect) */
+.bootShell {
+  min-height: 100svh;
+  width: 100%;
+  padding: 18px;
+  box-sizing: border-box;
+
+  /* fallback hvis bildet ikke lastes */
+  background-color: #062324;
+
+  color: #eaf6f6;
+
+  /* ✅ Samme bakgrunn som .appShell */
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.00) 55%,
+      rgba(6, 35, 36, 0.55) 78%,
+      rgba(6, 35, 36, 0.92) 100%
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(6, 35, 36, 0.72) 0%,
+      rgba(8, 52, 54, 0.68) 45%,
+      rgba(10, 70, 72, 0.72) 100%
+    ),
+    url("/fjord-bg.png");
+
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: scroll;
+}
+
+.hr {
+  height: 1px;
+  background: var(--line);
+  margin: 10px 0;
+}
+
+/* -------------------------------
+   Buttons
+-------------------------------- */
+.flatBtn {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 10px 14px;
+  line-height: 1;
+
+  font-size: var(--typoA-size);
+  font-weight: var(--typoA-weight);
+  letter-spacing: var(--typoA-track);
+}
+
+.flatBtn:hover {
+  background: var(--btnHover);
+}
+
+.flatBtn.primary {
+  border-color: rgba(139, 94, 52, 0.65);
+}
+
+.flatBtn.danger {
+  border-color: rgba(194, 59, 59, 0.75);
+}
+
+.flatBtn.confirm {
+  border-color: rgba(47, 163, 107, 0.75);
+}
+
+.flatBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* -------------------------------
+   Inputs
+-------------------------------- */
+.input,
+.textarea,
+.select {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  outline: none;
+
+  font-size: var(--typoB-size);
+  font-weight: var(--typoB-weight);
+  line-height: var(--typoB-line);
+  letter-spacing: var(--typoB-track);
+}
+
+.textarea {
+  min-height: 110px;
+  resize: none;
+}
+
+/* Titles above choice blocks */
+.label {
+  font-size: var(--typoB-size);
+  font-weight: var(--typoB-weight);
+  line-height: var(--typoB-line);
+  letter-spacing: var(--typoB-track);
+
+  color: var(--muted);
+  margin: 10px 0 6px;
+}
+
+/* Help text */
+.smallHelp {
+  font-size: var(--typoHelp-size);
+  font-weight: var(--typoHelp-weight);
+  line-height: var(--typoHelp-line);
+  letter-spacing: var(--typoHelp-track);
+
+  color: var(--muted);
+}
+
+/* -------------------------------
+   Top row / lives (legacy CSS)
+-------------------------------- */
+.topRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 2px 10px;
+}
+
+.lifeTabs {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.lifeTab {
+  padding: 10px 16px;
+  background: transparent;
+  color: var(--ink);
+  border: none;
+  border-right: 1px solid var(--line);
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+  font-size: var(--typoA-size);
+  font-weight: var(--typoA-weight);
+  line-height: 1;
+}
+
+.lifeTab:last-child {
+  border-right: none;
+}
+
+.lifeTab.active {
+  transform: translateY(-0.5px) scale(1.2);
+}
+
+.lifeTab:active {
+  transform: translateY(0.5px) scale(1.01);
+}
+
+.hamburger {
+  width: 46px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: transparent;
+  display: grid;
+  place-items: center;
+}
+
+.hamburgerLines {
+  width: 22px;
+  height: 14px;
+  position: relative;
+}
+
+.hamburgerLines span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(27, 26, 23, 0.75);
+  border-radius: 2px;
+}
+
+.hamburgerLines span:nth-child(1) { top: 0; }
+.hamburgerLines span:nth-child(2) { top: 6px; }
+.hamburgerLines span:nth-child(3) { top: 12px; }
+
+/* -------------------------------
+   Capture
+-------------------------------- */
+.captureFrame {
+  margin-top: 12px;
+
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+
+  position: relative; /* 👈 viktig for ::before */
+  background: transparent;
+}
+
+/* ✅ Preview får samme “world” som bakgrunnen (viewport-aligned),
+      men UTEN de mørke overlayene fra appShell */
+.captureFrame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+
+  background-image: url("/fjord-bg.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  /* 👇 nøkkelen: matcher utsnittet så det ser sømløst ut */
+  background-attachment: fixed;
+}
+
+/* Sørg for at alt innhold i captureFrame ligger OVER bakgrunnen */
+.captureFrame > * {
+  position: relative;
+  z-index: 1;
+}
+
+.capturePreview {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  background: rgba(27, 26, 23, 0.08);
+}
+
+.capturePreview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ratingRow {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.pill {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 10px;
+  background: transparent;
+  color: var(--ink);
+
+  font-size: var(--typoB-size);
+  font-weight: var(--typoB-weight);
+  line-height: 1;
+
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.pill.active {
+  font-weight: var(--typoA-weight);
+  transform: translateY(-0.5px) scale(1.3);
+  border-color: rgba(27, 26, 23, 0.28);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.pill:active {
+  transform: translateY(0.5px) scale(1.01);
+}
+
+/* -------------------------------
+   Bottom navigation
+-------------------------------- */
+.bottomNav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 12px 10px calc(12px + env(safe-area-inset-bottom));
+  background: var(--header);
+  border-top: 1px solid var(--line);
+}
+
+.bottomNavInner {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+.bottomBtn {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 14px 10px;
+
+  font-size: var(--typoA-size);
+  font-weight: var(--typoA-weight);
+  line-height: 1;
+
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.bottomBtn.active {
+  transform: translateY(-0.5px) scale(1.2);
+  border-color: rgba(27, 26, 23, 0.28);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.bottomBtn:active {
+  transform: translateY(0.5px) scale(1.01);
+}
+
+/* -------------------------------
+   Album
+-------------------------------- */
+.albumGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.thumb {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: rgba(27, 26, 23, 0.02);
+}
+
+.thumbImg {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  display: block;
+}
+
+.thumbMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+
+  font-size: var(--typoHelp-size);
+  font-weight: var(--typoHelp-weight);
+  color: var(--muted);
+}
+
+.badge {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: var(--muted);
+
+  font-size: var(--typoHelp-size);
+  font-weight: var(--typoHelp-weight);
+  line-height: 1.1;
+}
+
+/* -------------------------------
    Drawer / Modals
 -------------------------------- */
 .drawerOverlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.35);
-  z-index: 1000;              /* ✅ NEW: ensure overlay is above app content */
 }
 
 .drawer {
@@ -18,5 +499,223 @@
   border-left: 1px solid var(--line);
   padding: 12px;
   overflow: auto;
-  z-index: 1001;              /* ✅ NEW: ensure drawer is above overlay */
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.modalBox {
+  width: min(520px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 14px;
+  box-shadow: var(--shadow2);
+}
+
+.modalTitle {
+  font-size: var(--typoA-size);
+  font-weight: var(--typoA-weight);
+  margin: 0 0 8px;
+  color: var(--ink);
+}
+
+.modalActions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+/* -------------------------------
+   Toast
+-------------------------------- */
+.toastHost {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 10px;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.toast {
+  pointer-events: none;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  padding: 10px 14px;
+
+  font-size: var(--typoA-size);
+  font-weight: var(--typoA-weight);
+  color: var(--ink);
+
+  max-width: 92vw;
+  box-shadow: var(--shadow1);
+}
+
+/* -------------------------------
+   Viewer
+-------------------------------- */
+.viewer {
+  position: fixed;
+  inset: 0;
+}
+
+.viewerTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.viewerBottom {
+  display: grid;
+  gap: 10px;
+}
+
+.viewerMetaLine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+
+  color: var(--muted);
+  font-size: var(--typoHelp-size);
+  font-weight: var(--typoHelp-weight);
+}
+
+/* ===============================
+   Husket viewer CARD sizing (v2)
+   =============================== */
+
+.husketCard {
+  width: 100%;
+  max-width: 980px;
+  height: min(84vh, 820px);
+  border-radius: 18px;
+  overflow: hidden;
+  background: #fff;
+
+  display: grid;
+  grid-template-rows: 1fr auto;
+  position: relative;
+}
+
+.husketCardTop {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  background: #000;
+}
+
+.husketCardImg {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: #000;
+}
+
+.husketCardImg img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.husketCardSide {
+  width: 56px;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.35);
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 12px 10px;
+}
+
+.husketSidePill {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  padding: 6px 8px;
+  color: rgba(255, 255, 255, 0.92);
+
+  font-size: var(--typoHelp-size);
+  font-weight: var(--typoHelp-weight);
+  line-height: 1.1;
+
+  display: grid;
+  place-items: center;
+  text-decoration: none;
+}
+
+.husketCardMeta {
+  padding: 12px 12px 14px;
+  background: #fff;
+  color: #0b0b0b;
+  display: grid;
+  gap: 10px;
+}
+
+.husketCardMeta .badge {
+  border-color: rgba(0, 0, 0, 0.16);
+  color: rgba(0, 0, 0, 0.72);
+}
+
+.husketCardMeta .viewerMetaLine {
+  color: rgba(0, 0, 0, 0.62);
+}
+
+.husketCardMeta .smallHelp {
+  color: rgba(0, 0, 0, 0.62);
+}
+
+.husketCardMeta .flatBtn {
+  border-color: rgba(0, 0, 0, 0.18);
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.husketCardMeta .flatBtn:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.husketCardArrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(0, 0, 0, 0.28);
+  color: rgba(255, 255, 255, 0.92);
+  display: grid;
+  place-items: center;
+
+  font-size: var(--typoA-size);
+  font-weight: var(--typoA-weight);
+  line-height: 1;
+}
+
+.husketCardArrow:active {
+  transform: translateY(-50%) scale(0.98);
+}
+
+.husketCardArrow.left {
+  left: 10px;
+}
+
+.husketCardArrow.right {
+  right: 10px;
 }
