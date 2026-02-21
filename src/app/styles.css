@@ -88,7 +88,32 @@ button {
 
   color: #eaf6f6;
 
-  /* ✅ Fog / overlays ONLY (NO image here) */
+  /* NOTE: fog moved to ::after so it can’t be overridden by other background rules */
+  background: none;
+}
+
+/* ✅ Sharp base image behind the entire app (viewport aligned) */
+.appShell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+
+  background-image: url("/fjord-bg.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* ✅ Fog / overlays ALWAYS on top (cannot be overridden by other backgrounds) */
+.appShell::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+
   background:
     /* bottom water deepen */
     linear-gradient(
@@ -110,20 +135,6 @@ button {
   background-repeat: no-repeat;
 }
 
-/* ✅ Sharp base image behind the entire app (viewport aligned) */
-.appShell::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-
-  background-image: url("/fjord-bg.png");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-}
-
 /* Boot / full-screen shells (Splash + LifeSelect) */
 .bootShell {
   min-height: 100svh;
@@ -139,7 +150,32 @@ button {
 
   color: #eaf6f6;
 
-  /* ✅ Same fog as appShell (NO image here) */
+  /* NOTE: fog moved to ::after */
+  background: none;
+}
+
+/* ✅ Sharp base image behind boot screens too (viewport aligned) */
+.bootShell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+
+  background-image: url("/fjord-bg.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* ✅ Fog / overlays ALWAYS on top for boot screens */
+.bootShell::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+
   background:
     linear-gradient(
       to bottom,
@@ -154,20 +190,6 @@ button {
       rgba(10, 70, 72, 0.72) 100%
     );
 
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-}
-
-/* ✅ Sharp base image behind boot screens too (viewport aligned) */
-.bootShell::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-
-  background-image: url("/fjord-bg.png");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
