@@ -20,6 +20,7 @@ export function defaultSettings(): Settings {
     },
 
     categories: defaultCategoriesByLife(),
+
     disabledCategoryIdsByLife: {
       private: [],
       work: [],
