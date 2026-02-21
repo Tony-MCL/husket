@@ -270,6 +270,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
         style={{
           maxWidth: 680,
           margin: "0 auto",
+          marginTop: 12, // ✅ LUFT mellom TopBar og preview
         }}
       >
         <div
