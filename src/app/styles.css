@@ -50,6 +50,31 @@ MCL Husket – unified base + typography A/B
   --typoHelp-weight: 650;
   --typoHelp-line: 1.2;
   --typoHelp-track: 0px;
+
+  /* ---------------------------------
+     ✅ FJORD BACKGROUND (winner vibe)
+     Subtil, høy kontrast, ikke neon
+     --------------------------------- */
+  --fjord-0: #0f2f36;
+  --fjord-1: #12414a;
+  --fjord-2: #1a5961;
+  --fjord-3: #2c6f78;
+
+  --fjord-grad: linear-gradient(
+    180deg,
+    var(--fjord-0) 0%,
+    var(--fjord-1) 35%,
+    var(--fjord-2) 72%,
+    var(--fjord-3) 100%
+  );
+
+  /* Liten “tåke”-overlay for naturfølelse */
+  --fjord-mist: radial-gradient(
+    120% 90% at 50% 10%,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.04) 40%,
+    rgba(255, 255, 255, 0.00) 70%
+  );
 }
 
 * {
@@ -80,6 +105,14 @@ button {
   padding: 10px 10px 96px 10px;
   background: var(--bg);
   color: var(--ink);
+}
+
+/* ✅ Fjord variant for appShell (kun utseende) */
+.fjordBg {
+  background-image: var(--fjord-mist), var(--fjord-grad);
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
 .hr {
@@ -173,7 +206,6 @@ button {
 
 /* -------------------------------
    Top row / lives (legacy CSS)
-   Note: Most of TopBar is inline-styled now.
 -------------------------------- */
 .topRow {
   display: flex;
@@ -208,7 +240,6 @@ button {
   border-right: none;
 }
 
-/* Active “pop” stays – we’ll tune scale later */
 .lifeTab.active {
   transform: translateY(-0.5px) scale(1.2);
 }
@@ -217,7 +248,7 @@ button {
   transform: translateY(0.5px) scale(1.01);
 }
 
-/* Hamburger legacy (TopBar is inline-styled now) */
+/* Hamburger legacy */
 .hamburger {
   width: 46px;
   height: 40px;
@@ -297,7 +328,6 @@ button {
   transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
 }
 
-/* Active “pop” stays – we’ll tune scale later */
 .pill.active {
   font-weight: var(--typoA-weight);
   transform: translateY(-0.5px) scale(1.3);
@@ -311,8 +341,6 @@ button {
 
 /* -------------------------------
    Bottom navigation
-   Note: BottomNav sets most visuals inline.
-   CSS keeps it fixed + spacing behavior.
 -------------------------------- */
 .bottomNav {
   position: fixed;
@@ -344,7 +372,6 @@ button {
   transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
 }
 
-/* Active “pop” stays – we’ll tune scale later */
 .bottomBtn.active {
   transform: translateY(-0.5px) scale(1.2);
   border-color: rgba(27, 26, 23, 0.28);
@@ -407,7 +434,7 @@ button {
 .drawerOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35); /* matches theme overlay intent */
+  background: rgba(0, 0, 0, 0.35);
 }
 
 .drawer {
@@ -416,7 +443,7 @@ button {
   right: 0;
   height: 100%;
   width: min(92vw, 360px);
-  background: var(--header); /* MCL header family */
+  background: var(--header);
   border-left: 1px solid var(--line);
   padding: 12px;
   overflow: auto;
@@ -485,15 +512,12 @@ button {
 
 /* -------------------------------
    Viewer
-   IMPORTANT: do NOT enforce dark background or grid layout here anymore.
-   ViewHusketModal controls layout inline now.
 -------------------------------- */
 .viewer {
   position: fixed;
   inset: 0;
 }
 
-/* Kept for internal layout in husket card */
 .viewerTop {
   display: flex;
   align-items: center;
@@ -524,27 +548,22 @@ button {
 .husketCard {
   width: 100%;
   max-width: 980px;
-
-  /* Taller card */
   height: min(84vh, 820px);
-
   border-radius: 18px;
   overflow: hidden;
   background: #fff;
 
   display: grid;
   grid-template-rows: 1fr auto;
-  position: relative; /* for arrow overlay */
+  position: relative;
 }
 
-/* top section: image + side icons */
 .husketCardTop {
   display: grid;
   grid-template-columns: 1fr auto;
   background: #000;
 }
 
-/* image area */
 .husketCardImg {
   width: 100%;
   height: 100%;
@@ -557,11 +576,10 @@ button {
 .husketCardImg img {
   width: 100%;
   height: 100%;
-  object-fit: contain; /* ✅ no crop */
+  object-fit: contain;
   display: block;
 }
 
-/* icon rail */
 .husketCardSide {
   width: 56px;
   border-left: 1px solid rgba(255, 255, 255, 0.12);
@@ -572,7 +590,6 @@ button {
   padding: 12px 10px;
 }
 
-/* side pills are info/choices => B/help sizing */
 .husketSidePill {
   width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -589,7 +606,6 @@ button {
   text-decoration: none;
 }
 
-/* meta bottom */
 .husketCardMeta {
   padding: 12px 12px 14px;
   background: #fff;
@@ -620,7 +636,6 @@ button {
   background: rgba(0, 0, 0, 0.06);
 }
 
-/* arrows overlay mid-card */
 .husketCardArrow {
   position: absolute;
   top: 50%;
