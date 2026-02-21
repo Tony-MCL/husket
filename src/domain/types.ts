@@ -1,7 +1,8 @@
-// ===============================
-// src/domain/types.ts
-// ===============================
-export type LanguageCode = "auto" | "en" | "no";
+export type LanguageCode = "auto" | "no" | "en";
+
+export type LifeKey = "private" | "work" | "custom1" | "custom2";
+
+export type CategoryId = string;
 
 export type RatingPackKey =
   | "emoji"
@@ -13,68 +14,41 @@ export type RatingPackKey =
   | "heartpoop"
   | "dice";
 
-export type LifeKey = "private" | "work" | "custom1" | "custom2";
-
-export type CategoryId = string;
-
-export type CategoryDef = {
-  id: CategoryId;
-  label: string;
-  gpsEligible: boolean;
-};
+/** Theme keys (add more later: "sunset" | "forest" | ...) */
+export type ThemeKey = "fjord";
 
 export type Settings = {
   version: 2;
   language: LanguageCode;
   premium: boolean;
 
-  gpsGlobalEnabled: boolean;
-
-  // Global fallback/default
-  ratingPack: RatingPackKey;
-
-  // Optional per-life overrides (falls back to ratingPack)
-  ratingPackByLife: Partial<Record<LifeKey, RatingPackKey>>;
+  /** Visual theme (background image + UI palette). */
+  themeKey: ThemeKey;
 
   lives: {
-    privateName: string;
-    workName: string;
-    custom1Name: string;
-    custom2Name: string;
-
     enabledPrivate: boolean;
     enabledWork: boolean;
-
     enabledCustom1: boolean;
     enabledCustom2: boolean;
+
+    custom1Name: string;
+    custom2Name: string;
   };
 
-  categories: Record<LifeKey, CategoryDef[]>;
+  categories: Record<
+    LifeKey,
+    Array<{
+      id: CategoryId;
+      name: string;
+      emoji: string;
+      gpsDefault?: boolean;
+    }>
+  >;
 
-  // Per-life disabled categories (true = disabled)
-  disabledCategoryIdsByLife?: Partial<Record<LifeKey, Record<CategoryId, true>>>;
+  disabledCategoryIdsByLife: Record<LifeKey, CategoryId[]>;
 
+  ratingPackByLife: Record<LifeKey, RatingPackKey>;
+
+  /** Backwards compat / future use */
   categoryGpsOverrides: Record<CategoryId, boolean>;
-};
-
-export type Husket = {
-  id: string;
-  life: LifeKey;
-
-  createdAt: number;
-
-  imageKey: string;
-
-  ratingValue: string | null;
-  comment: string | null;
-  categoryId: CategoryId | null;
-
-  gps: { lat: number; lng: number } | null;
-};
-
-export type Account = {
-  version: 1;
-  userId: string;
-  email: string;
-  createdAt: number;
 };
