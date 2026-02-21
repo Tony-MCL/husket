@@ -15,6 +15,8 @@ export type RatingPackKey =
 
 export type LifeKey = "private" | "work" | "custom1" | "custom2";
 
+export type ThemeKey = "fjord" | "forest" | "sunset" | "night" | "desert";
+
 export type CategoryId = string;
 
 export type CategoryDef = {
@@ -27,6 +29,9 @@ export type Settings = {
   version: 2;
   language: LanguageCode;
   premium: boolean;
+
+  // UI theme
+  themeKey: ThemeKey;
 
   gpsGlobalEnabled: boolean;
 
