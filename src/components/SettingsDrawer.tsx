@@ -19,6 +19,9 @@ type Props = {
   onClose: () => void;
   onChange: (next: Settings) => void;
   onRequirePremium: () => void;
+
+  // ✅ NEW: allow changing active life from SettingsDrawer
+  onSetActiveLife: (life: LifeKey) => void;
 };
 
 function clamp100(s: string): string {
@@ -39,6 +42,13 @@ function isEditableCategoryLabel(life: LifeKey, id: string): boolean {
   return false;
 }
 
+function getLifeLabel(dict: I18nDict, settings: Settings, key: LifeKey): string {
+  if (key === "private") return tGet(dict, "top.private");
+  if (key === "work") return tGet(dict, "top.work");
+  if (key === "custom1") return settings.lives.custom1Name?.trim() || tGet(dict, "start.custom1");
+  return settings.lives.custom2Name?.trim() || tGet(dict, "start.custom2");
+}
+
 export function SettingsDrawer({
   dict,
   open,
@@ -47,6 +57,7 @@ export function SettingsDrawer({
   onClose,
   onChange,
   onRequirePremium,
+  onSetActiveLife,
 }: Props) {
   // IMPORTANT: DO NOT early-return before hooks
   const [customCatText, setCustomCatText] = useState<string>("");
@@ -221,6 +232,31 @@ export function SettingsDrawer({
     return settings.lives.enabledCustom2;
   }, [activeLife, settings.lives]);
 
+  // ✅ Enabled lives for switching active life
+  const enabledLifeKeys = useMemo<LifeKey[]>(() => {
+    const s = settings.lives;
+    const list: LifeKey[] = [];
+    if (s.enabledPrivate) list.push("private");
+    if (s.enabledCustom1) list.push("custom1");
+    if (s.enabledCustom2) list.push("custom2");
+    if (s.enabledWork) list.push("work");
+    return list.length ? list : (["private"] as LifeKey[]);
+  }, [settings.lives]);
+
+  const setActiveLifeFromDrawer = (nextLife: LifeKey) => {
+    // Premium lock for custom lives (in case something weird becomes visible)
+    if ((nextLife === "custom1" || nextLife === "custom2") && !settings.premium) {
+      onRequirePremium();
+      return;
+    }
+
+    // Must be enabled
+    if (!enabledLifeKeys.includes(nextLife)) return;
+
+    onSetActiveLife(nextLife);
+    onClose();
+  };
+
   // ---- Typography helpers (A/B) ----
   const textA: React.CSSProperties = {
     fontSize: HUSKET_TYPO.A.fontSize,
@@ -351,6 +387,8 @@ export function SettingsDrawer({
     display: "flex",
     alignItems: "center",
     gap: 8,
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
   };
 
   const toggleBaseStyle: React.CSSProperties = {
@@ -402,6 +440,8 @@ export function SettingsDrawer({
     return `${enabledLivesCount}/4`;
   }, [enabledLivesCount]);
 
+  const activeLifeLabel = useMemo(() => getLifeLabel(dict, settings, activeLife), [dict, settings, activeLife]);
+
   if (!open) return null;
 
   const custom1Locked = !settings.premium;
@@ -422,6 +462,36 @@ export function SettingsDrawer({
           <button className="flatBtn" onClick={onClose} type="button" style={actionTextStyle}>
             {tGet(dict, "settings.close")}
           </button>
+        </div>
+
+        <div className="hr" style={hrStyle} />
+
+        {/* ✅ Active life (global / session) */}
+        <div style={lineRow}>
+          <div style={lineLeft}>
+            <div style={lineTitle}>Aktivt liv</div>
+            <div style={lineSub}>{activeLifeLabel}</div>
+          </div>
+
+          <div style={toggleWrapStyle}>
+            {enabledLifeKeys.map((k) => {
+              const label = getLifeLabel(dict, settings, k);
+              const isActive = activeLife === k;
+
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  className="flatBtn"
+                  style={toggleBtnStyle(isActive)}
+                  onClick={() => setActiveLifeFromDrawer(k)}
+                  aria-pressed={isActive}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="hr" style={hrStyle} />
