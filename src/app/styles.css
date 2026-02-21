@@ -79,12 +79,16 @@ button {
   min-height: 100svh;
   padding: 10px 10px calc(96px + env(safe-area-inset-bottom)) 10px;
 
+  /* ✅ IMPORTANT: create safe stacking context for pseudo layers */
+  position: relative;
+  isolation: isolate;
+
   /* fallback hvis bildet ikke lastes */
   background-color: #062324;
 
   color: #eaf6f6;
 
-  /* ✅ Bilde + overlays (vann dypere nederst) */
+  /* ✅ Fog / overlays ONLY (NO image here) */
   background:
     /* bottom water deepen */
     linear-gradient(
@@ -99,15 +103,25 @@ button {
       rgba(6, 35, 36, 0.72) 0%,
       rgba(8, 52, 54, 0.68) 45%,
       rgba(10, 70, 72, 0.72) 100%
-    ),
-    url("/fjord-bg.png");
+    );
 
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+}
 
-  /* ✅ fixed er ofte glitchy på mobil / webview */
-  background-attachment: scroll;
+/* ✅ Sharp base image behind the entire app (viewport aligned) */
+.appShell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+
+  background-image: url("/fjord-bg.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 /* Boot / full-screen shells (Splash + LifeSelect) */
@@ -117,12 +131,15 @@ button {
   padding: 18px;
   box-sizing: border-box;
 
+  position: relative;
+  isolation: isolate;
+
   /* fallback hvis bildet ikke lastes */
   background-color: #062324;
 
   color: #eaf6f6;
 
-  /* ✅ Samme bakgrunn som .appShell */
+  /* ✅ Same fog as appShell (NO image here) */
   background:
     linear-gradient(
       to bottom,
@@ -135,13 +152,25 @@ button {
       rgba(6, 35, 36, 0.72) 0%,
       rgba(8, 52, 54, 0.68) 45%,
       rgba(10, 70, 72, 0.72) 100%
-    ),
-    url("/fjord-bg.png");
+    );
 
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  background-attachment: scroll;
+}
+
+/* ✅ Sharp base image behind boot screens too (viewport aligned) */
+.bootShell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+
+  background-image: url("/fjord-bg.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .hr {
@@ -319,9 +348,21 @@ button {
   background: transparent;
 }
 
-/* ✅ Disabled: avoid separate background inside preview (caused mismatch/stacking issues) */
+/* ✅ Sharp window inside the preview (same base image, viewport-aligned) */
 .captureFrame::before {
-  content: none;
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+
+  background-image: url("/fjord-bg.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  /* ✅ match the base layer exactly */
+  background-attachment: fixed;
 }
 
 /* Sørg for at alt innhold i captureFrame ligger OVER bakgrunnen */
@@ -337,7 +378,7 @@ button {
   place-items: center;
   color: var(--muted);
 
-  /* ✅ Let the app background show through */
+  /* We want the sharp window to show when empty */
   background: transparent;
 }
 
@@ -477,7 +518,7 @@ button {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.35);
-  z-index: 1000;              /* ✅ NEW: ensure overlay is above app content */
+  z-index: 1000;
 }
 
 .drawer {
@@ -490,7 +531,7 @@ button {
   border-left: 1px solid var(--line);
   padding: 12px;
   overflow: auto;
-  z-index: 1001;              /* ✅ NEW: ensure drawer is above overlay */
+  z-index: 1001;
 }
 
 .modalOverlay {
