@@ -31,6 +31,12 @@ MCL Husket – unified base + typography A/B
   --shadow2: 0 10px 24px rgba(0, 0, 0, 0.12);
 
   /* ---------------------------------
+     THEME VARIABLES (background + readable text)
+     --------------------------------- */
+  --bgImage: url("/fjord-bg.png");
+  --appText: #eaf6f6;
+
+  /* ---------------------------------
      TYPOGRAPHY SYSTEM (A/B)
      --------------------------------- */
   /* A: buttons + headers (TopBar-type) */
@@ -50,6 +56,18 @@ MCL Husket – unified base + typography A/B
   --typoHelp-weight: 650;
   --typoHelp-line: 1.2;
   --typoHelp-track: 0px;
+}
+
+/* Theme classes (v1: only fjord, ready for more) */
+.theme-fjord {
+  --bgImage: url("/fjord-bg.png");
+  --appText: #eaf6f6;
+
+  /* If we later want theme-specific UI palette, override here:
+     --header: ...;
+     --line: ...;
+     --ink: ...;
+  */
 }
 
 * {
@@ -86,7 +104,8 @@ button {
   /* fallback hvis bildet ikke lastes */
   background-color: #062324;
 
-  color: #eaf6f6;
+  /* ✅ Theme text color for the main canvas */
+  color: var(--appText);
 
   /* NOTE: fog moved to ::after so it can’t be overridden by other background rules */
   background: none;
@@ -100,7 +119,7 @@ button {
   z-index: -2;
   pointer-events: none;
 
-  background-image: url("/fjord-bg.png");
+  background-image: var(--bgImage);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -148,7 +167,8 @@ button {
   /* fallback hvis bildet ikke lastes */
   background-color: #062324;
 
-  color: #eaf6f6;
+  /* ✅ Theme text color */
+  color: var(--appText);
 
   /* NOTE: fog moved to ::after */
   background: none;
@@ -162,7 +182,7 @@ button {
   z-index: -2;
   pointer-events: none;
 
-  background-image: url("/fjord-bg.png");
+  background-image: var(--bgImage);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -378,7 +398,7 @@ button {
   z-index: 0;
   pointer-events: none;
 
-  background-image: url("/fjord-bg.png");
+  background-image: var(--bgImage);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
