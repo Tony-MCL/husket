@@ -13,7 +13,6 @@ import { CaptureScreen } from "../screens/CaptureScreen";
 import { AlbumScreen } from "../screens/AlbumScreen";
 import { SettingsDrawer } from "../components/SettingsDrawer";
 import { PaywallModal } from "../components/PaywallModal";
-import { MCL_HUSKET_THEME } from "../theme";
 import { SplashScreen } from "../screens/SplashScreen";
 import { LifeSelectScreen } from "../screens/LifeSelectScreen";
 
@@ -153,7 +152,7 @@ export function App() {
   // -------------------------------
   if (boot === "splash") {
     return (
-      <div className={themeClass}>
+      <div className={`${themeClass} bootShell`}>
         <SplashScreen
           onDone={() => {
             // start fade out, then switch screen, then fade in
@@ -174,7 +173,7 @@ export function App() {
 
   if (boot === "lifeSelect") {
     return (
-      <div className={themeClass} style={fadeStyle}>
+      <div className={`${themeClass} bootShell`} style={fadeStyle}>
         <LifeSelectScreen
           dict={dict}
           settings={settings}
@@ -199,12 +198,7 @@ export function App() {
   return (
     <div className={themeClass} style={fadeStyle}>
       <ToastProvider>
-        <div
-          className="appShell"
-          style={{
-            color: MCL_HUSKET_THEME.colors.textOnDark,
-          }}
-        >
+        <div className="appShell">
           <TopBar
             dict={dict}
             settings={settings}
