@@ -1,7 +1,7 @@
 // ===============================
 // src/components/SettingsDrawer.tsx
 // ===============================
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { I18nDict } from "../i18n";
 import { tGet } from "../i18n";
 import type { CategoryId, LifeKey, RatingPackKey, Settings } from "../domain/types";
@@ -64,6 +64,15 @@ export function SettingsDrawer({
 
   // Collapsible sections
   const [openSection, setOpenSection] = useState<null | "categories" | "lives">(null);
+
+  // ✅ Force language to Auto (fallback handled by i18n layer)
+  useEffect(() => {
+    if (!open) return;
+    if (settings.language !== "auto") {
+      onChange({ ...settings, language: "auto" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, settings.language]);
 
   const ratingOptions: RatingPackKey[] = useMemo(() => {
     return listSelectableRatingPacks({ premium: settings.premium });
@@ -404,8 +413,7 @@ export function SettingsDrawer({
   }, [activeCats, activeDisabledMap, dict, maxActiveCats]);
 
   const livesSummary = useMemo(() => {
-    const total = settings.premium ? 4 : 2;
-    return `${total}`;
+    return settings.premium ? "4" : "2";
   }, [settings.premium]);
 
   const activeLifeLabel = useMemo(() => getLifeLabel(dict, settings, activeLife), [dict, settings, activeLife]);
@@ -448,6 +456,16 @@ export function SettingsDrawer({
     color: MCL_HUSKET_THEME.colors.darkSurface,
   });
 
+  const linkBtnStyle: React.CSSProperties = {
+    ...textB,
+    background: "transparent",
+    border: "none",
+    color: MCL_HUSKET_THEME.colors.darkSurface,
+    cursor: "pointer",
+    padding: 0,
+    textDecoration: "underline",
+  };
+
   return (
     <>
       <div className="drawerOverlay" onClick={onClose} style={overlayStyle} />
@@ -467,7 +485,7 @@ export function SettingsDrawer({
 
         <div className="hr" style={hrStyle} />
 
-        {/* ✅ Lives: disclosure line (same style as categories) + active shown on the line */}
+        {/* 1) Liv */}
         <button
           type="button"
           onClick={() => toggleSection("lives")}
@@ -491,11 +509,7 @@ export function SettingsDrawer({
           <div style={panelStyle}>
             {/* PRIVATE */}
             <div style={panelRow}>
-              <button
-                type="button"
-                onClick={() => setActiveLifeFromDrawer("private")}
-                style={lifeRowBtnStyle(false)}
-              >
+              <button type="button" onClick={() => setActiveLifeFromDrawer("private")} style={lifeRowBtnStyle(false)}>
                 <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
                   <div style={panelTitle}>Privat</div>
                 </div>
@@ -524,11 +538,7 @@ export function SettingsDrawer({
               <>
                 {/* CUSTOM 1 */}
                 <div style={panelRow}>
-                  <button
-                    type="button"
-                    onClick={() => setActiveLifeFromDrawer("custom1")}
-                    style={lifeRowBtnStyle(false)}
-                  >
+                  <button type="button" onClick={() => setActiveLifeFromDrawer("custom1")} style={lifeRowBtnStyle(false)}>
                     <div style={{ display: "grid", gap: 2, minWidth: 0, flex: 1 }}>
                       <input
                         className="input"
@@ -547,11 +557,7 @@ export function SettingsDrawer({
 
                 {/* CUSTOM 2 */}
                 <div style={panelRowLast}>
-                  <button
-                    type="button"
-                    onClick={() => setActiveLifeFromDrawer("custom2")}
-                    style={lifeRowBtnStyle(false)}
-                  >
+                  <button type="button" onClick={() => setActiveLifeFromDrawer("custom2")} style={lifeRowBtnStyle(false)}>
                     <div style={{ display: "grid", gap: 2, minWidth: 0, flex: 1 }}>
                       <input
                         className="input"
@@ -574,103 +580,7 @@ export function SettingsDrawer({
 
         <div className="hr" style={hrStyle} />
 
-        {/* ✅ Theme (global) */}
-        <div style={lineRow}>
-          <div style={lineLeft}>
-            <div style={lineTitle}>Tema</div>
-          </div>
-
-          <select
-            className="select"
-            style={topbarSelectStyle}
-            value={settings.themeKey}
-            onChange={(e) => update({ themeKey: e.target.value as Settings["themeKey"] })}
-          >
-            <option value="fjord">Fjord</option>
-          </select>
-        </div>
-
-        <div className="hr" style={hrStyle} />
-
-        {/* Language (global) */}
-        <div style={lineRow}>
-          <div style={lineLeft}>
-            <div style={lineTitle}>{tGet(dict, "settings.language")}</div>
-          </div>
-
-          <select
-            className="select"
-            style={topbarSelectStyle}
-            value={settings.language}
-            onChange={(e) => update({ language: e.target.value as Settings["language"] })}
-          >
-            <option value="auto">{tGet(dict, "settings.languageAuto")}</option>
-            <option value="no">Norsk</option>
-            <option value="en">English</option>
-          </select>
-        </div>
-
-        <div className="hr" style={hrStyle} />
-
-        {/* GPS (global) */}
-        <div style={lineRow}>
-          <div style={lineLeft}>
-            <div style={lineTitle}>{tGet(dict, "settings.gpsGlobal")}</div>
-          </div>
-
-          <div style={toggleWrapStyle}>
-            <button
-              type="button"
-              className="flatBtn"
-              style={toggleBtnStyle(settings.gpsGlobalEnabled)}
-              onClick={() => update({ gpsGlobalEnabled: true })}
-              aria-pressed={settings.gpsGlobalEnabled}
-            >
-              ON
-            </button>
-            <button
-              type="button"
-              className="flatBtn"
-              style={toggleBtnStyle(!settings.gpsGlobalEnabled)}
-              onClick={() => update({ gpsGlobalEnabled: false })}
-              aria-pressed={!settings.gpsGlobalEnabled}
-            >
-              OFF
-            </button>
-          </div>
-        </div>
-
-        <div className="hr" style={hrStyle} />
-
-        {/* Rating pack (per active life) */}
-        <div style={lineRow}>
-          <div style={lineLeft}>
-            <div style={lineTitle}>{tGet(dict, "settings.ratingPack")}</div>
-          </div>
-
-          <select
-            className="select"
-            style={topbarSelectStyle}
-            value={activeRatingPack}
-            onChange={(e) => {
-              const next = e.target.value as RatingPackKey;
-              if (isPremiumRatingPack(next) && !settings.premium) return onRequirePremium();
-              onChange(setRatingPackForLife(settings, activeLife, next));
-            }}
-            disabled={!activeLifeEnabled}
-            title={!activeLifeEnabled ? "OFF" : ""}
-          >
-            {ratingOptions.map((k) => (
-              <option key={k} value={k}>
-                {RATING_PACKS[k]?.label ?? k}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="hr" style={hrStyle} />
-
-        {/* Categories (per active life) */}
+        {/* 2) Kategorier (per active life) */}
         <button
           type="button"
           onClick={() => toggleSection("categories")}
@@ -785,7 +695,83 @@ export function SettingsDrawer({
 
         <div className="hr" style={hrStyle} />
 
-        {/* Premium (global) */}
+        {/* 3) Ratings (per active life) */}
+        <div style={lineRow}>
+          <div style={lineLeft}>
+            <div style={lineTitle}>{tGet(dict, "settings.ratingPack")}</div>
+          </div>
+
+          <select
+            className="select"
+            style={topbarSelectStyle}
+            value={activeRatingPack}
+            onChange={(e) => {
+              const next = e.target.value as RatingPackKey;
+              if (isPremiumRatingPack(next) && !settings.premium) return onRequirePremium();
+              onChange(setRatingPackForLife(settings, activeLife, next));
+            }}
+            disabled={!activeLifeEnabled}
+            title={!activeLifeEnabled ? "OFF" : ""}
+          >
+            {ratingOptions.map((k) => (
+              <option key={k} value={k}>
+                {RATING_PACKS[k]?.label ?? k}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="hr" style={hrStyle} />
+
+        {/* 4) Tema (global) */}
+        <div style={lineRow}>
+          <div style={lineLeft}>
+            <div style={lineTitle}>Tema</div>
+          </div>
+
+          <select
+            className="select"
+            style={topbarSelectStyle}
+            value={settings.themeKey}
+            onChange={(e) => update({ themeKey: e.target.value as Settings["themeKey"] })}
+          >
+            <option value="fjord">Fjord</option>
+          </select>
+        </div>
+
+        <div className="hr" style={hrStyle} />
+
+        {/* 5) GPS (global) */}
+        <div style={lineRow}>
+          <div style={lineLeft}>
+            <div style={lineTitle}>{tGet(dict, "settings.gpsGlobal")}</div>
+          </div>
+
+          <div style={toggleWrapStyle}>
+            <button
+              type="button"
+              className="flatBtn"
+              style={toggleBtnStyle(settings.gpsGlobalEnabled)}
+              onClick={() => update({ gpsGlobalEnabled: true })}
+              aria-pressed={settings.gpsGlobalEnabled}
+            >
+              ON
+            </button>
+            <button
+              type="button"
+              className="flatBtn"
+              style={toggleBtnStyle(!settings.gpsGlobalEnabled)}
+              onClick={() => update({ gpsGlobalEnabled: false })}
+              aria-pressed={!settings.gpsGlobalEnabled}
+            >
+              OFF
+            </button>
+          </div>
+        </div>
+
+        <div className="hr" style={hrStyle} />
+
+        {/* 6) Premium (global) */}
         <div style={{ padding: "10px 0" }}>
           <div className="label" style={labelStyle}>
             {tGet(dict, "settings.premium")}
@@ -815,6 +801,44 @@ export function SettingsDrawer({
             {tGet(dict, "settings.buyPremium")}
           </button>
         </div>
+
+        <div className="hr" style={hrStyle} />
+
+        {/* 7) Terms&conditions */}
+        <div style={lineRow}>
+          <div style={lineLeft}>
+            <div style={lineTitle}>Terms&conditions</div>
+          </div>
+
+          <button
+            type="button"
+            className="flatBtn"
+            style={actionTextStyle}
+            onClick={() => window.open("https://morningcoffeelabs.no/terms", "_blank", "noopener,noreferrer")}
+          >
+            Åpne
+          </button>
+        </div>
+
+        <div className="hr" style={hrStyle} />
+
+        {/* 8) Kontakt oss */}
+        <div style={lineRow}>
+          <div style={lineLeft}>
+            <div style={lineTitle}>Kontakt oss</div>
+          </div>
+
+          <button
+            type="button"
+            className="flatBtn"
+            style={actionTextStyle}
+            onClick={() => window.open("https://morningcoffeelabs.no/contact", "_blank", "noopener,noreferrer")}
+          >
+            Åpne
+          </button>
+        </div>
+
+        {/* (no trailing hr needed) */}
       </aside>
     </>
   );
