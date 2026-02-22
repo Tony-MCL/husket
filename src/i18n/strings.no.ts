@@ -31,8 +31,8 @@ export const no = {
     title: "Velg galleri",
     subtitle: "Velg hvilket galleri denne husket’en hører hjemme i. Du kan bytte senere.",
     hint: "Tips: Premium-brukere kan aktivere og gi navn til egendefinerte gallerier i Innstillinger.",
-    custom1: "Egendefinert 1",
-    custom2: "Egendefinert 2",
+    custom1: "Galleri 3",
+    custom2: "Galleri 4",
   },
 
   capture: {
@@ -140,7 +140,7 @@ export const no = {
 
   settings: {
     title: "Innstillinger",
-    activeLife: "Aktivt liv",
+    activeLife: "Aktivt galleri",
     saveToTitle: "husk'ets lagres til",
     galleryWord: "galleri",
     language: "Språk",
@@ -153,8 +153,8 @@ export const no = {
     premiumOn: "Premium aktiv",
     buyPremium: "Kjøp Premium (mock)",
     premiumDesc: "Premium: ubegrenset lagring, 2 ekstra liv, flere rating-sett, egendefinerte kategorier.",
-    lives: "Liv/modus",
-    customLives: "Egendefinerte liv (Premium)",
+    lives: "Galleri",
+    customLives: "Egendefinerte gallerier (Premium)",
     enable: "Aktiver",
     name: "Navn",
     categories: "Kategorier",
@@ -171,7 +171,7 @@ export const no = {
 
   paywall: {
     title: "Premium",
-    body: "Denne funksjonen er Premium. Aktiver Premium for å låse opp ubegrenset lagring, ekstra liv og egendefinerte kategorier.",
+    body: "Denne funksjonen er Premium. Aktiver Premium for å låse opp ekstra funksjoner som gallerier og egendefinerte kategorier.",
     cancel: "Avbryt",
     activate: "Aktiver Premium (mock)",
   },
