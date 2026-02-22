@@ -8,26 +8,26 @@ import type { CategoryDef, LifeKey, Settings } from "../domain/types";
 // -------------------------------
 const PRIVATE_CATS: CategoryDef[] = [
   // Standard (Privat)
-  { id: "p.foodDrink", label: "Mat & drikke", gpsEligible: true },
-  { id: "p.travel", label: "Reiser", gpsEligible: true },
-  { id: "p.people", label: "Folk", gpsEligible: false },
-  { id: "p.things", label: "Ting", gpsEligible: true },
-  { id: "p.hobby", label: "Hobby", gpsEligible: false },
-  { id: "p.other", label: "Annet", gpsEligible: false },
+  { id: "p.foodDrink", label: "cats.p.foodDrink", gpsEligible: true },
+  { id: "p.travel", label: "cats.p.travel", gpsEligible: true },
+  { id: "p.people", label: "cats.p.people", gpsEligible: false },
+  { id: "p.things", label: "cats.p.things", gpsEligible: true },
+  { id: "p.hobby", label: "cats.p.hobby", gpsEligible: false },
+  { id: "p.other", label: "cats.p.other", gpsEligible: false },
 
   // Premium (Privat)
-  { id: "p.restaurants", label: "Restauranter", gpsEligible: true },
-  { id: "p.bars", label: "Barer", gpsEligible: true },
-  { id: "p.hotels", label: "Hotell", gpsEligible: true },
-  { id: "p.health", label: "Helse", gpsEligible: false },
-  { id: "p.training", label: "Trening", gpsEligible: false },
-  { id: "p.media", label: "Media", gpsEligible: false },
-  { id: "p.ideas", label: "Idéer", gpsEligible: false },
-  { id: "p.experiences", label: "Opplevelser", gpsEligible: true },
-  { id: "p.places", label: "Steder", gpsEligible: true },
+  { id: "p.restaurants", label: "cats.p.restaurants", gpsEligible: true },
+  { id: "p.bars", label: "cats.p.bars", gpsEligible: true },
+  { id: "p.hotels", label: "cats.p.hotels", gpsEligible: true },
+  { id: "p.health", label: "cats.p.health", gpsEligible: false },
+  { id: "p.training", label: "cats.p.training", gpsEligible: false },
+  { id: "p.media", label: "cats.p.media", gpsEligible: false },
+  { id: "p.ideas", label: "cats.p.ideas", gpsEligible: false },
+  { id: "p.experiences", label: "cats.p.experiences", gpsEligible: true },
+  { id: "p.places", label: "cats.p.places", gpsEligible: true },
 
   // Premium: one editable custom category (single slot)
-  { id: "p.custom.1", label: "Egendefinert", gpsEligible: true },
+  { id: "p.custom.1", label: "cats.p.custom.1", gpsEligible: true },
 ];
 
 // -------------------------------
@@ -35,26 +35,26 @@ const PRIVATE_CATS: CategoryDef[] = [
 // -------------------------------
 const WORK_CATS: CategoryDef[] = [
   // Standard (Jobb)
-  { id: "w.place", label: "Sted", gpsEligible: true },
-  { id: "w.task", label: "Oppgave", gpsEligible: false },
-  { id: "w.issue", label: "Avvik", gpsEligible: true },
-  { id: "w.note", label: "Notat", gpsEligible: false },
-  { id: "w.meeting", label: "Møte", gpsEligible: false },
-  { id: "w.other", label: "Annet", gpsEligible: false },
+  { id: "w.place", label: "cats.w.place", gpsEligible: true },
+  { id: "w.task", label: "cats.w.task", gpsEligible: false },
+  { id: "w.issue", label: "cats.w.issue", gpsEligible: true },
+  { id: "w.note", label: "cats.w.note", gpsEligible: false },
+  { id: "w.meeting", label: "cats.w.meeting", gpsEligible: false },
+  { id: "w.other", label: "cats.w.other", gpsEligible: false },
 
   // Premium (Jobb)
-  { id: "w.siteVisit", label: "Befaring", gpsEligible: true },
-  { id: "w.safety", label: "Sikkerhet", gpsEligible: false },
-  { id: "w.quality", label: "Kvalitet", gpsEligible: false },
-  { id: "w.progress", label: "Fremdrift", gpsEligible: false },
-  { id: "w.docs", label: "Dokumentasjon", gpsEligible: false },
-  { id: "w.delivery", label: "Leveranse", gpsEligible: false },
-  { id: "w.client", label: "Kunde", gpsEligible: false },
-  { id: "w.plan", label: "Plan", gpsEligible: false },
-  { id: "w.risk", label: "Risiko", gpsEligible: false },
+  { id: "w.siteVisit", label: "cats.w.siteVisit", gpsEligible: true },
+  { id: "w.safety", label: "cats.w.safety", gpsEligible: false },
+  { id: "w.quality", label: "cats.w.quality", gpsEligible: false },
+  { id: "w.progress", label: "cats.w.progress", gpsEligible: false },
+  { id: "w.docs", label: "cats.w.docs", gpsEligible: false },
+  { id: "w.delivery", label: "cats.w.delivery", gpsEligible: false },
+  { id: "w.client", label: "cats.w.client", gpsEligible: false },
+  { id: "w.plan", label: "cats.w.plan", gpsEligible: false },
+  { id: "w.risk", label: "cats.w.risk", gpsEligible: false },
 
   // Premium: one editable custom category (single slot)
-  { id: "w.custom.1", label: "Egendefinert", gpsEligible: false },
+  { id: "w.custom.1", label: "cats.w.custom.1", gpsEligible: false },
 ];
 
 // -------------------------------
