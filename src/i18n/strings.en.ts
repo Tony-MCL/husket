@@ -31,8 +31,8 @@ export const en = {
     title: "Choose the gallery you want to use",
     subtitle: "Pick where this husket belongs. You can switch later.",
     hint: "Tip: Premium users can enable/rename custom galleries in Settings.",
-    custom1: "Custom 1",
-    custom2: "Custom 2",
+    custom1: "Gallery 3",
+    custom2: "Gallery 4",
   },
 
   capture: {
