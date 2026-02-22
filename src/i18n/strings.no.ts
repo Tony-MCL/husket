@@ -3,13 +3,13 @@
 // ===============================
 export const no = {
   app: { title: "husket" },
-  nav: { new: "Ny husket", album: "Album" },
+  nav: { new: "Ny husket", album: "Galleri" },
   top: { private: "Privat", work: "Jobb", menu: "Meny" },
 
   start: {
-    title: "Velg liv",
-    subtitle: "Velg hvor denne husket’en hører hjemme. Du kan bytte senere.",
-    hint: "Tips: liv kan aktiveres og få navn i Innstillinger.",
+    title: "Velg lgalleri",
+    subtitle: "Velg hvilket galleri denne husket’en hører hjemme i. Du kan bytte senere.",
+    hint: "Tips: Premium brukere kan kan aktivere egendefinerte gallerier i Innstillinger.",
     custom1: "Egendefinert 1",
     custom2: "Egendefinert 2",
   },
@@ -26,8 +26,8 @@ export const no = {
     commentPh: "Maks 100 tegn…",
     category: "Kategori",
     noCategories: "Ingen kategorier tilgjengelig.",
-    save: "Lagre",
-    saved: "Lagret",
+    save: "husk'et",
+    saved: "du husk'et det",
     gpsSaved: "GPS lagret",
     gpsDenied: "GPS ikke tilgjengelig",
   },
