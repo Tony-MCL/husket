@@ -165,6 +165,7 @@ export function App() {
           gifFile="splash.gif"
           minVisibleMs={3000}
           hardTimeoutMs={3400}
+          showSkip={false}
         />
       </div>
     );
