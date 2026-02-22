@@ -731,7 +731,8 @@ export function SettingsDrawer({
                             {canEditLabel ? (
                               <input
                                 className="input"
-                                value={c.label}
+                                value={c.label.startsWith("cats.") ? "" : c.label}
+                                placeholder={tGet(dict, "settings.customCategoryPlaceholder")}
                                 onChange={(e) => updateCategoryLabel(activeLife, c.id, e.target.value)}
                                 onBlur={(e) => updateCategoryLabel(activeLife, c.id, e.target.value)}
                                 style={{ padding: "8px 10px" }}
