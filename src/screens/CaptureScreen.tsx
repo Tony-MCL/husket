@@ -524,17 +524,19 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
         ) : (
           cats.map((c) => {
             const active = categoryId === c.id;
+            const label = c.label.startsWith("cats.") ? tGet(dict, c.label) : c.label;
+          
             return (
               <button
                 key={c.id}
                 className={`pill ${active ? "active" : ""}`}
                 onClick={() => setCategoryId((prev) => (prev === c.id ? null : c.id))}
                 type="button"
-                title={c.label}
+                title={label}
                 style={{ ...(active ? pillFlatActive : pillFlatBase) }}
                 disabled={isSaving}
               >
-                {c.label}
+                {label}
               </button>
             );
           })
