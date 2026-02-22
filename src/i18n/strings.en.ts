@@ -19,7 +19,7 @@ export const en = {
 
   app: { title: "husket" },
   nav: { new: "New husket", album: "Gallery" },
-  top: { private: "Gallery 1", work: "Gallery 2", menu: "Menu" },
+  top: { private: "Private", work: "Work", menu: "Menu" },
 
   splash: {
     aria: "Splash",
