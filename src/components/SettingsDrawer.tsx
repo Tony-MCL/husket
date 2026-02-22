@@ -739,7 +739,7 @@ export function SettingsDrawer({
                               />
                             ) : (
                               <div style={{ ...panelTitle, opacity: rowDisabled ? 0.65 : 1 }}>
-                                {c.label}
+                                {c.label.startsWith("cats.") ? tGet(dict, c.label) : c.label}
                                 {premiumOnly ? " ★" : ""}
                               </div>
                             )}
