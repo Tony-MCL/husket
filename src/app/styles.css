@@ -236,12 +236,45 @@ button {
   color: var(--appText);
 }
 
-/* Ensure SplashScreen can cover the viewport cleanly */
-.splashOnlyShell .splashRoot,
-.splashOnlyShell video,
-.splashOnlyShell img {
+/* Splash root covers the viewport */
+.splashRoot {
+  position: fixed;
+  inset: 0;
   width: 100%;
   height: 100%;
+  overflow: hidden;
+  background: #0b1f24; /* fallback */
+}
+
+/* Media fills screen like a background */
+.splashMedia {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+
+  object-fit: cover;
+  object-position: center;
+}
+
+/* Optional skip button */
+.splashSkip {
+  position: absolute;
+  right: 14px;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(0, 0, 0, 0.28);
+  color: rgba(255, 255, 255, 0.92);
+
+  border-radius: 999px;
+  padding: 10px 14px;
+  font: inherit;
+  cursor: pointer;
+}
+.splashSkip:active {
+  transform: scale(0.99);
 }
 /* -------------------------------
    Buttons
