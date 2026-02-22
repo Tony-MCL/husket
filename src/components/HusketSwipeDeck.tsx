@@ -75,11 +75,15 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
 
   const underItem = underIndex != null ? items[underIndex] : null;
 
+  // ✅ FIX: label i settings.categories er en i18n-key (f.eks. "cats.p.people").
+  // Vi må oversette den før vi viser den på kortet.
   const categoryLabel = useMemo(() => {
     if (!cur) return null;
     const cats = settings.categories[cur.life] ?? [];
-    return cats.find((c) => c.id === cur.categoryId)?.label ?? null;
-  }, [cur?.categoryId, cur?.life, settings.categories]);
+    const labelKey = cats.find((c) => c.id === cur.categoryId)?.label ?? null;
+    if (!labelKey) return null;
+    return tGet(dict, labelKey);
+  }, [cur?.categoryId, cur?.life, settings.categories, dict]);
 
   const mapHref = useMemo(() => {
     if (!cur?.gps) return null;
