@@ -149,8 +149,8 @@ export function defaultSettings(): Settings {
     lives: {
       privateName: "Privat",
       workName: "Jobb",
-      custom1Name: "Liv 3",
-      custom2Name: "Liv 4",
+      custom1Name: "start.custom1",
+      custom2Name: "start.custom2",
 
       enabledPrivate: true,
       enabledWork: true,
