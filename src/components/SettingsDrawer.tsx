@@ -757,7 +757,7 @@ export function SettingsDrawer({
         {/* 3) Ratings (per active life) */}
         <div style={lineRow}>
           <div style={lineLeft}>
-            <div style={lineTitle}>{tGet(dict, "settings.ratingPack")}</div>
+            <div style={{ ...lineTitle, whiteSpace: "nowrap" }}>{tGet(dict, "settings.ratingPack")}</div>
           </div>
 
           <select
