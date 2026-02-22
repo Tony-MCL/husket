@@ -468,7 +468,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
       <div className="label" style={{ ...labelTextStyle, marginTop: 10 }}>
         {tGet(dict, "capture.like")}
       </div>
-      <div className="ratingRow" aria-label="Rating" style={flatChoiceRowStyle}>
+      <div className="ratingRow" aria-label={tGet(dict, "a11y.ratingRow")} style={flatChoiceRowStyle}>
         {ratingOpts.map((v) => {
           const active = rating === v;
           return (
@@ -516,7 +516,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
       <div className="label" style={{ ...labelTextStyle, marginTop: 10 }}>
         {tGet(dict, "capture.category")}
       </div>
-      <div className="ratingRow" aria-label="Categories" style={flatChoiceRowStyle}>
+      <div className="ratingRow" aria-label={tGet(dict, "a11y.categoriesRow")} style={flatChoiceRowStyle}>
         {cats.length === 0 ? (
           <div className="smallHelp" style={helpTextStyle}>
             {tGet(dict, "capture.noCategories")}
@@ -555,7 +555,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
           type="button"
           disabled={!canSave}
         >
-          {isSaving ? "Lagrer…" : tGet(dict, "capture.save")}
+          {isSaving ? tGet(dict, "capture.saving") : tGet(dict, "capture.save")}
         </button>
       </div>
     </div>
