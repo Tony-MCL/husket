@@ -45,8 +45,8 @@ function isEditableCategoryLabel(life: LifeKey, id: string): boolean {
 function getLifeLabel(dict: I18nDict, settings: Settings, key: LifeKey): string {
   if (key === "private") return tGet(dict, "top.private");
   if (key === "work") return tGet(dict, "top.work");
-  if (key === "custom1") return settings.lives.custom1Name?.trim() || tGet(dict, "start.custom1");
-  return settings.lives.custom2Name?.trim() || tGet(dict, "start.custom2");
+  if (key === "custom1") return settings.lives.custom1Name?.trim() || "Egendefinert 1";
+  return settings.lives.custom2Name?.trim() || "Egendefinert 2";
 }
 
 export function SettingsDrawer({
@@ -412,10 +412,6 @@ export function SettingsDrawer({
     return `${enabledCount}/${maxActiveCats}`;
   }, [activeCats, activeDisabledMap, dict, maxActiveCats]);
 
-  const livesSummary = useMemo(() => {
-    return settings.premium ? "4" : "2";
-  }, [settings.premium]);
-
   const activeLifeLabel = useMemo(() => getLifeLabel(dict, settings, activeLife), [dict, settings, activeLife]);
 
   if (!open) return null;
@@ -485,7 +481,7 @@ export function SettingsDrawer({
 
         <div className="hr" style={hrStyle} />
 
-        {/* 1) Liv */}
+        {/* 1) Liv (disclosure line text changed + removed count) */}
         <button
           type="button"
           onClick={() => toggleSection("lives")}
@@ -493,12 +489,11 @@ export function SettingsDrawer({
           aria-expanded={openLives}
         >
           <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <span style={{ ...lineTitle }}>Liv</span>
+            <span style={{ ...lineTitle }}>husk&apos;ets lagres til</span>
           </span>
 
           <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <span style={{ ...lineSub, maxWidth: 160 }}>{activeLifeLabel} aktiv</span>
-            <span style={{ ...lineSub }}>{livesSummary}</span>
+            <span style={{ ...lineSub, maxWidth: 220 }}>{activeLifeLabel} galleri</span>
             <span aria-hidden style={{ opacity: 0.85 }}>
               {openLives ? "▴" : "▾"}
             </span>
@@ -544,7 +539,7 @@ export function SettingsDrawer({
                         className="input"
                         value={settings.lives.custom1Name}
                         onChange={(e) => updateLifeName("custom1", e.target.value)}
-                        placeholder="Egendefinert…"
+                        placeholder="Egendefinert 1"
                         style={{ padding: "8px 10px" }}
                       />
                     </div>
@@ -563,7 +558,7 @@ export function SettingsDrawer({
                         className="input"
                         value={settings.lives.custom2Name}
                         onChange={(e) => updateLifeName("custom2", e.target.value)}
-                        placeholder="Egendefinert…"
+                        placeholder="Egendefinert 2"
                         style={{ padding: "8px 10px" }}
                       />
                     </div>
@@ -837,8 +832,6 @@ export function SettingsDrawer({
             Åpne
           </button>
         </div>
-
-        {/* (no trailing hr needed) */}
       </aside>
     </>
   );
