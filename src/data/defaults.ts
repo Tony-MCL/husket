@@ -138,10 +138,10 @@ export function defaultSettings(): Settings {
     language: "auto",
     premium: false,
 
-    gpsGlobalEnabled: true,
-
-    // ✅ Theme (v1)
+    // ✅ Default theme
     themeKey: "fjord",
+
+    gpsGlobalEnabled: true,
 
     ratingPack: "emoji",
     ratingPackByLife: {},
