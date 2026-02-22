@@ -762,7 +762,12 @@ export function SettingsDrawer({
 
           <select
             className="select"
-            style={topbarSelectStyle}
+            style={{
+              ...topbarSelectStyle,
+              marginLeft: "auto",
+              minWidth: 140,
+              textAlign: "right"
+            }}
             value={activeRatingPack}
             onChange={(e) => {
               const next = e.target.value as RatingPackKey;
