@@ -159,7 +159,7 @@ export const en = {
     name: "Name",
     categories: "Categories",
     customCats: "Custom categories (Premium, max 3)",
-    gpsPerCat: "GPS per category",
+    customCategoryPlaceholder: "Custom category…",
     customCategoryFallback: "Custom",
     maxCategoriesHelp: "Max {max} active categories per gallery.",
     categoriesAffectNewOnly: "Changes here only affect new husk'ets.",
