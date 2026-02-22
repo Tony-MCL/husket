@@ -186,16 +186,10 @@ export function AlbumScreen({ dict, life, settings }: Props) {
   }, [items, applied.appliedRatings, applied.appliedCategoryIds, applied.appliedTimeFilter]);
 
   const timeLabelShort = (k: TimeFilterKey) => {
-    if (lang === "no") {
-      if (k === "all") return "Alle";
-      if (k === "7d") return "Siste uke";
-      if (k === "30d") return "Siste måned";
-      return "Siste år";
-    }
-    if (k === "all") return "All";
-    if (k === "7d") return "Last week";
-    if (k === "30d") return "Last month";
-    return "Last year";
+    if (k === "all") return tGet(dict, "album.filters.time.all");
+    if (k === "7d") return tGet(dict, "album.filters.time.7d");
+    if (k === "30d") return tGet(dict, "album.filters.time.30d");
+    return tGet(dict, "album.filters.time.365d");
   };
 
   // Ratings to show in filter dropdown = pack options + any ratings found in existing data (for this life)
@@ -233,7 +227,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
     if (anyAppliedRatingSelected) {
       const picked = Object.entries(applied.appliedRatings)
         .filter(([, v]) => v)
-        .map(([k]) => (k === "__none__" ? (lang === "no" ? "Ingen" : "None") : formatRatingValueForSummary(k)));
+        .map(([k]) => (k === "__none__" ? tGet(dict, "common.none") : formatRatingValueForSummary(k)));
       if (picked.length > 0) parts.push(`⭐ ${picked.join(", ")}`);
     }
 
@@ -243,7 +237,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
         .map(([k]) => k);
 
       const labels = pickedIds.map((id) => {
-        if (id === "__none__") return lang === "no" ? "Ingen" : "None";
+        if (id === "__none__") return tGet(dict, "common.none");
         return categoryLabel(id) ?? id;
       });
 
@@ -254,7 +248,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
       parts.push(`⏱ ${timeLabelShort(applied.appliedTimeFilter)}`);
     }
 
-    return parts.length > 0 ? parts : [lang === "no" ? "Ingen filtre" : "No filters"];
+    return parts.length > 0 ? parts : [tGet(dict, "album.filters.noFilters")];
   }, [
     anyAppliedRatingSelected,
     anyAppliedCategorySelected,
@@ -514,7 +508,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
             {/* TIME */}
             <div style={sectionSpacer}>
               <div className="label" style={dropLabelStyle}>
-                {lang === "no" ? "Tid" : "Time"}
+                {tGet(dict, "album.filters.timeTitle")}
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -539,7 +533,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
             {/* RATING */}
             <div style={sectionSpacer}>
               <div className="label" style={dropLabelStyle}>
-                {lang === "no" ? "Vurdering" : "Rating"}
+                {tGet(dict, "album.filters.ratingTitle")}
               </div>
 
               <div style={{ display: "flex", flexWrap: "wrap", gap: 18 }}>
@@ -557,14 +551,14 @@ export function AlbumScreen({ dict, life, settings }: Props) {
                   </label>
                 ))}
 
-                <label style={flatChoiceRow} title={lang === "no" ? "Huskets uten vurdering" : "Huskets without rating"}>
+                <label style={flatChoiceRow} title={tGet(dict, "album.filters.ratingNoneTitle")}>
                   <input
                     type="checkbox"
                     checked={!!draftRatings["__none__"]}
                     onChange={() => setDraftRatings((p) => ({ ...p, __none__: !p.__none__ }))}
                     style={checkboxStyle}
                   />
-                  <span>{lang === "no" ? "Ingen" : "None"}</span>
+                  <span>{tGet(dict, "common.none")}</span>
                 </label>
               </div>
             </div>
@@ -576,7 +570,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
             {/* CATEGORIES */}
             <div style={sectionSpacer}>
               <div className="label" style={dropLabelStyle}>
-                {lang === "no" ? "Kategori" : "Category"}
+                {tGet(dict, "album.filters.categoryTitle")}
               </div>
 
               {cats.length === 0 ? (
@@ -597,7 +591,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
                     </label>
                   ))}
 
-                  <label style={flatChoiceRow} title={lang === "no" ? "Huskets uten kategori" : "Huskets without category"}>
+                  <label style={flatChoiceRow} title={tGet(dict, "album.filters.categoryNoneTitle")}>
                     <input
                       type="checkbox"
                       checked={!!draftCategoryIds["__none__"]}
@@ -612,11 +606,11 @@ export function AlbumScreen({ dict, life, settings }: Props) {
 
             <div style={actionsRow}>
               <button type="button" onClick={resetFiltersAndClose} style={actionBtnDanger}>
-                {lang === "no" ? "Nullstill filtre" : "Reset filters"}
+                {tGet(dict, "album.filters.reset")}
               </button>
 
               <button type="button" onClick={applyFiltersAndClose} style={actionBtnConfirm}>
-                {lang === "no" ? "Aktiver filtre" : "Apply filters"}
+                {tGet(dict, "album.filters.apply")}
               </button>
             </div>
           </div>
@@ -625,7 +619,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
 
       {filteredItems.length === 0 ? (
         <div className="smallHelp" style={textB}>
-          {lang === "no" ? "Ingen treff på valgte filtre." : "No matches for selected filters."}
+          {tGet(dict, "album.filters.noMatches")}
         </div>
       ) : (
         <div className="albumGrid">
@@ -641,7 +635,7 @@ export function AlbumScreen({ dict, life, settings }: Props) {
                 <img className="thumbImg" src={thumbUrls[it.id]} alt="" />
               ) : (
                 <div className="capturePreview" style={textB}>
-                  Loading…
+                  {tGet(dict, "album.loading")}
                 </div>
               )}
               <div className="thumbMeta" style={thumbMetaTypography}>
