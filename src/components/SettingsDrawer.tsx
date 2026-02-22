@@ -45,8 +45,8 @@ function isEditableCategoryLabel(life: LifeKey, id: string): boolean {
 function getLifeLabel(dict: I18nDict, settings: Settings, key: LifeKey): string {
   if (key === "private") return tGet(dict, "top.private");
   if (key === "work") return tGet(dict, "top.work");
-  if (key === "custom1") return settings.lives.custom1Name?.trim() || "Egendefinert 1";
-  return settings.lives.custom2Name?.trim() || "Egendefinert 2";
+  if (key === "custom1") return settings.lives.custom1Name?.trim() || tGet(dict, "start.custom1");
+  return settings.lives.custom2Name?.trim() || tGet(dict, "start.custom2");
 }
 
 function getCategoryIcon(categoryId: string): string {
@@ -147,7 +147,7 @@ export function SettingsDrawer({
 
     const isPrivateWorkCustom =
       categoryId === PRIVATE_CUSTOM_CATEGORY_ID || categoryId === WORK_CUSTOM_CATEGORY_ID;
-    const fallback = isPrivateWorkCustom ? "Egendefinert" : list[idx].label;
+    const fallback = isPrivateWorkCustom ? tGet(dict, "settings.customCategoryFallback") : list[idx].label;
 
     const label = clean.length > 0 ? clean : fallback;
 
@@ -208,6 +208,10 @@ export function SettingsDrawer({
   };
 
   const maxActiveCats = settings.premium ? 5 : 4;
+  const maxCatsHelp = useMemo(
+    () => tGet(dict, "settings.maxCategoriesHelp").replace("{max}", String(maxActiveCats)),
+    [dict, maxActiveCats]
+  );
 
   const setCategoryEnabledForLife = (life: LifeKey, categoryId: CategoryId, enabled: boolean) => {
     if (!settings.premium && isPremiumOnlyCategory(life, categoryId)) {
@@ -568,7 +572,7 @@ export function SettingsDrawer({
             <div style={panelRow}>
               <button type="button" onClick={() => setActiveLifeFromDrawer("private")} style={rowButtonStyle(false)}>
                 <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                  <div style={panelTitle}>Privat</div>
+                  <div style={panelTitle}>{tGet(dict, "top.private")}</div>
                 </div>
                 <span aria-hidden style={checkBoxStyle(activeLife === "private")}>
                   {activeLife === "private" ? "✓" : ""}
@@ -579,7 +583,7 @@ export function SettingsDrawer({
             <div style={settings.premium ? panelRow : panelRowLast}>
               <button type="button" onClick={() => setActiveLifeFromDrawer("work")} style={rowButtonStyle(false)}>
                 <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                  <div style={panelTitle}>Jobb</div>
+                  <div style={panelTitle}>{tGet(dict, "top.work")}</div>
                 </div>
                 <span aria-hidden style={checkBoxStyle(activeLife === "work")}>{activeLife === "work" ? "✓" : ""}</span>
               </button>
@@ -594,7 +598,7 @@ export function SettingsDrawer({
                         className="input"
                         value={settings.lives.custom1Name}
                         onChange={(e) => updateLifeName("custom1", e.target.value)}
-                        placeholder="Egendefinert 1"
+                        placeholder={tGet(dict, "start.custom1")}
                         style={{ padding: "8px 10px" }}
                       />
                     </div>
@@ -611,7 +615,7 @@ export function SettingsDrawer({
                         className="input"
                         value={settings.lives.custom2Name}
                         onChange={(e) => updateLifeName("custom2", e.target.value)}
-                        placeholder="Egendefinert 2"
+                        placeholder={tGet(dict, "start.custom2")}
                         style={{ padding: "8px 10px" }}
                       />
                     </div>
@@ -649,11 +653,11 @@ export function SettingsDrawer({
         {openCategories ? (
           <div style={panelStyle}>
             <div className="smallHelp" style={panelHelp}>
-              Maks {maxActiveCats} aktive kategorier per galleri.
+              {maxCatsHelp}
             </div>
 
             <div className="smallHelp" style={{ ...panelHelp, marginTop: 6 }}>
-              Endringer her påvirker kun nye husk&apos;ets.
+              {tGet(dict, "settings.categoriesAffectNewOnly")}
             </div>
 
             {/* ✅ Custom-liv: add new custom categories with same visual language */}
@@ -664,7 +668,7 @@ export function SettingsDrawer({
                     className="input"
                     value={customCatText}
                     onChange={(e) => setCustomCatText(e.target.value)}
-                    placeholder="Legg til kategori…"
+                    placeholder={tGet(dict, "settings.addCategoryPlaceholder")}
                     disabled={!settings.premium || !activeLifeEnabled}
                     style={{ padding: "8px 10px" }}
                   />
@@ -679,8 +683,8 @@ export function SettingsDrawer({
                     cursor: !settings.premium || !activeLifeEnabled ? "not-allowed" : "pointer",
                     borderColor: !settings.premium ? MCL_HUSKET_THEME.colors.outline : MCL_HUSKET_THEME.colors.altSurface,
                   }}
-                  title={!settings.premium ? "Premium" : !activeLifeEnabled ? "OFF" : ""}
-                  aria-label="Legg til"
+                  title={!settings.premium ? tGet(dict, "settings.premium") : !activeLifeEnabled ? tGet(dict, "common.off") : ""}
+                  aria-label={tGet(dict, "common.add")}
                 >
                   +
                 </button>
@@ -775,7 +779,7 @@ export function SettingsDrawer({
               onChange(setRatingPackForLife(settings, activeLife, next));
             }}
             disabled={!activeLifeEnabled}
-            title={!activeLifeEnabled ? "OFF" : ""}
+            title={!activeLifeEnabled ? tGet(dict, "common.off") : ""}
           >
             {ratingOptions.map((k) => (
               <option key={k} value={k}>
@@ -790,7 +794,7 @@ export function SettingsDrawer({
         {/* 4) Tema (global) */}
         <div style={lineRow}>
           <div style={lineLeft}>
-            <div style={lineTitle}>Tema</div>
+            <div style={lineTitle}>{tGet(dict, "settings.theme")}</div>
           </div>
 
           <select
@@ -799,7 +803,7 @@ export function SettingsDrawer({
             value={settings.themeKey}
             onChange={(e) => update({ themeKey: e.target.value as Settings["themeKey"] })}
           >
-            <option value="fjord">Fjord</option>
+            <option value="fjord">{tGet(dict, "themes.fjord")}</option>
           </select>
         </div>
 
@@ -819,7 +823,7 @@ export function SettingsDrawer({
               onClick={() => update({ gpsGlobalEnabled: true })}
               aria-pressed={settings.gpsGlobalEnabled}
             >
-              ON
+              {tGet(dict, "common.on")}
             </button>
             <button
               type="button"
@@ -828,7 +832,7 @@ export function SettingsDrawer({
               onClick={() => update({ gpsGlobalEnabled: false })}
               aria-pressed={!settings.gpsGlobalEnabled}
             >
-              OFF
+              {tGet(dict, "common.off")}
             </button>
           </div>
         </div>
@@ -871,7 +875,7 @@ export function SettingsDrawer({
         {/* 7) Terms&conditions */}
         <div style={lineRow}>
           <div style={lineLeft}>
-            <div style={lineTitle}>Terms&conditions</div>
+            <div style={lineTitle}>{tGet(dict, "settings.terms")}</div>
           </div>
 
           <button
@@ -880,7 +884,7 @@ export function SettingsDrawer({
             style={actionTextStyle}
             onClick={() => window.open("https://morningcoffeelabs.no/terms", "_blank", "noopener,noreferrer")}
           >
-            Åpne
+            {tGet(dict, "common.open")}
           </button>
         </div>
 
@@ -889,7 +893,7 @@ export function SettingsDrawer({
         {/* 8) Kontakt oss */}
         <div style={lineRow}>
           <div style={lineLeft}>
-            <div style={lineTitle}>Kontakt oss</div>
+            <div style={lineTitle}>{tGet(dict, "settings.contact")}</div>
           </div>
 
           <button
@@ -898,7 +902,7 @@ export function SettingsDrawer({
             style={actionTextStyle}
             onClick={() => window.open("https://morningcoffeelabs.no/contact", "_blank", "noopener,noreferrer")}
           >
-            Åpne
+            {tGet(dict, "common.open")}
           </button>
         </div>
       </aside>
