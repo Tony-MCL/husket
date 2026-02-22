@@ -19,8 +19,8 @@ type Props = {
 function getLifeLabel(dict: I18nDict, settings: Settings, key: LifeKey): string {
   if (key === "private") return tGet(dict, "top.private");
   if (key === "work") return tGet(dict, "top.work");
-  if (key === "custom1") return settings.lives.custom1Name || "Custom 1";
-  return settings.lives.custom2Name || "Custom 2";
+  if (key === "custom1") return settings.lives.custom1Name?.trim() || tGet(dict, "start.custom1");
+  return settings.lives.custom2Name?.trim() || tGet(dict, "start.custom2");
 }
 
 export function TopBar({ dict, settings, life, onLifeChange: _onLifeChange, onOpenSettings }: Props) {
@@ -74,7 +74,7 @@ export function TopBar({ dict, settings, life, onLifeChange: _onLifeChange, onOp
 
   return (
     <div className="topRow" style={headerStyle}>
-      <div style={lifeLabelStyle} aria-label="Active life">
+      <div style={lifeLabelStyle} aria-label={tGet(dict, "a11y.activeLife")}>
         {activeLifeLabel}
       </div>
 
