@@ -103,7 +103,9 @@ export function AlbumScreen({ dict, life, settings }: Props) {
 
   const categoryLabel = (id: string | null) => {
     if (!id) return null;
-    return cats.find((c) => c.id === id)?.label ?? null;
+    const raw = cats.find((c) => c.id === id)?.label ?? null;
+    if (!raw) return null;
+    return raw.startsWith("cats.") ? tGet(dict, raw) : raw;
   };
 
   // Rating pack is per-life (fallback to global)
