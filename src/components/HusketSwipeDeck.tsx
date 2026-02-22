@@ -229,7 +229,9 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
     placeItems: "center",
     padding: "0 12px",
     isolation: "isolate",
-    background: MCL_HUSKET_THEME.colors.header,
+
+    // ✅ Theme-match TopBar/BottomNav background (and later themes)
+    background: "var(--header)",
   };
 
   const makeCardBase = (maxW: number): React.CSSProperties => ({
