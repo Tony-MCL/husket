@@ -19,7 +19,7 @@ export const no = {
 
   app: { title: "husket" },
   nav: { new: "Ny husket", album: "Galleri" },
-  top: { private: "Galleri 1", work: "Galleri 2", menu: "Meny" },
+  top: { private: "Privat", work: "Jobb", menu: "Meny" },
 
   splash: {
     aria: "Oppstart",
