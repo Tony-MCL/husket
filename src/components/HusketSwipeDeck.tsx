@@ -421,7 +421,7 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
   // ✅ Underkort synlig KUN når vi drar/sveiper (og aldri i fullskjerm).
   const underVisible = showUnder && !fullOpen;
 
-  const husketMomentLabel = lang === "no" ? "Husket øyeblikk" : "Saved moment";
+  const husketMomentLabel = tGet(dict, "viewer.moment");
 
   return (
     <div style={deckWrapStyle}>
@@ -446,7 +446,7 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
                   <img src={underUrl} alt="" style={imageStyle} />
                 ) : (
                   <div className="smallHelp" style={{ ...textB, padding: 14, color: "rgba(247,243,237,0.8)" }}>
-                    Loading…
+                    {tGet(dict, "viewer.loading")}
                   </div>
                 )}
               </div>
@@ -529,8 +529,8 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
             className="husketCardArrow left"
             onClick={() => void goNewerAnimated()}
             type="button"
-            aria-label="Newer"
-            title={lang === "no" ? "Nyere" : "Newer"}
+            aria-label={tGet(dict, "viewer.newer")}
+            title={tGet(dict, "viewer.newer")}
             style={textA}
           >
             ◀
@@ -542,8 +542,8 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
             className="husketCardArrow right"
             onClick={() => void goOlderAnimated()}
             type="button"
-            aria-label="Older"
-            title={lang === "no" ? "Eldre" : "Older"}
+            aria-label={tGet(dict, "viewer.older")}
+            title={tGet(dict, "viewer.older")}
             style={textA}
           >
             ▶
@@ -560,13 +560,13 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
               setFullOpen(true);
             }}
             role={topUrl ? "button" : undefined}
-            aria-label={topUrl ? (lang === "no" ? "Åpne bilde i fullskjerm" : "Open photo fullscreen") : undefined}
+            aria-label={topUrl ? tGet(dict, "viewer.fullscreen") : undefined}
           >
             {topUrl ? (
               <img src={topUrl} alt="" style={imageStyle} />
             ) : (
               <div className="smallHelp" style={{ ...textB, padding: 14, color: "rgba(247,243,237,0.8)" }}>
-                Loading…
+                {tGet(dict, "viewer.loading")}
               </div>
             )}
           </div>
@@ -586,7 +586,7 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
             </div>
           ) : (
             <div style={{ ...textB, color: "rgba(247,243,237,0.60)", marginTop: 2 }}>
-              {lang === "no" ? "Ingen kommentar." : "No comment."}
+              {tGet(dict, "viewer.noComment")}
             </div>
           )}
 
@@ -602,11 +602,11 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
                   style={flatActionLink}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  🌍 {lang === "no" ? "Kart" : "Map"}
+                  🌍 {tGet(dict, "viewer.map")}
                 </a>
               ) : (
                 <span style={{ ...textB, color: "rgba(247,243,237,0.65)" }}>
-                  🌍 {lang === "no" ? "Ingen GPS" : "No GPS"}
+                  🌍 {tGet(dict, "viewer.noGps")}
                 </span>
               )}
             </div>
@@ -630,9 +630,9 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
                   onDeleteCurrent();
                 }}
                 style={flatDangerEdgeBtn}
-                title={lang === "no" ? "Slett" : "Delete"}
+                title={tGet(dict, "viewer.delete")}
               >
-                🗑 {lang === "no" ? "Slett" : "Delete"}
+                🗑 {tGet(dict, "viewer.delete")}
               </button>
             </div>
 
@@ -650,9 +650,9 @@ export function HusketSwipeDeck({ dict, settings, items, index, onSetIndex, onCl
                   onClose();
                 }}
                 style={flatEdgeBtn}
-                title={lang === "no" ? "Lukk" : "Close"}
+                title={tGet(dict, "viewer.close")}
               >
-                ✕ {lang === "no" ? "Lukk" : "Close"}
+                ✕ {tGet(dict, "viewer.close")}
               </button>
             </div>
           </div>
