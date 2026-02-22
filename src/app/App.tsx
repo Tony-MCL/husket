@@ -152,10 +152,9 @@ export function App() {
   // -------------------------------
   if (boot === "splash") {
     return (
-      <div className={`${themeClass} bootShell`}>
+      <div className={`${themeClass} splashOnlyShell`}>
         <SplashScreen
           onDone={() => {
-            // start fade out, then switch screen, then fade in
             setFade("fadingOut");
             window.setTimeout(() => {
               goAfterSplash();
@@ -164,8 +163,8 @@ export function App() {
           }}
           mp4File="splash.mp4"
           gifFile="splash.gif"
-          minVisibleMs={4500}
-          hardTimeoutMs={6500}
+          minVisibleMs={3000}
+          hardTimeoutMs={3400}
         />
       </div>
     );
