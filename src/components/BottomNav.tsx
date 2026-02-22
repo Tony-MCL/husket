@@ -93,6 +93,8 @@ export function BottomNav({ dict, route, onRouteChange }: Props) {
         </button>
 
         <button
+          id="bottomNavAlbumBtn"
+          data-nav="album"
           className={`bottomBtn ${route === "album" ? "active" : ""}`}
           onClick={() => onRouteChange("album")}
           type="button"
