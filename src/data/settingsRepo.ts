@@ -8,7 +8,10 @@ import { readJson, writeJson } from "../storage/local";
 const KEY_V1 = "husket.settings.v1";
 const KEY_V2 = "husket.settings.v2";
 
-type SettingsV1 = Omit<Settings, "version" | "ratingPackByLife" | "disabledCategoryIdsByLife" | "themeKey"> & {
+type SettingsV1 = Omit<
+  Settings,
+  "version" | "ratingPackByLife" | "disabledCategoryIdsByLife" | "themeKey"
+> & {
   version: 1;
   ratingPackByLife?: never;
   disabledCategoryIdsByLife?: never;
@@ -19,11 +22,9 @@ function migrateV1ToV2(v1: SettingsV1): Settings {
   return {
     ...(v1 as any),
     version: 2,
+    themeKey: "fjord",
     ratingPackByLife: {},
     disabledCategoryIdsByLife: {},
-
-    // ✅ Theme default for migrated installs
-    themeKey: "fjord",
   } as Settings;
 }
 
@@ -86,7 +87,9 @@ function ensureCategoriesUpToDate(s: Settings): { next: Settings; changed: boole
       current.length === merged.length &&
       current.every(
         (c, idx) =>
-          c.id === merged[idx].id && c.label === merged[idx].label && c.gpsEligible === merged[idx].gpsEligible
+          c.id === merged[idx].id &&
+          c.label === merged[idx].label &&
+          c.gpsEligible === merged[idx].gpsEligible
       );
 
     if (!same) {
@@ -131,20 +134,11 @@ function ensureLivesFlags(s: Settings): { next: Settings; changed: boolean } {
   };
 }
 
-// ✅ Ensure themeKey exists and is valid-ish
 function ensureThemeKey(s: Settings): { next: Settings; changed: boolean } {
   const key = (s as any).themeKey;
-  if (key === "fjord" || key === "forest" || key === "sunset" || key === "night" || key === "desert") {
-    return { next: s, changed: false };
-  }
-
-  return {
-    next: {
-      ...s,
-      themeKey: "fjord",
-    },
-    changed: true,
-  };
+  if (key === "fjord") return { next: s, changed: false };
+  // fallback (future: validate against list)
+  return { next: { ...s, themeKey: "fjord" }, changed: true };
 }
 
 export function loadSettings(): Settings {
@@ -190,8 +184,9 @@ export function loadSettings(): Settings {
     const migrated = migrateV1ToV2(v1);
     const ensuredTheme = ensureThemeKey(migrated);
     const ensuredCats = ensureCategoriesUpToDate(ensuredTheme.changed ? ensuredTheme.next : migrated);
-    const ensuredLives = ensureLivesFlags(ensuredCats.changed ? ensuredCats.next : (ensuredTheme.changed ? ensuredTheme.next : migrated));
-    const final = ensuredLives.changed ? ensuredLives.next : ensuredLives.next;
+    const ensuredLives = ensureLivesFlags(ensuredCats.changed ? ensuredCats.next : ensuredCats.next);
+
+    const final = ensuredLives.next;
 
     writeJson(KEY_V2, final);
     return final;
@@ -200,7 +195,7 @@ export function loadSettings(): Settings {
   const fresh = defaultSettings();
   const fixedFresh: Settings = {
     ...fresh,
-    themeKey: (fresh as any).themeKey ?? "fjord",
+    themeKey: fresh.themeKey ?? "fjord",
     ratingPackByLife: fresh.ratingPackByLife ?? {},
     disabledCategoryIdsByLife: fresh.disabledCategoryIdsByLife ?? {},
   };
