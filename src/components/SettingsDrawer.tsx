@@ -556,11 +556,13 @@ export function SettingsDrawer({
           aria-expanded={openLives}
         >
           <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <span style={{ ...lineTitle }}>husk&apos;ets lagres til</span>
+            <span style={{ ...lineTitle }}>{tGet(dict, "settings.saveToTitle")}</span>
           </span>
 
           <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <span style={{ ...lineSub, maxWidth: 220 }}>{activeLifeLabel} galleri</span>
+            <span style={{ ...lineSub, maxWidth: 220 }}>
+              {activeLifeLabel} {tGet(dict, "settings.galleryWord")}
+            </span>
             <span aria-hidden style={{ opacity: 0.85 }}>
               {openLives ? "▴" : "▾"}
             </span>
