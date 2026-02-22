@@ -71,28 +71,6 @@ export function SettingsDrawer({
 
   const update = (patch: Partial<Settings>) => onChange({ ...settings, ...patch });
 
-  const enabledLivesCount = useMemo(() => {
-    const s = settings.lives;
-    return [s.enabledPrivate, s.enabledCustom1, s.enabledCustom2, s.enabledWork].filter(Boolean).length;
-  }, [settings.lives]);
-
-  const setLifeEnabled = (life: LifeKey, enabled: boolean) => {
-    // Never allow turning off the last enabled life
-    if (!enabled && enabledLivesCount <= 1) return;
-
-    // Custom lives are premium-only
-    if ((life === "custom1" || life === "custom2") && !settings.premium) return onRequirePremium();
-
-    const nextLives = { ...settings.lives };
-
-    if (life === "private") nextLives.enabledPrivate = enabled;
-    if (life === "work") nextLives.enabledWork = enabled;
-    if (life === "custom1") nextLives.enabledCustom1 = enabled;
-    if (life === "custom2") nextLives.enabledCustom2 = enabled;
-
-    onChange({ ...settings, lives: nextLives });
-  };
-
   const updateLifeName = (life: "custom1" | "custom2", name: string) => {
     const clean = clamp100(name.trim());
     const nextLives = { ...settings.lives };
@@ -131,9 +109,6 @@ export function SettingsDrawer({
   const addCustomCategoryForCustomLife = (life: LifeKey) => {
     if (!settings.premium) return onRequirePremium();
     if (!isCustomLife(life)) return;
-
-    const enabled = life === "custom1" ? settings.lives.enabledCustom1 : settings.lives.enabledCustom2;
-    if (!enabled) return;
 
     const label = customCatText.trim();
     if (!label) return;
@@ -225,33 +200,25 @@ export function SettingsDrawer({
   const activeRatingPack = useMemo(() => getEffectiveRatingPack(settings, activeLife), [settings, activeLife]);
 
   const activeLifeIsCustom = isCustomLife(activeLife);
-  const activeLifeEnabled = useMemo(() => {
-    if (activeLife === "private") return settings.lives.enabledPrivate;
-    if (activeLife === "work") return settings.lives.enabledWork;
-    if (activeLife === "custom1") return settings.lives.enabledCustom1;
-    return settings.lives.enabledCustom2;
-  }, [activeLife, settings.lives]);
 
-  // ✅ Enabled lives for switching active life
-  const enabledLifeKeys = useMemo<LifeKey[]>(() => {
-    const s = settings.lives;
-    const list: LifeKey[] = [];
-    if (s.enabledPrivate) list.push("private");
-    if (s.enabledCustom1) list.push("custom1");
-    if (s.enabledCustom2) list.push("custom2");
-    if (s.enabledWork) list.push("work");
-    return list.length ? list : (["private"] as LifeKey[]);
-  }, [settings.lives]);
+  // ✅ Lives are now simply "available" (no enable/disable toggles)
+  const availableLifeKeys = useMemo<LifeKey[]>(() => {
+    const base: LifeKey[] = ["private", "work"];
+    if (settings.premium) return [...base, "custom1", "custom2"];
+    return base;
+  }, [settings.premium]);
+
+  const activeLifeEnabled = useMemo(() => {
+    if (activeLifeIsCustom) return settings.premium;
+    return true;
+  }, [activeLifeIsCustom, settings.premium]);
 
   const setActiveLifeFromDrawer = (nextLife: LifeKey) => {
-    // Premium lock for custom lives (in case something weird becomes visible)
-    if ((nextLife === "custom1" || nextLife === "custom2") && !settings.premium) {
+    if (isCustomLife(nextLife) && !settings.premium) {
       onRequirePremium();
       return;
     }
-
-    // Must be enabled
-    if (!enabledLifeKeys.includes(nextLife)) return;
+    if (!availableLifeKeys.includes(nextLife)) return;
 
     onSetActiveLife(nextLife);
     // ✅ do NOT close drawer (keeps behavior predictable)
@@ -437,15 +404,49 @@ export function SettingsDrawer({
   }, [activeCats, activeDisabledMap, dict, maxActiveCats]);
 
   const livesSummary = useMemo(() => {
-    return `${enabledLivesCount}/4`;
-  }, [enabledLivesCount]);
+    const total = settings.premium ? 4 : 2;
+    return `${total}`;
+  }, [settings.premium]);
 
   const activeLifeLabel = useMemo(() => getLifeLabel(dict, settings, activeLife), [dict, settings, activeLife]);
 
   if (!open) return null;
 
-  const custom1Locked = !settings.premium;
-  const custom2Locked = !settings.premium;
+  const checkBoxStyleBase: React.CSSProperties = {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    border: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
+    display: "grid",
+    placeItems: "center",
+    lineHeight: 1,
+    userSelect: "none",
+  };
+
+  const checkBoxStyle = (checked: boolean): React.CSSProperties => ({
+    ...checkBoxStyleBase,
+    background: checked ? MCL_HUSKET_THEME.colors.altSurface : "transparent",
+    border: checked
+      ? `1px solid ${MCL_HUSKET_THEME.colors.altSurface}`
+      : `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
+    color: checked ? MCL_HUSKET_THEME.colors.textOnDark : MCL_HUSKET_THEME.colors.darkSurface,
+    fontSize: 14,
+    fontWeight: 900,
+  });
+
+  const lifeRowBtnStyle = (disabled?: boolean): React.CSSProperties => ({
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: 0,
+    background: "transparent",
+    border: "none",
+    cursor: disabled ? "not-allowed" : "pointer",
+    textAlign: "left",
+    color: MCL_HUSKET_THEME.colors.darkSurface,
+  });
 
   return (
     <>
@@ -490,233 +491,84 @@ export function SettingsDrawer({
           <div style={panelStyle}>
             {/* PRIVATE */}
             <div style={panelRow}>
-              <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                <div style={panelTitle}>Privat</div>
-              </div>
+              <button
+                type="button"
+                onClick={() => setActiveLifeFromDrawer("private")}
+                style={lifeRowBtnStyle(false)}
+              >
+                <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
+                  <div style={panelTitle}>Privat</div>
+                </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                {/* Enabled */}
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    cursor: settings.lives.enabledPrivate && enabledLivesCount <= 1 ? "not-allowed" : "pointer",
-                  }}
-                  title={settings.lives.enabledPrivate && enabledLivesCount <= 1 ? "Må ha minst ett liv aktivt" : ""}
-                >
-                  <input
-                    type="checkbox"
-                    checked={settings.lives.enabledPrivate}
-                    onChange={(e) => setLifeEnabled("private", e.target.checked)}
-                    disabled={settings.lives.enabledPrivate && enabledLivesCount <= 1}
-                  />
-                </label>
-
-                {/* Active */}
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    cursor: settings.lives.enabledPrivate ? "pointer" : "not-allowed",
-                  }}
-                  title={!settings.lives.enabledPrivate ? "Må være aktivert" : ""}
-                >
-                  <input
-                    type="radio"
-                    name="activeLife"
-                    checked={activeLife === "private"}
-                    onChange={() => setActiveLifeFromDrawer("private")}
-                    disabled={!settings.lives.enabledPrivate}
-                  />
-                </label>
-              </div>
+                <span aria-hidden style={checkBoxStyle(activeLife === "private")}>
+                  {activeLife === "private" ? "✓" : ""}
+                </span>
+              </button>
             </div>
 
             {/* WORK */}
-            <div style={panelRow}>
-              <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                <div style={panelTitle}>Jobb</div>
-              </div>
+            <div style={settings.premium ? panelRow : panelRowLast}>
+              <button type="button" onClick={() => setActiveLifeFromDrawer("work")} style={lifeRowBtnStyle(false)}>
+                <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
+                  <div style={panelTitle}>Jobb</div>
+                </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                {/* Enabled */}
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    cursor: settings.lives.enabledWork && enabledLivesCount <= 1 ? "not-allowed" : "pointer",
-                  }}
-                  title={settings.lives.enabledWork && enabledLivesCount <= 1 ? "Må ha minst ett liv aktivt" : ""}
-                >
-                  <input
-                    type="checkbox"
-                    checked={settings.lives.enabledWork}
-                    onChange={(e) => setLifeEnabled("work", e.target.checked)}
-                    disabled={settings.lives.enabledWork && enabledLivesCount <= 1}
-                  />
-                </label>
-
-                {/* Active */}
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    cursor: settings.lives.enabledWork ? "pointer" : "not-allowed",
-                  }}
-                  title={!settings.lives.enabledWork ? "Må være aktivert" : ""}
-                >
-                  <input
-                    type="radio"
-                    name="activeLife"
-                    checked={activeLife === "work"}
-                    onChange={() => setActiveLifeFromDrawer("work")}
-                    disabled={!settings.lives.enabledWork}
-                  />
-                </label>
-              </div>
+                <span aria-hidden style={checkBoxStyle(activeLife === "work")}>
+                  {activeLife === "work" ? "✓" : ""}
+                </span>
+              </button>
             </div>
 
-            {/* CUSTOM 1 */}
-            <div style={panelRow}>
-              <div style={{ display: "grid", gap: 2, minWidth: 0, flex: 1 }}>
-                <input
-                  className="input"
-                  value={settings.lives.custom1Name}
-                  onChange={(e) => updateLifeName("custom1", e.target.value)}
-                  placeholder="Egendefinert…"
-                  disabled={custom1Locked}
-                  onClick={() => {
-                    if (custom1Locked) onRequirePremium();
-                  }}
-                  style={{ padding: "8px 10px" }}
-                  title={custom1Locked ? "Premium" : ""}
-                />
-              </div>
+            {/* CUSTOM lives are Premium-only and hidden entirely for standard */}
+            {settings.premium ? (
+              <>
+                {/* CUSTOM 1 */}
+                <div style={panelRow}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveLifeFromDrawer("custom1")}
+                    style={lifeRowBtnStyle(false)}
+                  >
+                    <div style={{ display: "grid", gap: 2, minWidth: 0, flex: 1 }}>
+                      <input
+                        className="input"
+                        value={settings.lives.custom1Name}
+                        onChange={(e) => updateLifeName("custom1", e.target.value)}
+                        placeholder="Egendefinert…"
+                        style={{ padding: "8px 10px" }}
+                      />
+                    </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                {/* Enabled */}
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    cursor:
-                      custom1Locked || (settings.lives.enabledCustom1 && enabledLivesCount <= 1)
-                        ? "not-allowed"
-                        : "pointer",
-                  }}
-                  title={
-                    custom1Locked
-                      ? "Premium"
-                      : settings.lives.enabledCustom1 && enabledLivesCount <= 1
-                      ? "Må ha minst ett liv aktivt"
-                      : ""
-                  }
-                >
-                  <input
-                    type="checkbox"
-                    checked={settings.lives.enabledCustom1}
-                    onChange={(e) => setLifeEnabled("custom1", e.target.checked)}
-                    disabled={custom1Locked || (settings.lives.enabledCustom1 && enabledLivesCount <= 1)}
-                  />
-                </label>
+                    <span aria-hidden style={checkBoxStyle(activeLife === "custom1")}>
+                      {activeLife === "custom1" ? "✓" : ""}
+                    </span>
+                  </button>
+                </div>
 
-                {/* Active */}
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    cursor: settings.lives.enabledCustom1 ? "pointer" : "not-allowed",
-                  }}
-                  title={!settings.lives.enabledCustom1 ? "Må være aktivert" : ""}
-                >
-                  <input
-                    type="radio"
-                    name="activeLife"
-                    checked={activeLife === "custom1"}
-                    onChange={() => setActiveLifeFromDrawer("custom1")}
-                    disabled={!settings.lives.enabledCustom1}
-                    onClick={() => {
-                      if (custom1Locked) onRequirePremium();
-                    }}
-                  />
-                </label>
-              </div>
-            </div>
+                {/* CUSTOM 2 */}
+                <div style={panelRowLast}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveLifeFromDrawer("custom2")}
+                    style={lifeRowBtnStyle(false)}
+                  >
+                    <div style={{ display: "grid", gap: 2, minWidth: 0, flex: 1 }}>
+                      <input
+                        className="input"
+                        value={settings.lives.custom2Name}
+                        onChange={(e) => updateLifeName("custom2", e.target.value)}
+                        placeholder="Egendefinert…"
+                        style={{ padding: "8px 10px" }}
+                      />
+                    </div>
 
-            {/* CUSTOM 2 */}
-            <div style={panelRowLast}>
-              <div style={{ display: "grid", gap: 2, minWidth: 0, flex: 1 }}>
-                <input
-                  className="input"
-                  value={settings.lives.custom2Name}
-                  onChange={(e) => updateLifeName("custom2", e.target.value)}
-                  placeholder="Egendefinert…"
-                  disabled={custom2Locked}
-                  onClick={() => {
-                    if (custom2Locked) onRequirePremium();
-                  }}
-                  style={{ padding: "8px 10px" }}
-                  title={custom2Locked ? "Premium" : ""}
-                />
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                {/* Enabled */}
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    cursor:
-                      custom2Locked || (settings.lives.enabledCustom2 && enabledLivesCount <= 1)
-                        ? "not-allowed"
-                        : "pointer",
-                  }}
-                  title={
-                    custom2Locked
-                      ? "Premium"
-                      : settings.lives.enabledCustom2 && enabledLivesCount <= 1
-                      ? "Må ha minst ett liv aktivt"
-                      : ""
-                  }
-                >
-                  <input
-                    type="checkbox"
-                    checked={settings.lives.enabledCustom2}
-                    onChange={(e) => setLifeEnabled("custom2", e.target.checked)}
-                    disabled={custom2Locked || (settings.lives.enabledCustom2 && enabledLivesCount <= 1)}
-                  />
-                </label>
-
-                {/* Active */}
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    cursor: settings.lives.enabledCustom2 ? "pointer" : "not-allowed",
-                  }}
-                  title={!settings.lives.enabledCustom2 ? "Må være aktivert" : ""}
-                >
-                  <input
-                    type="radio"
-                    name="activeLife"
-                    checked={activeLife === "custom2"}
-                    onChange={() => setActiveLifeFromDrawer("custom2")}
-                    disabled={!settings.lives.enabledCustom2}
-                    onClick={() => {
-                      if (custom2Locked) onRequirePremium();
-                    }}
-                  />
-                </label>
-              </div>
-            </div>
+                    <span aria-hidden style={checkBoxStyle(activeLife === "custom2")}>
+                      {activeLife === "custom2" ? "✓" : ""}
+                    </span>
+                  </button>
+                </div>
+              </>
+            ) : null}
           </div>
         ) : null}
 
