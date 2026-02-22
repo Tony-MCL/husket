@@ -3,13 +3,13 @@
 // ===============================
 export const en = {
   app: { title: "husket" },
-  nav: { new: "New husket", album: "Album" },
+  nav: { new: "New husket", album: "Gallery" },
   top: { private: "Private", work: "Work", menu: "Menu" },
 
   start: {
-    title: "Choose life",
+    title: "Choose the gallery you want to use",
     subtitle: "Pick where this husket belongs. You can switch later.",
-    hint: "Tip: lives can be enabled/renamed in Settings.",
+    hint: "Tip: Premium users can enable/rename custom galleries in Settings.",
     custom1: "Custom 1",
     custom2: "Custom 2",
   },
@@ -26,8 +26,8 @@ export const en = {
     commentPh: "Max 100 characters…",
     category: "Category",
     noCategories: "No categories available.",
-    save: "Save",
-    saved: "Saved",
+    save: "husk'et",
+    saved: "you husk'et it",
     gpsSaved: "GPS saved",
     gpsDenied: "GPS not available",
   },
