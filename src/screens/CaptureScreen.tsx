@@ -50,6 +50,108 @@ async function getGpsIfAllowed(args: {
 }
 
 /**
+ * Screenshot → shrink → fly into Galleri button.
+ * Uses existing preview image URL (no html2canvas dependency).
+ */
+function animatePreviewToAlbumButton(args: {
+  previewEl: HTMLElement | null;
+  imageUrl: string | null;
+}): Promise<void> {
+  const { previewEl, imageUrl } = args;
+
+  if (!previewEl || !imageUrl) return Promise.resolve();
+
+  const targetEl =
+    (document.querySelector("#bottomNavAlbumBtn") as HTMLElement | null) ??
+    (document.querySelector('[data-nav="album"]') as HTMLElement | null);
+
+  if (!targetEl) return Promise.resolve();
+
+  const from = previewEl.getBoundingClientRect();
+  const toBtn = targetEl.getBoundingClientRect();
+
+  // Target: center of Galleri button, ending as a small thumbnail
+  const endW = 18;
+  const endH = 18;
+  const toX = toBtn.left + toBtn.width / 2 - endW / 2;
+  const toY = toBtn.top + toBtn.height / 2 - endH / 2;
+
+  const img = document.createElement("img");
+  img.src = imageUrl;
+  img.alt = "";
+  img.setAttribute("aria-hidden", "true");
+
+  Object.assign(img.style, {
+    position: "fixed",
+    left: `${from.left}px`,
+    top: `${from.top}px`,
+    width: `${from.width}px`,
+    height: `${from.height}px`,
+    objectFit: "cover",
+    borderRadius: "16px",
+    zIndex: "999999",
+    pointerEvents: "none",
+    boxShadow: "0 14px 38px rgba(0,0,0,0.22)",
+    transformOrigin: "top left",
+    opacity: "1",
+  } as Partial<CSSStyleDeclaration>);
+
+  document.body.appendChild(img);
+
+  const anim = img.animate(
+    [
+      {
+        left: `${from.left}px`,
+        top: `${from.top}px`,
+        width: `${from.width}px`,
+        height: `${from.height}px`,
+        borderRadius: "16px",
+        opacity: 1,
+        filter: "none",
+      },
+      {
+        left: `${toX}px`,
+        top: `${toY}px`,
+        width: `${endW}px`,
+        height: `${endH}px`,
+        borderRadius: "8px",
+        opacity: 0.0,
+        filter: "blur(0.4px)",
+      },
+    ],
+    {
+      duration: 520,
+      easing: "cubic-bezier(0.2, 0.9, 0.2, 1)",
+      fill: "forwards",
+    }
+  );
+
+  return new Promise((resolve) => {
+    const done = () => {
+      try {
+        anim.cancel();
+      } catch {
+        // ignore
+      }
+      img.remove();
+      resolve();
+    };
+
+    // Some browsers don’t reliably fire finish, so guard with timeout too.
+    const t = window.setTimeout(done, 700);
+
+    anim.onfinish = () => {
+      window.clearTimeout(t);
+      done();
+    };
+    anim.oncancel = () => {
+      window.clearTimeout(t);
+      done();
+    };
+  });
+}
+
+/**
  * Note about "auto-open camera":
  * On mobile, browsers often allow programmatic click on a file input on first load,
  * but some environments require an explicit user gesture. We do:
@@ -66,13 +168,21 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
   const [comment, setComment] = useState<string>("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
 
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+
   const fileRef = useRef<HTMLInputElement | null>(null);
   const autoOpenAttemptedRef = useRef(false);
+
+  // ✅ Used for screenshot animation
+  const previewBoxRef = useRef<HTMLDivElement | null>(null);
 
   const catsAll = useMemo(() => settings.categories[life] ?? [], [life, settings.categories]);
 
   // NEW: per-life disabled categories => hide from Capture choices
-  const disabledMap = useMemo(() => settings.disabledCategoryIdsByLife?.[life] ?? {}, [settings.disabledCategoryIdsByLife, life]);
+  const disabledMap = useMemo(
+    () => settings.disabledCategoryIdsByLife?.[life] ?? {},
+    [settings.disabledCategoryIdsByLife, life]
+  );
 
   const cats = useMemo(() => {
     return catsAll.filter((c) => !disabledMap[c.id]);
@@ -110,7 +220,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     setImagePreviewUrl(URL.createObjectURL(blob));
   };
 
-  const canSave = !!imageBlob;
+  const canSave = !!imageBlob && !isSaving;
 
   const resetAll = () => {
     if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
@@ -142,6 +252,8 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
   }, []);
 
   const onSave = async () => {
+    if (isSaving) return;
+
     if (!imageBlob) {
       toast.show(tGet(dict, "capture.photoRequired"));
       return;
@@ -154,33 +266,48 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
       return;
     }
 
-    const imageKey = `img:${crypto.randomUUID()}`;
+    setIsSaving(true);
 
-    const gps = await getGpsIfAllowed({
-      settings,
-      categoryId,
-      categoryDefaultGpsEligible: catDefaultGpsEligible,
+    // Start the screenshot-to-album animation immediately (do not block on GPS/save)
+    const animPromise = animatePreviewToAlbumButton({
+      previewEl: previewBoxRef.current,
+      imageUrl: imagePreviewUrl,
     });
 
-    const trimmed = clamp100(comment.trim());
-    const commentOrNull = trimmed.length > 0 ? trimmed : null;
+    try {
+      const imageKey = `img:${crypto.randomUUID()}`;
 
-    const husketBase: Omit<Husket, "id"> = {
-      life,
-      createdAt: Date.now(),
-      imageKey,
-      ratingValue: rating,
-      comment: commentOrNull,
-      categoryId,
-      gps,
-    };
+      const gps = await getGpsIfAllowed({
+        settings,
+        categoryId,
+        categoryDefaultGpsEligible: catDefaultGpsEligible,
+      });
 
-    await createHusket({ husket: husketBase, imageBlob });
+      const trimmed = clamp100(comment.trim());
+      const commentOrNull = trimmed.length > 0 ? trimmed : null;
 
-    toast.show(tGet(dict, "capture.saved"));
+      const husketBase: Omit<Husket, "id"> = {
+        life,
+        createdAt: Date.now(),
+        imageKey,
+        ratingValue: rating,
+        comment: commentOrNull,
+        categoryId,
+        gps,
+      };
 
-    resetAll();
-    onSavedGoAlbum();
+      await createHusket({ husket: husketBase, imageBlob });
+
+      // Ensure animation has had time to finish
+      await animPromise;
+
+      toast.show(tGet(dict, "capture.saved"));
+
+      resetAll();
+      onSavedGoAlbum();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // ---- Typography (B) ----
@@ -251,6 +378,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
     color: "rgba(27, 26, 23, 0.92)", // dark text for contrast on light background
     border: "1px solid rgba(247, 243, 237, 0.14)",
     boxShadow: "none",
+    opacity: isSaving ? 0.75 : 1,
   };
 
   // ✅ Always center the single button under preview
@@ -274,6 +402,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
         }}
       >
         <div
+          ref={previewBoxRef}
           className="capturePreview"
           style={{
             width: "100%",
@@ -307,7 +436,13 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
 
       {/* Photo action (ONE button only) */}
       <div style={photoActionsStyle}>
-        <button className="flatBtn primary" style={primaryBtnStyle} onClick={openCamera} type="button">
+        <button
+          className="flatBtn primary"
+          style={primaryBtnStyle}
+          onClick={openCamera}
+          type="button"
+          disabled={isSaving}
+        >
           {!imageBlob ? tGet(dict, "capture.pickPhoto") : tGet(dict, "capture.retakePhoto")}
         </button>
 
@@ -343,6 +478,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
               onClick={() => setRating((prev) => (prev === v ? null : v))}
               type="button"
               style={{ ...(active ? pillFlatActive : pillFlatBase) }}
+              disabled={isSaving}
             >
               {renderRatingValue(v)}
             </button>
@@ -365,6 +501,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
         value={comment}
         onChange={(e) => setComment(clamp100(e.target.value))}
         placeholder={tGet(dict, "capture.commentPh")}
+        disabled={isSaving}
       />
       <div className="smallHelp" style={helpTextStyle}>
         {comment.length}/100
@@ -395,6 +532,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
                 type="button"
                 title={c.label}
                 style={{ ...(active ? pillFlatActive : pillFlatBase) }}
+                disabled={isSaving}
               >
                 {c.label}
               </button>
@@ -417,7 +555,7 @@ export function CaptureScreen({ dict, life, settings, onRequirePremium, onSavedG
           type="button"
           disabled={!canSave}
         >
-          {tGet(dict, "capture.save")}
+          {isSaving ? "Lagrer…" : tGet(dict, "capture.save")}
         </button>
       </div>
     </div>
