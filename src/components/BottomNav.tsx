@@ -81,7 +81,7 @@ export function BottomNav({ dict, route, onRouteChange }: Props) {
   };
 
   return (
-    <div className="bottomNav" role="navigation" aria-label="Bottom navigation" style={navStyle}>
+    <div className="bottomNav" role="navigation" aria-label={tGet(dict, "a11y.bottomNav")} style={navStyle}>
       <div className="bottomNavInner" style={innerStyle}>
         <button
           className={`bottomBtn ${route === "capture" ? "active" : ""}`}
