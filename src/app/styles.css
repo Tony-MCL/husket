@@ -221,6 +221,28 @@ button {
   margin: 10px 0;
 }
 
+/* Splash is a self-contained full-screen scene (no app background/fog behind) */
+.splashOnlyShell {
+  min-height: 100svh;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+
+  position: relative;
+  overflow: hidden;
+
+  /* Neutral fallback if media fails */
+  background: #0b1f24;
+  color: var(--appText);
+}
+
+/* Ensure SplashScreen can cover the viewport cleanly */
+.splashOnlyShell .splashRoot,
+.splashOnlyShell video,
+.splashOnlyShell img {
+  width: 100%;
+  height: 100%;
+}
 /* -------------------------------
    Buttons
 -------------------------------- */
