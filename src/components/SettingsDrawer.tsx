@@ -45,8 +45,16 @@ function isEditableCategoryLabel(life: LifeKey, id: string): boolean {
 function getLifeLabel(dict: I18nDict, settings: Settings, key: LifeKey): string {
   if (key === "private") return tGet(dict, "top.private");
   if (key === "work") return tGet(dict, "top.work");
-  if (key === "custom1") return settings.lives.custom1Name?.trim() || tGet(dict, "start.custom1");
-  return settings.lives.custom2Name?.trim() || tGet(dict, "start.custom2");
+
+  if (key === "custom1") {
+    const raw = settings.lives.custom1Name?.trim() || "";
+    if (raw.startsWith("start.")) return tGet(dict, raw);
+    return raw.length > 0 ? raw : tGet(dict, "start.custom1");
+  }
+
+  const raw = settings.lives.custom2Name?.trim() || "";
+  if (raw.startsWith("start.")) return tGet(dict, raw);
+  return raw.length > 0 ? raw : tGet(dict, "start.custom2");
 }
 
 function getCategoryIcon(categoryId: string): string {
@@ -529,6 +537,14 @@ export function SettingsDrawer({
     lineHeight: 1,
   };
 
+  // ✅ Helper: show blank in input when the stored value is an i18n-key (so placeholder is visible)
+  const customLifeInputValue = (life: "custom1" | "custom2"): string => {
+    const raw = (life === "custom1" ? settings.lives.custom1Name : settings.lives.custom2Name) ?? "";
+    const v = raw.trim();
+    if (v.startsWith("start.")) return "";
+    return v;
+  };
+
   return (
     <>
       <div className="drawerOverlay" onClick={onClose} style={overlayStyle} />
@@ -598,7 +614,7 @@ export function SettingsDrawer({
                     <div style={{ display: "grid", gap: 2, minWidth: 0, flex: 1 }}>
                       <input
                         className="input"
-                        value={settings.lives.custom1Name}
+                        value={customLifeInputValue("custom1")}
                         onChange={(e) => updateLifeName("custom1", e.target.value)}
                         placeholder={tGet(dict, "start.custom1")}
                         style={{ padding: "8px 10px" }}
@@ -615,7 +631,7 @@ export function SettingsDrawer({
                     <div style={{ display: "grid", gap: 2, minWidth: 0, flex: 1 }}>
                       <input
                         className="input"
-                        value={settings.lives.custom2Name}
+                        value={customLifeInputValue("custom2")}
                         onChange={(e) => updateLifeName("custom2", e.target.value)}
                         placeholder={tGet(dict, "start.custom2")}
                         style={{ padding: "8px 10px" }}
@@ -773,7 +789,7 @@ export function SettingsDrawer({
               ...topbarSelectStyle,
               marginLeft: "auto",
               minWidth: 140,
-              textAlign: "right"
+              textAlign: "right",
             }}
             value={activeRatingPack}
             onChange={(e) => {
