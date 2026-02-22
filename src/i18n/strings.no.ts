@@ -160,6 +160,7 @@ export const no = {
     categories: "Kategorier",
     customCats: "Egendefinerte kategorier (Premium, maks 3)",
     gpsPerCat: "GPS per kategori",
+    customCategoryPlaceholder: "Egendefinert kategori…",
     customCategoryFallback: "Egendefinert",
     maxCategoriesHelp: "Maks {max} aktive kategorier per galleri.",
     categoriesAffectNewOnly: "Endringer her påvirker kun nye husk'ets.",
