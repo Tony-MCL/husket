@@ -83,7 +83,10 @@ export function ViewHusketModal({
     gap: 10,
     padding: "8px 12px",
     boxSizing: "border-box",
-    background: MCL_HUSKET_THEME.colors.header,
+
+    // ✅ Theme-match (same as TopBar/BottomNav/Deck)
+    background: "var(--header)",
+
     borderBottom: `1px solid ${MCL_HUSKET_THEME.colors.outline}`,
     color: MCL_HUSKET_THEME.colors.darkSurface,
   };
@@ -108,8 +111,9 @@ export function ViewHusketModal({
         inset: 0,
         zIndex: 99999,
 
-        // Same background family as TopBar/BottomNav/Drawer
-        background: MCL_HUSKET_THEME.colors.header,
+        // ✅ Theme-match (same as TopBar/BottomNav/Deck)
+        background: "var(--header)",
+
         color: MCL_HUSKET_THEME.colors.darkSurface,
 
         // Keep bottom panel space for swipe deck
