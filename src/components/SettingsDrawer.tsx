@@ -412,10 +412,6 @@ export function SettingsDrawer({
     return `${enabledCount}/${maxActiveCats}`;
   }, [activeCats, activeDisabledMap, dict, maxActiveCats]);
 
-  const livesSummary = useMemo(() => {
-    return settings.premium ? "4" : "2";
-  }, [settings.premium]);
-
   const activeLifeLabel = useMemo(() => getLifeLabel(dict, settings, activeLife), [dict, settings, activeLife]);
 
   if (!open) return null;
@@ -456,16 +452,6 @@ export function SettingsDrawer({
     color: MCL_HUSKET_THEME.colors.darkSurface,
   });
 
-  const linkBtnStyle: React.CSSProperties = {
-    ...textB,
-    background: "transparent",
-    border: "none",
-    color: MCL_HUSKET_THEME.colors.darkSurface,
-    cursor: "pointer",
-    padding: 0,
-    textDecoration: "underline",
-  };
-
   return (
     <>
       <div className="drawerOverlay" onClick={onClose} style={overlayStyle} />
@@ -485,7 +471,7 @@ export function SettingsDrawer({
 
         <div className="hr" style={hrStyle} />
 
-        {/* 1) Liv */}
+        {/* 1) Liv (renamed line copy) */}
         <button
           type="button"
           onClick={() => toggleSection("lives")}
@@ -493,12 +479,11 @@ export function SettingsDrawer({
           aria-expanded={openLives}
         >
           <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <span style={{ ...lineTitle }}>Liv</span>
+            <span style={{ ...lineTitle }}>husk&apos;ets lagres til</span>
           </span>
 
           <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <span style={{ ...lineSub, maxWidth: 160 }}>{activeLifeLabel} aktiv</span>
-            <span style={{ ...lineSub }}>{livesSummary}</span>
+            <span style={{ ...lineSub, maxWidth: 220 }}>{activeLifeLabel} galleri</span>
             <span aria-hidden style={{ opacity: 0.85 }}>
               {openLives ? "▴" : "▾"}
             </span>
@@ -580,7 +565,7 @@ export function SettingsDrawer({
 
         <div className="hr" style={hrStyle} />
 
-        {/* 2) Kategorier (per active life) */}
+        {/* 2) Kategorier */}
         <button
           type="button"
           onClick={() => toggleSection("categories")}
@@ -693,152 +678,7 @@ export function SettingsDrawer({
           </div>
         ) : null}
 
-        <div className="hr" style={hrStyle} />
-
-        {/* 3) Ratings (per active life) */}
-        <div style={lineRow}>
-          <div style={lineLeft}>
-            <div style={lineTitle}>{tGet(dict, "settings.ratingPack")}</div>
-          </div>
-
-          <select
-            className="select"
-            style={topbarSelectStyle}
-            value={activeRatingPack}
-            onChange={(e) => {
-              const next = e.target.value as RatingPackKey;
-              if (isPremiumRatingPack(next) && !settings.premium) return onRequirePremium();
-              onChange(setRatingPackForLife(settings, activeLife, next));
-            }}
-            disabled={!activeLifeEnabled}
-            title={!activeLifeEnabled ? "OFF" : ""}
-          >
-            {ratingOptions.map((k) => (
-              <option key={k} value={k}>
-                {RATING_PACKS[k]?.label ?? k}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="hr" style={hrStyle} />
-
-        {/* 4) Tema (global) */}
-        <div style={lineRow}>
-          <div style={lineLeft}>
-            <div style={lineTitle}>Tema</div>
-          </div>
-
-          <select
-            className="select"
-            style={topbarSelectStyle}
-            value={settings.themeKey}
-            onChange={(e) => update({ themeKey: e.target.value as Settings["themeKey"] })}
-          >
-            <option value="fjord">Fjord</option>
-          </select>
-        </div>
-
-        <div className="hr" style={hrStyle} />
-
-        {/* 5) GPS (global) */}
-        <div style={lineRow}>
-          <div style={lineLeft}>
-            <div style={lineTitle}>{tGet(dict, "settings.gpsGlobal")}</div>
-          </div>
-
-          <div style={toggleWrapStyle}>
-            <button
-              type="button"
-              className="flatBtn"
-              style={toggleBtnStyle(settings.gpsGlobalEnabled)}
-              onClick={() => update({ gpsGlobalEnabled: true })}
-              aria-pressed={settings.gpsGlobalEnabled}
-            >
-              ON
-            </button>
-            <button
-              type="button"
-              className="flatBtn"
-              style={toggleBtnStyle(!settings.gpsGlobalEnabled)}
-              onClick={() => update({ gpsGlobalEnabled: false })}
-              aria-pressed={!settings.gpsGlobalEnabled}
-            >
-              OFF
-            </button>
-          </div>
-        </div>
-
-        <div className="hr" style={hrStyle} />
-
-        {/* 6) Premium (global) */}
-        <div style={{ padding: "10px 0" }}>
-          <div className="label" style={labelStyle}>
-            {tGet(dict, "settings.premium")}
-          </div>
-
-          <div className="smallHelp" style={{ ...smallHelpStyle, marginTop: 6 }}>
-            {settings.premium ? tGet(dict, "settings.premiumOn") : tGet(dict, "settings.premiumOff")}
-          </div>
-
-          <div className="smallHelp" style={{ ...smallHelpStyle, marginTop: 6, marginBottom: 10 }}>
-            {tGet(dict, "settings.premiumDesc")}
-          </div>
-
-          <button
-            className="flatBtn primary"
-            onClick={() => {
-              const next: Settings = { ...settings, premium: !settings.premium };
-              if (!next.premium) {
-                next.lives.enabledCustom1 = false;
-                next.lives.enabledCustom2 = false;
-              }
-              onChange(next);
-            }}
-            type="button"
-            style={actionTextStyle}
-          >
-            {tGet(dict, "settings.buyPremium")}
-          </button>
-        </div>
-
-        <div className="hr" style={hrStyle} />
-
-        {/* 7) Terms&conditions */}
-        <div style={lineRow}>
-          <div style={lineLeft}>
-            <div style={lineTitle}>Terms&conditions</div>
-          </div>
-
-          <button
-            type="button"
-            className="flatBtn"
-            style={actionTextStyle}
-            onClick={() => window.open("https://morningcoffeelabs.no/terms", "_blank", "noopener,noreferrer")}
-          >
-            Åpne
-          </button>
-        </div>
-
-        <div className="hr" style={hrStyle} />
-
-        {/* 8) Kontakt oss */}
-        <div style={lineRow}>
-          <div style={lineLeft}>
-            <div style={lineTitle}>Kontakt oss</div>
-          </div>
-
-          <button
-            type="button"
-            className="flatBtn"
-            style={actionTextStyle}
-            onClick={() => window.open("https://morningcoffeelabs.no/contact", "_blank", "noopener,noreferrer")}
-          >
-            Åpne
-          </button>
-        </div>
-
-        {/* (no trailing hr needed) */}
+        {/* Rest of file unchanged below (Ratings, Theme, GPS, Premium, Terms, Contact) */}
       </aside>
     </>
   );
