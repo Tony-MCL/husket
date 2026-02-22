@@ -49,6 +49,54 @@ function getLifeLabel(dict: I18nDict, settings: Settings, key: LifeKey): string 
   return settings.lives.custom2Name?.trim() || "Egendefinert 2";
 }
 
+function getCategoryIcon(categoryId: string): string {
+  const map: Record<string, string> = {
+    // Private (standard)
+    "p.foodDrink": "🍽️",
+    "p.travel": "✈️",
+    "p.people": "👥",
+    "p.things": "📦",
+    "p.hobby": "🎨",
+    "p.other": "🏷️",
+
+    // Private (premium)
+    "p.restaurants": "🍽️",
+    "p.bars": "🍸",
+    "p.hotels": "🏨",
+    "p.health": "🩺",
+    "p.training": "💪",
+    "p.media": "🎬",
+    "p.ideas": "💡",
+    "p.experiences": "✨",
+    "p.places": "📍",
+    [PRIVATE_CUSTOM_CATEGORY_ID]: "✨",
+
+    // Work (standard)
+    "w.place": "📍",
+    "w.task": "✅",
+    "w.issue": "⚠️",
+    "w.note": "📝",
+    "w.meeting": "📅",
+    "w.other": "🏷️",
+
+    // Work (premium)
+    "w.siteVisit": "👷",
+    "w.safety": "🦺",
+    "w.quality": "📏",
+    "w.progress": "📈",
+    "w.docs": "📄",
+    "w.delivery": "📦",
+    "w.client": "🤝",
+    "w.plan": "🗺️",
+    "w.risk": "🧯",
+    [WORK_CUSTOM_CATEGORY_ID]: "✨",
+  };
+
+  if (categoryId in map) return map[categoryId];
+  if (categoryId.includes(".custom.")) return "✨";
+  return "🏷️";
+}
+
 export function SettingsDrawer({
   dict,
   open,
@@ -230,7 +278,7 @@ export function SettingsDrawer({
     if (!availableLifeKeys.includes(nextLife)) return;
 
     onSetActiveLife(nextLife);
-    // ✅ do NOT close drawer (keeps behavior predictable)
+    // ✅ do NOT close drawer
   };
 
   // ---- Typography helpers (A/B) ----
@@ -416,6 +464,7 @@ export function SettingsDrawer({
 
   if (!open) return null;
 
+  // ✅ Shared checkbox look (same as galleri menu)
   const checkBoxStyleBase: React.CSSProperties = {
     width: 22,
     height: 22,
@@ -425,9 +474,10 @@ export function SettingsDrawer({
     placeItems: "center",
     lineHeight: 1,
     userSelect: "none",
+    flex: "0 0 auto",
   };
 
-  const checkBoxStyle = (checked: boolean): React.CSSProperties => ({
+  const checkBoxStyle = (checked: boolean, disabled?: boolean): React.CSSProperties => ({
     ...checkBoxStyleBase,
     background: checked ? MCL_HUSKET_THEME.colors.altSurface : "transparent",
     border: checked
@@ -436,9 +486,19 @@ export function SettingsDrawer({
     color: checked ? MCL_HUSKET_THEME.colors.textOnDark : MCL_HUSKET_THEME.colors.darkSurface,
     fontSize: 14,
     fontWeight: 900,
+    opacity: disabled ? 0.55 : 1,
   });
 
-  const lifeRowBtnStyle = (disabled?: boolean): React.CSSProperties => ({
+  const ghostBoxStyle = (disabled?: boolean): React.CSSProperties => ({
+    ...checkBoxStyleBase,
+    background: "transparent",
+    color: MCL_HUSKET_THEME.colors.darkSurface,
+    opacity: disabled ? 0.55 : 0.9,
+    fontSize: 16,
+    fontWeight: 900,
+  });
+
+  const rowButtonStyle = (disabled?: boolean): React.CSSProperties => ({
     width: "100%",
     display: "flex",
     alignItems: "center",
@@ -452,14 +512,17 @@ export function SettingsDrawer({
     color: MCL_HUSKET_THEME.colors.darkSurface,
   });
 
-  const linkBtnStyle: React.CSSProperties = {
-    ...textB,
-    background: "transparent",
-    border: "none",
-    color: MCL_HUSKET_THEME.colors.darkSurface,
-    cursor: "pointer",
-    padding: 0,
-    textDecoration: "underline",
+  const iconPillStyle: React.CSSProperties = {
+    width: 22,
+    height: 22,
+    display: "grid",
+    placeItems: "center",
+    borderRadius: 6,
+    background: "rgba(255, 250, 244, 0.22)",
+    border: "1px solid rgba(27, 26, 23, 0.12)",
+    flex: "0 0 auto",
+    fontSize: 14,
+    lineHeight: 1,
   };
 
   return (
@@ -481,7 +544,7 @@ export function SettingsDrawer({
 
         <div className="hr" style={hrStyle} />
 
-        {/* 1) Liv (disclosure line text changed + removed count) */}
+        {/* 1) Galleri */}
         <button
           type="button"
           onClick={() => toggleSection("lives")}
@@ -502,38 +565,30 @@ export function SettingsDrawer({
 
         {openLives ? (
           <div style={panelStyle}>
-            {/* PRIVATE */}
             <div style={panelRow}>
-              <button type="button" onClick={() => setActiveLifeFromDrawer("private")} style={lifeRowBtnStyle(false)}>
+              <button type="button" onClick={() => setActiveLifeFromDrawer("private")} style={rowButtonStyle(false)}>
                 <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
                   <div style={panelTitle}>Privat</div>
                 </div>
-
                 <span aria-hidden style={checkBoxStyle(activeLife === "private")}>
                   {activeLife === "private" ? "✓" : ""}
                 </span>
               </button>
             </div>
 
-            {/* WORK */}
             <div style={settings.premium ? panelRow : panelRowLast}>
-              <button type="button" onClick={() => setActiveLifeFromDrawer("work")} style={lifeRowBtnStyle(false)}>
+              <button type="button" onClick={() => setActiveLifeFromDrawer("work")} style={rowButtonStyle(false)}>
                 <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
                   <div style={panelTitle}>Jobb</div>
                 </div>
-
-                <span aria-hidden style={checkBoxStyle(activeLife === "work")}>
-                  {activeLife === "work" ? "✓" : ""}
-                </span>
+                <span aria-hidden style={checkBoxStyle(activeLife === "work")}>{activeLife === "work" ? "✓" : ""}</span>
               </button>
             </div>
 
-            {/* CUSTOM lives are Premium-only and hidden entirely for standard */}
             {settings.premium ? (
               <>
-                {/* CUSTOM 1 */}
                 <div style={panelRow}>
-                  <button type="button" onClick={() => setActiveLifeFromDrawer("custom1")} style={lifeRowBtnStyle(false)}>
+                  <button type="button" onClick={() => setActiveLifeFromDrawer("custom1")} style={rowButtonStyle(false)}>
                     <div style={{ display: "grid", gap: 2, minWidth: 0, flex: 1 }}>
                       <input
                         className="input"
@@ -543,16 +598,14 @@ export function SettingsDrawer({
                         style={{ padding: "8px 10px" }}
                       />
                     </div>
-
                     <span aria-hidden style={checkBoxStyle(activeLife === "custom1")}>
                       {activeLife === "custom1" ? "✓" : ""}
                     </span>
                   </button>
                 </div>
 
-                {/* CUSTOM 2 */}
                 <div style={panelRowLast}>
-                  <button type="button" onClick={() => setActiveLifeFromDrawer("custom2")} style={lifeRowBtnStyle(false)}>
+                  <button type="button" onClick={() => setActiveLifeFromDrawer("custom2")} style={rowButtonStyle(false)}>
                     <div style={{ display: "grid", gap: 2, minWidth: 0, flex: 1 }}>
                       <input
                         className="input"
@@ -562,7 +615,6 @@ export function SettingsDrawer({
                         style={{ padding: "8px 10px" }}
                       />
                     </div>
-
                     <span aria-hidden style={checkBoxStyle(activeLife === "custom2")}>
                       {activeLife === "custom2" ? "✓" : ""}
                     </span>
@@ -597,29 +649,38 @@ export function SettingsDrawer({
         {openCategories ? (
           <div style={panelStyle}>
             <div className="smallHelp" style={panelHelp}>
-              Maks {maxActiveCats} aktive kategorier per liv.
+              Maks {maxActiveCats} aktive kategorier per galleri.
             </div>
 
             <div className="smallHelp" style={{ ...panelHelp, marginTop: 6 }}>
-              Endringer her vil kun påvirke nye huskets, huskets du allerede har lagret vil ikke påvirkes.
+              Endringer her påvirker kun nye husk&apos;ets.
             </div>
 
+            {/* ✅ Custom-liv: add new custom categories with same visual language */}
             {activeLifeIsCustom ? (
-              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <input
-                  className="input"
-                  value={customCatText}
-                  onChange={(e) => setCustomCatText(e.target.value)}
-                  placeholder="Legg til…"
-                  disabled={!settings.premium || !activeLifeEnabled}
-                />
+              <div style={{ ...panelRow, marginTop: 10 }}>
+                <div style={{ display: "grid", gap: 2, minWidth: 0, flex: 1 }}>
+                  <input
+                    className="input"
+                    value={customCatText}
+                    onChange={(e) => setCustomCatText(e.target.value)}
+                    placeholder="Legg til kategori…"
+                    disabled={!settings.premium || !activeLifeEnabled}
+                    style={{ padding: "8px 10px" }}
+                  />
+                </div>
+
                 <button
-                  className="flatBtn"
-                  onClick={() => addCustomCategoryForCustomLife(activeLife)}
                   type="button"
+                  onClick={() => addCustomCategoryForCustomLife(activeLife)}
                   disabled={!settings.premium || !activeLifeEnabled}
-                  style={actionTextStyle}
+                  style={{
+                    ...ghostBoxStyle(!settings.premium || !activeLifeEnabled),
+                    cursor: !settings.premium || !activeLifeEnabled ? "not-allowed" : "pointer",
+                    borderColor: !settings.premium ? MCL_HUSKET_THEME.colors.outline : MCL_HUSKET_THEME.colors.altSurface,
+                  }}
                   title={!settings.premium ? "Premium" : !activeLifeEnabled ? "OFF" : ""}
+                  aria-label="Legg til"
                 >
                   +
                 </button>
@@ -639,47 +700,50 @@ export function SettingsDrawer({
                   const enabled = !disabled;
 
                   const premiumOnly = isPremiumOnlyCategory(activeLife, c.id);
-
                   const locked = premiumOnly && !settings.premium;
                   const lifeLocked = !activeLifeEnabled;
 
                   const canEditLabel = isEditableCategoryLabel(activeLife, c.id) && settings.premium && !lifeLocked;
 
+                  const rowDisabled = locked || lifeLocked;
+
+                  const onToggle = () => {
+                    if (lifeLocked) return;
+                    if (locked) return onRequirePremium();
+                    setCategoryEnabledForLife(activeLife, c.id as CategoryId, !enabled);
+                  };
+
                   return (
                     <div key={c.id} style={row}>
-                      <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                        {canEditLabel ? (
-                          <input
-                            className="input"
-                            value={c.label}
-                            onChange={(e) => updateCategoryLabel(activeLife, c.id, e.target.value)}
-                            onBlur={(e) => updateCategoryLabel(activeLife, c.id, e.target.value)}
-                            style={{ padding: "8px 10px" }}
-                          />
-                        ) : (
-                          <div style={panelTitle}>
-                            {c.label}
-                            {premiumOnly ? " ★" : ""}
-                          </div>
-                        )}
-                      </div>
+                      <button type="button" onClick={onToggle} style={rowButtonStyle(rowDisabled)}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+                          <span aria-hidden style={iconPillStyle}>
+                            {getCategoryIcon(c.id)}
+                          </span>
 
-                      <label
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          cursor: locked || lifeLocked ? "not-allowed" : "pointer",
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={enabled}
-                          onChange={(e) => setCategoryEnabledForLife(activeLife, c.id as CategoryId, e.target.checked)}
-                          disabled={locked || lifeLocked}
-                          title={locked ? "Premium" : lifeLocked ? "OFF" : ""}
-                        />
-                      </label>
+                          <div style={{ display: "grid", gap: 2, minWidth: 0, flex: 1 }}>
+                            {canEditLabel ? (
+                              <input
+                                className="input"
+                                value={c.label}
+                                onChange={(e) => updateCategoryLabel(activeLife, c.id, e.target.value)}
+                                onBlur={(e) => updateCategoryLabel(activeLife, c.id, e.target.value)}
+                                style={{ padding: "8px 10px" }}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            ) : (
+                              <div style={{ ...panelTitle, opacity: rowDisabled ? 0.65 : 1 }}>
+                                {c.label}
+                                {premiumOnly ? " ★" : ""}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <span aria-hidden style={checkBoxStyle(enabled, rowDisabled)}>
+                          {enabled ? "✓" : ""}
+                        </span>
+                      </button>
                     </div>
                   );
                 })
