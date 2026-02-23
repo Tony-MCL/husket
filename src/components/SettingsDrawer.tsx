@@ -779,8 +779,18 @@ export function SettingsDrawer({
 
         {/* 3) Ratings (per active life) */}
         <div style={lineRow}>
-          <div style={lineLeft}>
-            <div style={{ ...lineTitle, whiteSpace: "nowrap" }}>{tGet(dict, "settings.ratingPack")}</div>
+          <div style={{ ...lineLeft, flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                ...lineTitle,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                paddingRight: 8,
+              }}
+            >
+              {tGet(dict, "settings.ratingPack")}
+            </div>
           </div>
 
           <select
@@ -790,6 +800,7 @@ export function SettingsDrawer({
               marginLeft: "auto",
               minWidth: 140,
               textAlign: "right",
+              flexShrink: 0,
             }}
             value={activeRatingPack}
             onChange={(e) => {
