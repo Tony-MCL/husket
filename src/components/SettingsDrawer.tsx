@@ -810,10 +810,8 @@ export function SettingsDrawer({
                     ))}
                   </select>
                 </div>
-          </select>
-        </div>
 
-        <div className="hr" style={hrStyle} />
+                <div className="hr" style={hrStyle} />
 
         {/* 4) Tema (global) */}
         <div style={lineRow}>
