@@ -777,45 +777,39 @@ export function SettingsDrawer({
 
         <div className="hr" style={hrStyle} />
 
-        {/* 3) Ratings (per active life) */}
-        <div style={lineRow}>
-          <div style={{ ...lineLeft, flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                ...lineTitle,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                paddingRight: 8,
-              }}
-            >
-              {tGet(dict, "settings.ratingPack")}
-            </div>
-          </div>
-
-          <select
-            className="select"
-            style={{
-              ...topbarSelectStyle,
-              marginLeft: "auto",
-              minWidth: 140,
-              textAlign: "right",
-              flexShrink: 0,
-            }}
-            value={activeRatingPack}
-            onChange={(e) => {
-              const next = e.target.value as RatingPackKey;
-              if (isPremiumRatingPack(next) && !settings.premium) return onRequirePremium();
-              onChange(setRatingPackForLife(settings, activeLife, next));
-            }}
-            disabled={!activeLifeEnabled}
-            title={!activeLifeEnabled ? tGet(dict, "common.off") : ""}
-          >
-            {ratingOptions.map((k) => (
-              <option key={k} value={k}>
-                {RATING_PACKS[k]?.label ?? k}
-              </option>
-            ))}
+                {/* 3) Ratings (per active life) */}
+                <div style={lineRow}>
+                  <div style={{ ...lineLeft, flex: "0 0 auto" }}>
+                    <div style={{ ...lineTitle, whiteSpace: "nowrap" }}>{tGet(dict, "settings.ratingPack")}</div>
+                  </div>
+        
+                  <select
+                    className="select"
+                    style={{
+                      ...topbarSelectStyle,
+                      marginLeft: 12,          // ✅ sørger for tydelig luft mellom tekst og select
+                      minWidth: 110,           // ✅ kan krympe litt hvis det trengs
+                      maxWidth: 160,           // ✅ hindrer at den “vokser” og spiser labelen
+                      width: 140,              // ✅ din gamle baseline
+                      textAlign: "right",
+                      flex: "1 1 auto",        // ✅ select får være fleksibel – men innenfor min/max
+                    }}
+                    value={activeRatingPack}
+                    onChange={(e) => {
+                      const next = e.target.value as RatingPackKey;
+                      if (isPremiumRatingPack(next) && !settings.premium) return onRequirePremium();
+                      onChange(setRatingPackForLife(settings, activeLife, next));
+                    }}
+                    disabled={!activeLifeEnabled}
+                    title={!activeLifeEnabled ? tGet(dict, "common.off") : ""}
+                  >
+                    {ratingOptions.map((k) => (
+                      <option key={k} value={k}>
+                        {RATING_PACKS[k]?.label ?? k}
+                      </option>
+                    ))}
+                  </select>
+                </div>
           </select>
         </div>
 
