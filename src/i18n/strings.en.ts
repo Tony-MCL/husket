@@ -17,8 +17,8 @@ export const en = {
     categoriesRow: "Categories",
   },
 
-  app: { title: "husket" },
-  nav: { new: "New husket", album: "Gallery" },
+  app: { title: "husk'et" },
+  nav: { new: "New husk'et", album: "Gallery" },
   top: { private: "Private", work: "Work", menu: "Menu" },
 
   splash: {
@@ -29,7 +29,7 @@ export const en = {
 
   start: {
     title: "Choose the gallery you want to use",
-    subtitle: "Pick where this husket belongs. You can switch later.",
+    subtitle: "Pick where this husk'et belongs. You can switch later.",
     hint: "Tip: Premium users can enable/rename custom galleries in Settings.",
     custom1: "Gallery 3",
     custom2: "Gallery 4",
@@ -55,7 +55,7 @@ export const en = {
   },
 
   album: {
-    empty: "No huskets yet.",
+    empty: "No husk'ets yet.",
     open: "Open",
     created: "Created",
     map: "Open in Maps",
@@ -67,8 +67,8 @@ export const en = {
       timeTitle: "Time",
       ratingTitle: "Rating",
       categoryTitle: "Category",
-      ratingNoneTitle: "Huskets without rating",
-      categoryNoneTitle: "Huskets without category",
+      ratingNoneTitle: "husk'ets without rating",
+      categoryNoneTitle: "husk'ets without category",
       reset: "Reset filters",
       apply: "Apply filters",
       noMatches: "No matches for selected filters.",
