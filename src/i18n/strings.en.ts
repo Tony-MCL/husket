@@ -92,7 +92,7 @@ export const en = {
     noGps: "No GPS",
     delete: "Delete",
     close: "Close",
-    moment: "Saved moment",
+    moment: "husk'et",
   },
 
   cats: {
