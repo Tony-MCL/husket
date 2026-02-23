@@ -17,8 +17,8 @@ export const no = {
     categoriesRow: "Kategorier",
   },
 
-  app: { title: "husket" },
-  nav: { new: "Ny husket", album: "Galleri" },
+  app: { title: "husk'et" },
+  nav: { new: "Ny husk'et", album: "Galleri" },
   top: { private: "Privat", work: "Jobb", menu: "Meny" },
 
   splash: {
@@ -29,7 +29,7 @@ export const no = {
 
   start: {
     title: "Velg galleri",
-    subtitle: "Velg hvilket galleri denne husket’en hører hjemme i. Du kan bytte senere.",
+    subtitle: "Velg hvilket husk'et galleri du vil bruke. Du kan bytte senere.",
     hint: "Tips: Premium-brukere kan aktivere og gi navn til egendefinerte gallerier i Innstillinger.",
     custom1: "Galleri 3",
     custom2: "Galleri 4",
@@ -55,7 +55,7 @@ export const no = {
   },
 
   album: {
-    empty: "Ingen husket'er enda.",
+    empty: "Ingenting husk'et enda.",
     open: "Åpne",
     created: "Opprettet",
     map: "Åpne i Maps",
@@ -67,8 +67,8 @@ export const no = {
       timeTitle: "Tid",
       ratingTitle: "Vurdering",
       categoryTitle: "Kategori",
-      ratingNoneTitle: "Huskets uten vurdering",
-      categoryNoneTitle: "Huskets uten kategori",
+      ratingNoneTitle: "husk'ets uten vurdering",
+      categoryNoneTitle: "husk'ets uten kategori",
       reset: "Nullstill filtre",
       apply: "Aktiver filtre",
       noMatches: "Ingen treff på valgte filtre.",
@@ -92,7 +92,7 @@ export const no = {
     noGps: "Ingen GPS",
     delete: "Slett",
     close: "Lukk",
-    moment: "Husket øyeblikk",
+    moment: "husk'et:",
   },
 
   cats: {
