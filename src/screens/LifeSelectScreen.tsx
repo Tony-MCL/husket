@@ -71,15 +71,6 @@ export function LifeSelectScreen({ dict, settings, onPick }: Props) {
     letterSpacing: HUSKET_TYPO.A.letterSpacing,
   };
 
-  const subtitleStyle: React.CSSProperties = {
-    margin: 0,
-    opacity: 0.78,
-    fontSize: 13,
-    fontWeight: 700,
-    lineHeight: 1.25,
-    maxWidth: 420,
-  };
-
   const buttonsWrapStyle: React.CSSProperties = {
     display: "grid",
     gap: 12,
@@ -102,20 +93,10 @@ export function LifeSelectScreen({ dict, settings, onPick }: Props) {
     letterSpacing: 0.2,
   };
 
-  const hintStyle: React.CSSProperties = {
-    margin: 0,
-    opacity: 0.6,
-    fontSize: 12,
-    fontWeight: 700,
-    lineHeight: 1.25,
-    maxWidth: 440,
-  };
-
   return (
     <div className="bootShell" style={shellStyle}>
       <div style={centerStyle}>
         <h1 style={titleStyle}>{tGet(dict, "start.title")}</h1>
-        <p style={subtitleStyle}>{tGet(dict, "start.subtitle")}</p>
 
         <div style={buttonsWrapStyle}>
           {choices.map((c) => (
@@ -124,8 +105,6 @@ export function LifeSelectScreen({ dict, settings, onPick }: Props) {
             </button>
           ))}
         </div>
-
-        <p style={hintStyle}>{tGet(dict, "start.hint")}</p>
       </div>
     </div>
   );
